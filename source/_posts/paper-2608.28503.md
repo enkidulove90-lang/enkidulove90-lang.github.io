@@ -1,5 +1,5 @@
 ---
-title: "SG-UMP: Sequence-Guided Universal Multimodal Prioritization Calculation Framework"
+title: "序列引导的通用多模态优先级计算框架"
 date: 2026-08-01
 year: 2026
 venue_type: "arXiv预印本"
@@ -8,108 +8,61 @@ categories: [推荐系统, 论文速递]
 tags: [论文速递]
 slug: paper-2608.28503
 arxiv_id: "2608.28503"
+description: "论文提出SG-UMP，一个即插即用的多模态序列推荐增强框架，旨在解决现有方法中用户级偏好异质性和数据集级模态偏差两大问题。"
 ---
 
-## 一、简介
+> 论文：[arXiv 2608.28503](https://arxiv.org/abs/2608.28503) · 代码：[GitHub](https://github.com/esemsc-xz524/SG-UMP) · PDF：[本地阅读](/papers/2608.28503.pdf)
 
-Multimodal sequential recommendation (MSR) improves recommendation by incorporating heterogeneous information such as text, images, and user interactions. However, existing MSR meth ods often fail to capture user-level preference heterogeneity and dataset-level modality bias, limiting their adaptability across users and datasets. To address this issue, we propose Sequence-Guided Universal Multimodal Prioritization Calculation Framework (SG-UMP), a plug-and-play plugin for enhancing multimodal informa tion processing in MSR. SG-UMP includes a Module Combiner for flexible multimodal processing and a Module Router for dynamic module ordering, enabling adaptation to both user preferences and dataset characteristics. Experiments on four real-world datasets show that SG-UMP consistently improves recommendation performance across diferent backbones and multimodal settings. The code is available at https://github.com/esemsc-xz524/SG-UMP.
+论文提出SG-UMP，一个即插即用的多模态序列推荐增强框架，旨在解决现有方法中用户级偏好异质性和数据集级模态偏差两大问题。SG-UMP包含模块组合器（Module Combiner）和模块路由器（Module Router）：前者集成频率滤波层、层次注意力层和多尺度融合层三种功能模块，后者根据数据集级模态特征动态决定模块执行顺序。在四个真实数据集上的实验表明，SG-UMP可无缝集成到SASRec、STOSA、Oracle4Rec等不同序列推荐骨干中，平均提升18.91%-24.93%，验证了其有效性、通用性和可扩展性。
 
-## 二、论文方法
+## 研究问题
 
-Xinyi Zhang Imperial College London London, UK zxyzxy090588@163.com
+论文提出SG-UMP，一个即插即用的多模态序列推荐增强框架，旨在解决现有方法中用户级偏好异质性和数据集级模态偏差两大问题。SG-UMP包含模块组合器（Module Combiner）和模块路由器（Module Router）：前者集成频率滤波层、层次注意力层和多尺度融合层三种功能模块，后者根据数据集级模态特征动态决定模块执行顺序。在四个真实数据集上的实验表明，SG-UMP可无缝集成到SASRec、STOSA、Oracle4Rec等不同序列推荐骨干中，平均提升18.91%-24.93%，验证了其有效性、通用性和可扩展性。
 
-Yutong Li University College London London, UK lyt3612671@163.com
+## 方法：核心思路与整体框架
 
-Peijie Sun∗ Nanjing University of Posts and Telecommunications Nanjing, China sun.hfut@gmail.com
+SG-UMP将多模态序列推荐中的多模态嵌入处理分解为三个可重排序的功能模块：频率滤波层通过FFT/IFFT提取低频稳定模式并抑制高频噪声；层次注意力层通过MLP+Sigmoid计算模态重要性并利用自注意力细化表示；多尺度融合层采用MoE框架，结合模态独有专家和模态共享专家进行自适应融合。Module Router根据输入的多模态组成计算各模块的调度分数并排序，确定执行顺序，同时通过条件互信息损失正则化路由行为。模型以BPR损失和CMI正则化联合训练。
 
-## 三、论文里的图与解释
+![图 1：Figure 2: Illustration of SG-UMP and its components. (a) Overall framework of SG-UMP, where the Module Combiner integrates the Frequency Filter Layer, Hierarchical Attention Layer, and Multi-Scale Fusion Layer. (b) Module Router structure. (c) Frequency Filter Layer. (d) Hierarchical Attention Layer. (e) Multi-Scale Fusion Layer.](/images/papers/2608.28503/fccd40f3d44c3b8fc4af3a058854104d2f2aaeb41e49683dde42bd3fb3d2fc8f.jpg)
 
-### 图 1
+*图 1 · 原图说明：Figure 2: Illustration of SG-UMP and its components. (a) Overall framework of SG-UMP, where the Module Combiner integrates the Frequency Filter Layer, Hierarchical Attention Layer, and Multi-Scale Fusion Layer. (b) Module Router structure. (c) Frequency Filter Layer. (d) Hierarchical Attention Layer. (e) Multi-Scale Fusion Layer.*
 
-![Figure 2: Illustration of SG-UMP and its components. (a) Overall framework of SG-UMP, where the Module Combiner integrates the Frequency Filter Layer, Hierarchical Attention Layer, and Multi-Scale Fusion Layer. (b) Module Router structure. (c) Frequency Filter Layer. (d) Hierarchical Attention Layer. (e) Multi-Scale Fusion Layer.](/images/papers/2608.28503/fccd40f3d44c3b8fc4af3a058854104d2f2aaeb41e49683dde42bd3fb3d2fc8f.jpg)
+**图示解释：** SG-UMP在四个数据集上一致优于所有基线。
 
-**原图说明：** Figure 2: Illustration of SG-UMP and its components. (a) Overall framework of SG-UMP, where the Module Combiner integrates the Frequency Filter Layer, Hierarchical Attention Layer, and Multi-Scale Fusion Layer. (b) Module Router structure. (c) Frequency Filter Layer. (d) Hierarchical Attention Layer. (e) Multi-Scale Fusion Layer.
-
-**图示解释：** 该图对应论文中的“Figure 2: Illustration of SG-UMP and its components. (a) Overall framework of SG-UMP, where the Module Combiner integrates the Frequency Filter Layer, Hierarchical Attention Layer, and Multi-Scale Fusion Layer. (b) Module Router structure. (c) Frequency Filter Layer. (d) Hierarchical Attention Layer. (e) Multi-Scale Fusion Layer.”。图中细节应结合相邻方法与实验文字阅读，不对原文未说明的关系作额外推断。
-
-### 图 2
-
-![Figure 3: Visualization analysis. ${ ( \mathbf { a } ) , ( \mathbf { b } ) } .$ , and (c) correspond to STOSA with pre-trained embeddings, the approximated user perspective based on salient item features, and SG-UMP + STOSA, respectively. Red text highlights important attributes, and the intensity of the green background indi cates attention assigned by the model.](/images/papers/2608.28503/eeacc17bf8c64c866f69b8b9e229ef0cfff7cd5e15ab77667c09c23c3c6f3680.jpg)
-
-**原图说明：** Figure 3: Visualization analysis. ${ ( \mathbf { a } ) , ( \mathbf { b } ) } .$ , and (c) correspond to STOSA with pre-trained embeddings, the approximated user perspective based on salient item features, and SG-UMP + STOSA, respectively. Red text highlights important attributes, and the intensity of the green background indi cates attention assigned by the model.
-
-**图示解释：** 该图对应论文中的“Figure 3: Visualization analysis. ${ ( \mathbf { a } ) , ( \mathbf { b } ) } .$ , and (c) correspond to STOSA with pre-trained embeddings, the approximated user perspective based on salient item features, and SG-UMP + STOSA, respectively. Red text highlights important attributes, and the intensity of the green background indi cates attention assigned by the model.”。图中细节应结合相邻方法与实验文字阅读，不对原文未说明的关系作额外推断。
-
-## 四、模块创新点
+## 创新点
 
 1. 提出两条多模态序列推荐设计原则：一是利用用户历史交互序列引导个性化多模态表示处理以建模用户级偏好异质性；二是支持模块化、可重排序的处理流程以适应不同数据集的模态偏差。
 2. 设计Module Combiner，集成频率滤波层（去噪并提取稳定低频模式）、层次注意力层（自适应融合模态信号）和多尺度融合层（基于MoE建模模态间交互），形成完整的多模态嵌入处理流水线。
 3. 提出Module Router，通过模态感知路由机制动态确定三个功能模块的执行顺序，并引入条件互信息（CMI）正则化损失，鼓励输入感知和多样化的路由策略，防止退化为固定执行路径。
 4. 将SG-UMP设计为即插即用插件，不替换序列推荐骨干本身，而是增强现有多模态序列推荐模型的多模态信息处理能力，在多种骨干和数据集上均取得一致提升。
 
-## 五、实验数据集选择
+## 实验：数据、基线与结果
 
-Datasets. We evaluate our model on four datasets: Amazon1 Home, Beauty, Ofice, and Yelp2. The Amazon datasets capture purchasing behavior and reviews across diverse domains, serving as widely used benchmarks for SR [7, 20]. The Yelp dataset, sourced from a business platform, contains restaurant reviews and is widely used in recommendation tasks [22, 46]. All datasets are pre-processed using a 5-core setting [7, 20, 22, 46], ensuring each user and item has at least five interactions. Detailed dataset statistics are provided in Table 1.
+### 数据集与设置
 
-Table 1: Datasets Statistics
+任务为多模态序列推荐（MSR），预测用户下一个交互物品。使用四个数据集：Amazon Home（66,519用户，28,237物品，551,682交互，密度0.03%，平均长度8.3）、Amazon Beauty（22,363用户，12,101物品，198,502交互，密度0.05%，平均长度8.3）、Amazon Office（4,905用户，2,421物品，53,258交互，密度0.04%，平均长度10.8）、Yelp（287,116用户，148,523物品，4,392,169交互，密度0.01%，平均长度15.3）。所有数据集采用5-core预处理，确保每个用户和物品至少有5次交互。采用leave-one-out划分策略：每个用户序列最后一个物品用于测试，倒数第二个用于验证，其余用于训练。
 
-<table><tr><td>Dataset</td><td>#users</td><td>#items</td><td>#interactions</td><td>density</td><td>avg.length</td></tr><tr><td>Home</td><td>66,519</td><td>28,237</td><td>551,682</td><td>0.03%</td><td>8.3</td></tr><tr><td>Beauty</td><td>22,363</td><td>12,101</td><td>198,502</td><td>0.05%</td><td>8.3</td></tr><tr><td>Office</td><td>4,905</td><td>2,421</td><td>53,258</td><td>0.04%</td><td>10.8</td></tr><tr><td>Yelp</td><td>287,116</td><td>148,523</td><td>4,392,169</td><td>0.01%</td><td>15.3</td></tr></table>
+### Benchmark 与结果
 
-Evaluation Settings. To ensure fair and rigorous evaluation, we adopt the standard leave-one-out strategy [7, 20], where the last item in each user sequence is used for testing, the second-to-last for validation, and the rest for training. We report performance using widely-used metrics [20, 21, 39, 48]: Recall@K (R@K) and NDCG@K (N@K), with $K = 1 0$ and 20. Higher R@K and N@K indicate better recommendation accuracy.
+SG-UMP在四个数据集上一致优于所有基线。集成到SASRec平均提升21.96%，集成到STOSA平均提升24.93%，集成到Oracle4Rec平均提升18.91%。消融实验表明，移除任一模块均导致性能下降，其中移除层次注意力层在Beauty和Office上退化最大，说明细粒度用户偏好建模的重要性。模块顺序实验显示最优执行顺序因数据集而异（Home为c-b-a，Beauty为b-a-c，Office为a-c-b，Yelp为a-b-c），证实了自适应路由的必要性。训练时间方面，SG-UMP带来的额外开销可控，如SASRec在Home上从20.35s增至29.23s，在Yelp上从735.32s增至772.53s。
 
-Baselines. We compare our proposed model with representative recommendation models, categorized into two groups: (1) Tradi tional Recommendation: SASRec [20], BERT4-Rec [35], Light GCN [13], STOSA [7], FMLP-Rec [48] and Oracle4Rec [41]. (2) Mul timodal Recommendation: VBPR [12], MMMLP [24], MML [29], MMSR [17], MMSBR [45] and MP4SR [43].
+![图 2：Figure 3: Visualization analysis. ${ ( \mathbf { a } ) , ( \mathbf { b } ) } .$ , and (c) correspond to STOSA with pre-trained embeddings, the approximated user perspective based on salient item features, and SG-UMP + STOSA, respectively. Red text highlights important attributes, and the intensity of the green background indi cates attention assigned by the model.](/images/papers/2608.28503/eeacc17bf8c64c866f69b8b9e229ef0cfff7cd5e15ab77667c09c23c3c6f3680.jpg)
 
-Implementation Details. For fair comparison, baselines are configured using reported hyperparameters or tuned via grid search on validation sets when unavailable. We adopt CLIP ViT-B/323 as the unified encoder for both text and image modalities. Key hyperparameters are selected via grid search, including the number of shared and task experts {1, 2, 3, 4, 5}, the mutual information loss weight $\alpha \in \{ 0 . 1 , 0 . 2 , 0 . 5 , 1 . 0 , 2 . 0 \}$ , and the number of Frequency Filter layers {1, 2, 3, 4, 5}. Results are averaged over 5 runs and are statistically significant $( p < 0 . 0 5 )$ . All experiments are conducted on an NVIDIA 4090 GPU.
+*图 2 · 原图说明：Figure 3: Visualization analysis. ${ ( \mathbf { a } ) , ( \mathbf { b } ) } .$ , and (c) correspond to STOSA with pre-trained embeddings, the approximated user perspective based on salient item features, and SG-UMP + STOSA, respectively. Red text highlights important attributes, and the intensity of the green background indi cates attention assigned by the model.*
 
-## 六、消融实验
+**图示解释：** SG-UMP在四个数据集上一致优于所有基线。
 
-论文未报告独立的消融实验。
+### 消融实验
 
-## 七、Benchmark 结果与解释
+对比方法分为两类：（1）传统推荐：SASRec、BERT4-Rec、LightGCN、STOSA、FMLP-Rec、Oracle4Rec；（2）多模态推荐：VBPR、MMMLP、MML、MMSR、MMSBR、MP4SR。消融实验在STOSA上分别移除频率滤波层（w/o Filter）、层次注意力层（w/o Attention）和多尺度融合层（w/o MOE）。模块顺序实验评估三个核心模块的全部六种排列组合。
 
-- Amazon Home
-- Amazon Beauty
-- Amazon Office
-- Yelp
+## 总结
 
-## 八、总结
-
-This paper proposes SG-UMP, a plug-and-play plugin for enhancing multimodal information processing in MSR. To address user-level preference heterogeneity and dataset-level modality bias, SG-UMP introduces a Module Combiner for flexible multimodal processing and a Module Router for dynamic module ordering. Experiments on multiple real-world datasets demonstrate that SG-UMP con sistently improves recommendation performance across diferent backbones and multimodal settings. In future work, we will explore more eficient routing strategies and extend SG-UMP to additional modalities and recommendation scenarios.
+论文提出SG-UMP，一个即插即用的多模态序列推荐增强框架，旨在解决现有方法中用户级偏好异质性和数据集级模态偏差两大问题。
 
 ## References
 
-[1] Tadas Baltrušaitis, Chaitanya Ahuja, and Louis-Philippe Morency. 2018. Multi modal machine learning: A survey and taxonomy. IEEE transactions on pattern analysis and machine intelligence 41, 2 (2018), 423–443.
+- SG-UMP: Sequence-Guided Universal Multimodal Prioritization Calculation Framework：[arXiv 2608.28503](https://arxiv.org/abs/2608.28503)
 
-[2] Nils Bertschinger, Johannes Rauh, Eckehard Olbrich, Jürgen Jost, and Nihat Ay. 2014. Quantifying unique information. Entropy 16, 4 (2014), 2161–2183.
-
-[3] Xu Chen, Hanxiong Chen, Hongteng Xu, Yongfeng Zhang, Yixin Cao, Zheng Qin, and Hongyuan Zha. 2019. Personalized Fashion Recommendation with Visual Explanations based on Multimodal Attention Network: Towards Visually Explainable Recommendation. In Proceedings of the 42nd International ACM SIGIR Conference on Research and Development in Information Retrieval (SIGIR’19). Association for Computing Machinery, New York, NY, USA, 765–774.
-
-[4] Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. 2019. BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding. In Proceedings ofthe 2019Conference ofthe North American Chapter ofthe Association for Computational Linguistics: Human Language Technologies, NAACL-HLT 2019, Minneapolis, MN, USA, June 2–7, 2019, Volume 1 (Long and Short Papers). Associa tion for Computational Linguistics, Minneapolis, Minnesota, USA, 4171–4186.
-
-[5] Pierre Duhamel and Martin Vetterli. 1990. Fast Fourier transforms: a tutorial review and a state of the art. Signal processing 19, 4 (1990), 259–299.
-
-[6] Qile Fan, Penghang Yu, Zhiyi Tan, Bing-Kun Bao, and Guanming Lu. 2025. BeFA: a general behavior-driven feature adapter for multimedia recommendation. In Proceedings ofthe Thirty-Ninth AAAI Conference on Artificial Intelligence (AAAI’25). AAAI Press, Washington, USA, Article 1293, 11 pages.
-
-[7] Ziwei Fan, Zhiwei Liu, Yu Wang, Alice Wang, Zahra Nazari, Lei Zheng, Hao Peng, and Philip S. Yu. 2022. Sequential Recommendation via Stochastic Self-Attention. In Proceedings of the ACM Web Conference 2022 (WWW ’22). Association for Computing Machinery, New York, NY, USA, 2036–2047.
-
-[8] Hui Fang, Danning Zhang, Yiheng Shu, and Guibing Guo. 2020. Deep Learning for Sequential Recommendation: Algorithms, Influential Factors, and Evaluations. ACM Trans. Inf. Syst. 39, 1 (2020), 42 pages.
-
-[9] Guibing Guo, Jie Zhang, and Neil Yorke-Smith. 2015. TrustSVD: collaborative filtering with both the explicit and implicit influence of user trust and of item rat ings. In Proceedings of the Twenty-Ninth AAAI Conference on Artificial Intelligence (AAAI’15). AAAI Press, New York, NY, USA, 123–129.
-
-[10] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. 2016. Deep residual learning for image recognition. In Proceedings of the IEEE conference on computer vision and pattern recognition. 770–778.
-
-[11] Ruining He and Julian McAuley. 2016. Fusing similarity models with Markov chains for sparse sequential recommendation. In 2016 IEEE 16th International Conference on Data Mining (ICDM). IEEE Computer Society, Barcelona, Spain, 191–200.
-
-[12] Ruining He and Julian McAuley. 2016. VBPR: visual Bayesian Personalized Ranking from implicit feedback. In Proceedings ofthe Thirtieth AAAI Conference on Artificial Intelligence (AAAI’16). AAAI Press, Phoenix, Arizona, 144–150.
-
-[13] Xiangnan He, Kuan Deng, Xiang Wang, Yan Li, YongDong Zhang, and Meng Wang. 2020. LightGCN: Simplifying and Powering Graph Convolution Network for Recommendation. In Proceedings ofthe 43rd International ACM SIGIR Conference on Research and Development in Information Retrieval (SIGIR ’20). Association for Computing Machinery, New York, NY, USA, 639–648.
-
-[14] Balázs Hidasi, Alexandros Karatzoglou, Linas Baltrunas, and Domonkos Tikk. 2016. Session-based Recommendations with Recurrent Neural Networks. In 4th International Conference on Learning Representations, ICLR 2016, San Juan, Puerto Rico, May 2-4, 2016, Conference Track Proceedings, Yoshua Bengio and Yann LeCun (Eds.). ICLR, San Juan, Puerto Rico.
-
-[15] Sepp Hochreiter and Jürgen Schmidhuber. 1997. Long short-term memory
-
-### 在线资源
-
-- [论文：arXiv 2608.28503](https://arxiv.org/abs/2608.28503)
 - [代码：GitHub](https://github.com/esemsc-xz524/SG-UMP)
 - [PDF源文件](/papers/2608.28503.pdf)

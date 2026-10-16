@@ -70,14 +70,14 @@ class NotionPublishTest(unittest.TestCase):
 
     def draft(self, paragraphs=1, source_pdf=True):
         required = [
-            "## 一、简介",
-            "## 二、论文方法",
-            "## 三、论文里的图与解释",
-            "## 四、模块创新点",
-            "## 五、实验数据集选择",
-            "## 六、消融实验",
-            "## 七、Benchmark 结果与解释",
-            "## 八、总结",
+            "## 研究问题",
+            "## 方法：核心思路与整体框架",
+            "## 创新点",
+            "## 实验：数据、基线与结果",
+            "### 数据集与设置",
+            "### Benchmark 与结果",
+            "### 消融实验",
+            "## 总结",
             "## References",
             "https://arxiv.org/abs/2401.00001",
         ]

@@ -75,7 +75,7 @@ class PaperPipelineTest(unittest.TestCase):
 
         self.assertEqual([item["arxiv_id"] for item in report["items"]], ["2401.00001", "2401.00002"])
         self.assertTrue(all(item["action"] == "dry_run" for item in report["items"]))
-        self.assertEqual(report["items"][0]["title"], "First Paper")
+        self.assertEqual(report["items"][0]["title"], "摘要")
         self.assertEqual(report["items"][0]["figure_count"], 1)
         self.assertEqual(report["items"][0]["figure_provenance"], ["mineru_image"])
         self.assertTrue(report["items"][0]["source_pdf"])
@@ -101,6 +101,27 @@ class PaperPipelineTest(unittest.TestCase):
         second = run_pipeline(self.config())
 
         self.assertEqual(first, second)
+
+    def test_refresh_existing_rebuilds_a_materialized_paper_article(self):
+        self.add_ready_paper("2401.00001", "First Paper")
+        post = self.site / "source" / "_posts" / "paper-2401.00001.md"
+        post.write_text(
+            "---\narxiv_id: 2401.00001\n---\n\nlegacy generated body\n",
+            encoding="utf-8",
+        )
+
+        report = run_pipeline(
+            self.config(
+                ids=("2401.00001",),
+                refresh_existing=True,
+                materialize=True,
+                state_path=None,
+            )
+        )
+
+        self.assertEqual(report["selected_count"], 1)
+        self.assertEqual(report["items"][0]["action"], "materialized")
+        self.assertIn("## 研究问题", post.read_text(encoding="utf-8"))
 
     def test_notion_file_block_becomes_pdf_link(self):
         block = {

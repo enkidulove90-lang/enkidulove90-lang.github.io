@@ -29,6 +29,7 @@ class PipelineConfig:
     database_id: str = ""
     token: str = ""
     state_path: Path | None = None
+    refresh_existing: bool = False
 
 
 def _load_completed(path: Path | None) -> set[str]:
@@ -54,8 +55,13 @@ def run_pipeline(config: PipelineConfig) -> dict:
         Path(config.site_root) / "source" / "_posts",
         Path(config.exclusions),
     )
-    selected = [record for record in records if not record.on_site]
-    if config.batch != "all":
+    if config.refresh_existing:
+        if not config.ids:
+            raise ValueError("refresh_existing requires explicit paper IDs")
+        selected = [record for record in records if record.on_site]
+    else:
+        selected = [record for record in records if not record.on_site]
+    if config.batch != "all" and not config.refresh_existing:
         selected = [record for record in selected if record.quality_state == config.batch]
     if config.ids:
         wanted = set(config.ids)
@@ -71,7 +77,7 @@ def run_pipeline(config: PipelineConfig) -> dict:
 
     items: list[dict] = []
     for record in selected:
-        if record.arxiv_id in completed:
+        if record.arxiv_id in completed and not config.refresh_existing:
             items.append({"arxiv_id": record.arxiv_id, "state": record.quality_state, "action": "skipped_completed", "errors": []})
             continue
         if record.quality_state == "needs_summary":
@@ -149,6 +155,7 @@ def main() -> int:
     parser.add_argument("--write-notion", action="store_true")
     parser.add_argument("--promote", action="store_true")
     parser.add_argument("--materialize", action="store_true")
+    parser.add_argument("--refresh-existing", action="store_true")
     parser.add_argument("--report", type=Path)
     parser.add_argument("--state", type=Path, default=root / "tools" / ".paper_publication_state.json")
     args = parser.parse_args()
@@ -166,6 +173,7 @@ def main() -> int:
             database_id=os.environ.get("NOTION_DATABASE_ID", ""),
             token=os.environ.get("NOTION_TOKEN", ""),
             state_path=args.state,
+            refresh_existing=args.refresh_existing,
         )
     )
     text = json.dumps(report, ensure_ascii=False, indent=2) + "\n"

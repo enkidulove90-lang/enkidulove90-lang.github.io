@@ -12,7 +12,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
 from mineru_adapter import FigureAsset, ParsedPaper  # noqa: E402
-from paper_article import build_article, materialize_article, validate_article  # noqa: E402
+from paper_article import (  # noqa: E402
+    _first_sentence,
+    build_article,
+    materialize_article,
+    validate_article,
+)
 
 
 class PaperArticleTest(unittest.TestCase):
@@ -31,6 +36,7 @@ class PaperArticleTest(unittest.TestCase):
             "## 方法论\n方法包含编码器与证据校验模块。\n\n"
             "## 创新点\n引入证据校验模块，避免无依据结论。\n\n"
             "## 数据集与实验设置\n选择Dataset-A进行实验。\n\n"
+            "## Benchmark 与数据集\n- Dataset-A\n\n"
             "## 实验结果\n相对Baseline取得12.5%的提升。\n\n"
             "## 总结\n该方法改善了推荐可靠性。\n",
             encoding="utf-8",
@@ -66,21 +72,29 @@ class PaperArticleTest(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def test_chinese_lead_stops_at_first_sentence_without_whitespace(self):
+        text = "第一句说明研究问题。第二句介绍完整方法。第三句给出实验结果。"
+
+        self.assertEqual(_first_sentence(text), "第一句说明研究问题。")
+
     def test_builds_required_sections_links_and_figure_explanation(self):
         draft = build_article(self.record, self.parsed, self.summary)
 
         for heading in (
-            "## 一、简介",
-            "## 二、论文方法",
-            "## 三、论文里的图与解释",
-            "## 四、模块创新点",
-            "## 五、实验数据集选择",
-            "## 六、消融实验",
-            "## 七、Benchmark 结果与解释",
-            "## 八、总结",
+            "## 研究问题",
+            "## 方法：核心思路与整体框架",
+            "## 创新点",
+            "## 实验：数据、基线与结果",
+            "### 数据集与设置",
+            "### Benchmark 与结果",
+            "### 消融实验",
+            "## 总结",
             "## References",
         ):
             self.assertIn(heading, draft.markdown)
+        self.assertIn('title: "中文标题"', draft.markdown)
+        self.assertIn('description: "本文研究可靠推荐，并在Dataset-A上提升12.5%。"', draft.markdown)
+        self.assertIn("> 论文：", draft.markdown)
         self.assertIn("图示解释：", draft.markdown)
         self.assertIn("论文未报告独立的消融实验", draft.markdown)
         self.assertIn("https://arxiv.org/abs/2401.00001", draft.markdown)
@@ -108,9 +122,56 @@ class PaperArticleTest(unittest.TestCase):
 
     def test_incomplete_draft_is_blocked(self):
         draft = build_article(self.record, self.parsed, self.summary)
-        changed = replace(draft, markdown=draft.markdown.replace("## 八、总结", "## 其他"))
+        changed = replace(draft, markdown=draft.markdown.replace("## 总结", "## 其他"))
 
-        self.assertIn("missing section: ## 八、总结", validate_article(changed))
+        self.assertIn("missing section: ## 总结", validate_article(changed))
+
+    def test_chinese_summary_wins_over_english_mineru_sections(self):
+        summary_without_conclusion = self.root / "summary-without-conclusion.md"
+        summary_without_conclusion.write_text(
+            self.summary.read_text(encoding="utf-8").replace(
+                "# 中文标题\n\n",
+                "# 中文方法标题\n\n**英文标题**: Metadata must not become the method.\n\n",
+            ).replace(
+                "\n## 实验结果\n相对Baseline取得12.5%的提升。\n\n",
+                "\n## 实验效果\n相对Baseline取得12.5%的提升。\n\n"
+                "## 实验条件\n"
+                "- **数据与任务设置**：数据集：Dataset-A；任务：Experiments This English extraction must be removed.；划分：90/10\n"
+                "- **基线与对照**：中文消融说明：移除证据校验模块后性能下降。\n\n",
+            ).replace(
+                "\n## 总结\n该方法改善了推荐可靠性。\n", "\n"
+            ),
+            encoding="utf-8",
+        )
+        parsed = replace(
+            self.parsed,
+            sections={
+                "Abstract": "English abstract must not become the article lead.",
+                "Method": "English method must not replace the Chinese explanation.",
+                "Results": "English results must not replace the Chinese benchmark.",
+                "Ablation": "English ablation must not replace the Chinese evidence.",
+                "Conclusion": "English conclusion must not replace the Chinese summary.",
+                "References": "[1] Example reference.",
+            },
+        )
+
+        draft = build_article(self.record, parsed, summary_without_conclusion)
+
+        self.assertIn("本文研究可靠推荐，并在Dataset-A上提升12.5%。", draft.markdown)
+        self.assertIn("方法包含编码器与证据校验模块。", draft.markdown)
+        self.assertNotIn("Metadata must not become the method", draft.markdown)
+        self.assertIn("数据集：Dataset-A；划分：90/10", draft.markdown)
+        self.assertNotIn("This English extraction must be removed", draft.markdown)
+        self.assertIn("相对Baseline取得12.5%的提升。", draft.markdown)
+        self.assertNotIn("English abstract must not", draft.markdown)
+        self.assertNotIn("English method must not", draft.markdown)
+        self.assertNotIn("English results must not", draft.markdown)
+        self.assertIn("中文消融说明：移除证据校验模块后性能下降。", draft.markdown)
+        self.assertNotIn("English ablation must not", draft.markdown)
+        self.assertNotIn("English conclusion must not", draft.markdown)
+        self.assertEqual(draft.source_spans["benchmark"], "summary:实验效果")
+        self.assertEqual(draft.source_spans["ablation"], "summary:实验条件")
+        self.assertEqual(draft.source_spans["conclusion"], "explicit absence")
 
     def test_article_without_hd_figure_is_blocked(self):
         parsed_without_figures = replace(self.parsed, figures=[])
