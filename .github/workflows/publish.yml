@@ -1,0 +1,58 @@
+name: Build & Publish (Notion -> Hexo -> Pages)
+
+on:
+  schedule:
+    - cron: '0,30 * * * *'        # 每 30 分钟（GitHub 定时有延迟/偶发跳跑，属正常）
+  workflow_dispatch:              # 手动立即构建
+  repository_dispatch:            # 预留：Notion webhook -> Worker -> 此事件，分钟级实时
+    types: [notion-updated]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v4
+        with:
+          ref: source
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Sync Notion -> Markdown
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+        run: |
+          pip install --quiet requests
+          python scripts/notion_sync.py
+
+      - name: Install deps
+        run: npm ci || npm install
+
+      - name: Build
+        run: npx hexo clean && npx hexo generate
+
+      - name: Publish to main
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: main
+          publish_dir: ./public
+          force_orphan: true
+          commit_message: "Publish: ${{ github.event_name }} @ ${{ github.sha }}"
