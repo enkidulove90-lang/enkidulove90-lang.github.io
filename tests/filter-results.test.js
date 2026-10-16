@@ -238,6 +238,11 @@ test('desktop pointer navigation is a retractable left-edge drawer', () => {
   assert.match(css, /#sidebar:hover\s+#sidebar-menus/);
   assert.match(css, /#sidebar:focus-within\s+#sidebar-menus/);
   assert.match(css, /transition:\s*transform/);
+  assert.match(css, /--drawer-peek:\s*54px/);
+  assert.match(css, /--drawer-paper:\s*rgba\(255,\s*253,\s*248,\s*0\.78\)/);
+  assert.match(css, /font-size:\s*clamp\(36px,\s*2\.8vw,\s*42px\)/);
+  assert.match(css, /#sidebar-menus\.open::after\s*\{[^}]*opacity:\s*0/s);
+  assert.match(css, /background:\s*rgba\(255,\s*255,\s*255,\s*0\.46\)\s*!important/);
   assert.match(css, /#body-wrap\s*\{[^}]*margin-left:\s*0/s);
   assert.doesNotMatch(css, /margin-left:\s*var\(--/);
 });
