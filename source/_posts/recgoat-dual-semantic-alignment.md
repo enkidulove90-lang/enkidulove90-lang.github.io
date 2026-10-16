@@ -1,6 +1,9 @@
 ---
 title: "LLM 表征拼进多模态推荐为什么掉点：RecGOAT 的双粒度对齐"
 date: 2026-01-31
+year: 2026
+venue_type: arXiv预印本
+venue_name: arXiv
 updated: 2026-05-25
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐]

@@ -1,6 +1,9 @@
 ---
 title: "LLM 能替推荐系统解决哪些问题：一份四类挑战的地图"
 date: 2025-07-17
+year: 2025
+venue_type: arXiv预印本
+venue_name: arXiv
 updated: 2025-10-03
 categories: [推荐系统, 生成式推荐]
 tags: [论文速读, 生成式推荐, 大模型微调, 检索增强生成]

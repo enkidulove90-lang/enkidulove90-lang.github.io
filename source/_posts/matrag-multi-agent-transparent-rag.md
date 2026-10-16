@@ -1,6 +1,9 @@
 ---
 title: "把「可解释」做成可测量的模块：MATRAG 的多智能体透明推荐"
 date: 2026-02-11
+year: 2026
+venue_type: arXiv预印本
+venue_name: arXiv
 categories: [推荐系统, 知识图谱]
 tags: [论文速读, 知识图谱, 多智能体, 检索增强生成]
 slug: matrag-multi-agent-transparent-rag

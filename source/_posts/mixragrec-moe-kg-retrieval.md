@@ -1,6 +1,9 @@
 ---
 title: "检索粒度该由谁决定？拆解 MixRAGRec 的三智能体 KG-RAG 推荐"
 date: 2026-05-27
+year: 2026
+venue_type: 会议
+venue_name: KDD 2026
 updated: 2026-05-29
 categories: [推荐系统, 知识图谱]
 tags: [论文速读, 知识图谱, 混合专家, 多智能体]

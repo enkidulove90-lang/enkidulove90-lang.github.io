@@ -1,6 +1,9 @@
 ---
 title: "冷启动的四条路线：内容、图、跨域、语言模型该怎么选"
 date: 2025-01-03
+year: 2025
+venue_type: arXiv预印本
+venue_name: arXiv
 updated: 2025-01-16
 categories: [推荐系统, 冷启动]
 tags: [论文速读, 冷启动, 大模型微调, 知识图谱]

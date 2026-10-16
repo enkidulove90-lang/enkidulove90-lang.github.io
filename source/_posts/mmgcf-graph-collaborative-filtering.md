@@ -1,6 +1,9 @@
 ---
 title: "多模态特征该以多少成本接入：MMGCF 的极简路线"
 date: 2026-06-01
+year: 2026
+venue_type: 会议
+venue_name: UMAP 2026
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐, 图神经网络]
 slug: mmgcf-graph-collaborative-filtering

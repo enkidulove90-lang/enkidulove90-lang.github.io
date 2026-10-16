@@ -1,6 +1,9 @@
 ---
 title: "对比视图就在 GCN 里：NLGCL 的邻层对比"
 date: 2025-07-10
+year: 2025
+venue_type: 会议
+venue_name: RecSys 2025
 categories: [推荐系统, 图对比学习]
 tags: [论文速读, 图对比学习, 对比学习, 图神经网络]
 slug: nlgcl-neighbor-layer-contrastive

@@ -1,6 +1,9 @@
 ---
 title: "循环工程评估基准"
 date: 2026-07-31
+year: 2026
+venue_type: arXiv预印本
+venue_name: arXiv
 updated: 2026-08-10
 categories: [AI, 大模型与智能体]
 tags: [论文速读, 大模型与智能体]

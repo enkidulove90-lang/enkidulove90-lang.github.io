@@ -1,6 +1,9 @@
 ---
 title: "对比学习不必靠造视图：NLGCL+ 用 GNN 的邻层结构做多模态推荐"
 date: 2026-03-31
+year: 2026
+venue_type: 期刊
+venue_name: ACM TORS
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐, 图对比学习, 对比学习, 图神经网络]
 slug: nlgclplus-neighbor-layer-contrastive

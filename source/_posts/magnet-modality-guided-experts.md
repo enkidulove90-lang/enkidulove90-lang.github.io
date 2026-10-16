@@ -1,6 +1,9 @@
 ---
 title: "MAGNET：模态引导图专家网络"
 date: 2026-02-24
+year: 2026
+venue_type: arXiv预印本
+venue_name: arXiv
 updated: 2026-09-14
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐]

@@ -1,6 +1,9 @@
 ---
 title: "视觉证据用全片、预告片还是缩略图：Popcorn 给出可配置基准"
 date: 2026-06-08
+year: 2026
+venue_type: arXiv预印本
+venue_name: arXiv
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐]
 slug: popcorn-visual-evidence-benchmark

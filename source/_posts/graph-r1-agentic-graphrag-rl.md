@@ -1,6 +1,9 @@
 ---
 title: "图检索不等于图推理：Graph-R1 用端到端强化学习在知识超图上走"
 date: 2025-07-29
+year: 2026
+venue_type: 会议
+venue_name: ICML 2026
 updated: 2026-06-02
 categories: [AI, 检索增强生成]
 tags: [论文速读, 检索增强生成, 强化学习, 知识图谱]

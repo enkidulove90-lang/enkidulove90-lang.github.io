@@ -1,6 +1,9 @@
 ---
 title: "模态组合里才有的信息：PRISM 的信息协同模块"
 date: 2026-04-13
+year: 2026
+venue_type: 会议
+venue_name: WWW 2026
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐, 序列推荐]
 slug: prism-information-synergy-module

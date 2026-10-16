@@ -149,11 +149,21 @@ def page_to_md(page):
     summary = plain((props.get("summary") or {}).get("rich_text", []))
     date = ((props.get("date") or {}).get("date") or {}).get("start") or page["created_time"][:10]
 
+    # 多维筛选字段（与「分类」正交的三个独立维度，供前端 Tabs 过滤器使用）：
+    #   year        Select   发布/出版年
+    #   venue_type  Select   会议 / 期刊 / arXiv预印本
+    #   venue_name  Text     具体会议或期刊简称（如 SIGIR 2025、ACM TORS）
+    year = ((props.get("year") or {}).get("select") or {}).get("name") or str(date)[:4]
+    venue_type = ((props.get("venue_type") or {}).get("select") or {}).get("name") or "arXiv预印本"
+    venue_name = plain((props.get("venue_name") or {}).get("rich_text", []))
+
     # 三维分类落地：Notion 的 category 写「领域大类 / 二级分类」（斜杠或逗号分隔），
     # tags 放「任务场景 + 技术方法」；Hexo 侧 categories 支持两级、tags 为标签云
     cats = [x.strip() for x in re.split(r"[,/、]", category) if x.strip()]
     tags = list(dict.fromkeys(["论文速读"] + tags))
     md = ["---", f"title: {title}", f"date: {date}",
+          f"year: {year}", f"venue_type: {venue_type}",
+          "venue_name: " + (json.dumps(venue_name, ensure_ascii=False) if venue_name else '""'),
           "categories: [" + ", ".join(cats) + "]",
           "tags: [" + ", ".join(tags) + "]"]
     if slug:

@@ -1,6 +1,9 @@
 ---
 title: "论文推荐系统现状：63 篇论文统计出的四个真相"
 date: 2025-08-12
+year: 2025
+venue_type: 期刊
+venue_name: Applied Sciences
 updated: 2026-09-07
 categories: [AI, 学术检索]
 tags: [论文速读, 学术检索, 大模型微调]

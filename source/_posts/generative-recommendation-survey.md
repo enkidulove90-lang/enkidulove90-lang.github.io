@@ -1,6 +1,9 @@
 ---
 title: "生成式推荐综述导读：给 20+ 个工业系统画一张四维坐标"
 date: 2025-12-20
+year: 2025
+venue_type: arXiv预印本
+venue_name: arXiv
 categories: [推荐系统, 生成式推荐]
 tags: [论文速读, 生成式推荐]
 slug: generative-recommendation-survey

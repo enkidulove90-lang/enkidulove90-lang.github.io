@@ -1,6 +1,9 @@
 ---
 title: "多智能体推荐系统的未来"
 date: 2025-07-02
+year: 2025
+venue_type: arXiv预印本
+venue_name: arXiv
 updated: 2026-06-28
 categories: [推荐系统, 基础推荐算法]
 tags: [论文速读, 基础推荐算法, 多智能体]

@@ -1,6 +1,9 @@
 ---
 title: "融合权重不该是常数：MAF-KGAT 的物品级模态自适应门控"
 date: 2026-03-01
+year: 2026
+venue_type: 期刊
+venue_name: 计算机科学与应用
 categories: [推荐系统, 知识图谱]
 tags: [论文速读, 知识图谱, 多模态推荐, 图神经网络]
 slug: maf-kgat-modality-adaptive-fusion

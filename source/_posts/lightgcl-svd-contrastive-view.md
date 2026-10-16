@@ -1,6 +1,9 @@
 ---
 title: "对比视图不必靠随机扰动：LightGCL 用 SVD 抽取图的谱结构"
 date: 2023-02-16
+year: 2023
+venue_type: 会议
+venue_name: ICLR 2023
 updated: 2023-06-14
 categories: [推荐系统, 图对比学习]
 tags: [论文速读, 图对比学习, 对比学习, 图神经网络]

@@ -1,6 +1,9 @@
 ---
 title: "智能体推荐不能只读文本：MMEACR 的多模态双轨记忆"
 date: 2026-07-08
+year: 2026
+venue_type: arXiv预印本
+venue_name: arXiv
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐, 多智能体]
 slug: mmeacr-multimodal-memory-agent

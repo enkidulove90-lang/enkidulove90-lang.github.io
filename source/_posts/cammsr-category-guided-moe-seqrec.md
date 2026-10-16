@@ -1,6 +1,9 @@
 ---
 title: "专家该建模模态组合而不是单个模态：CAMMSR 的品类引导 MoE"
 date: 2026-03-04
+year: 2026
+venue_type: 会议
+venue_name: ICDE 2026
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐, 序列推荐, 混合专家, 对比学习]
 slug: cammsr-category-guided-moe-seqrec

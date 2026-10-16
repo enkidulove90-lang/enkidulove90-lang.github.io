@@ -1,6 +1,9 @@
 ---
 title: "语言世界模型驱动通用智能体"
 date: 2026-06-23
+year: 2026
+venue_type: arXiv预印本
+venue_name: arXiv
 categories: [AI, 大模型与智能体]
 tags: [论文速读, 大模型与智能体, 多智能体]
 slug: qwen-agentworld

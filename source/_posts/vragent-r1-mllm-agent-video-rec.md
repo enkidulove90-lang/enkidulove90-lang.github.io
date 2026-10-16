@@ -1,6 +1,9 @@
 ---
 title: "别把视频当两路特征：VRAgent-R1 用两个智能体拆开「看懂」与「决断」"
 date: 2025-07-03
+year: 2025
+venue_type: arXiv预印本
+venue_name: arXiv
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐, 强化学习, 多智能体]
 slug: vragent-r1-mllm-agent-video-rec

@@ -1,6 +1,9 @@
 ---
 title: "可验证环境即乐高积木：递归组合提升推理泛化"
 date: 2026-06-10
+year: 2026
+venue_type: arXiv预印本
+venue_name: arXiv
 categories: [AI, 大模型与智能体]
 tags: [论文速读, 大模型与智能体]
 slug: verifiable-environments-lego-bricks

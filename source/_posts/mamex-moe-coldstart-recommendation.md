@@ -1,6 +1,9 @@
 ---
 title: "冷启动里的模态融合：MAMEX 用两级混合专家替代固定加权"
 date: 2025-08-11
+year: 2025
+venue_type: 会议
+venue_name: ACM 会议
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐, 冷启动, 混合专家]
 slug: mamex-moe-coldstart-recommendation

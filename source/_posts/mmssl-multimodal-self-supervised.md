@@ -1,6 +1,9 @@
 ---
 title: "模态偏好不均的稀疏场景：MMSSL 的多模态自监督学习"
 date: 2023-02-21
+year: 2023
+venue_type: 会议
+venue_name: WWW 2023
 updated: 2023-07-18
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐, 对比学习, 图神经网络]

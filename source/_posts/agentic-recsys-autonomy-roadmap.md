@@ -1,6 +1,9 @@
 ---
 title: "从排序器到目标追求者：智能体推荐系统的自主性分级"
 date: 2026-07-05
+year: 2026
+venue_type: arXiv预印本
+venue_name: arXiv
 categories: [推荐系统, 生成式推荐]
 tags: [论文速读, 生成式推荐, 多智能体, 大模型微调]
 slug: agentic-recsys-autonomy-roadmap

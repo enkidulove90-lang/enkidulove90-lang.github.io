@@ -1,6 +1,9 @@
 ---
 title: "FITMM：自适应频率感知多模态推荐"
 date: 2026-01-30
+year: 2026
+venue_type: arXiv预印本
+venue_name: arXiv
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐]
 slug: fitmm-frequency-aware-multimodal

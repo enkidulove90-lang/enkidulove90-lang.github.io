@@ -1,6 +1,9 @@
 ---
 title: "Qwen-Image-2.0技术报告"
 date: 2026-05-11
+year: 2026
+venue_type: arXiv预印本
+venue_name: arXiv
 categories: [AI, 大模型与智能体]
 tags: [论文速读]
 slug: qwen-image-2-technical-report

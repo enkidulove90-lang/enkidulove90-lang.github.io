@@ -1,6 +1,9 @@
 ---
 title: "RLMultimodalRec：门控多模态图学习推荐"
 date: 2025-05-30
+year: 2025
+venue_type: arXiv预印本
+venue_name: arXiv
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐]
 slug: rlmultimodalrec-gated-fusion

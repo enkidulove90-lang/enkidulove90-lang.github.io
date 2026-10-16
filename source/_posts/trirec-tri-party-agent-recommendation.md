@@ -1,6 +1,9 @@
 ---
 title: "推荐不该只服务用户：TriRec 的三方智能体框架"
 date: 2026-02-13
+year: 2026
+venue_type: arXiv预印本
+venue_name: arXiv
 categories: [推荐系统, 生成式推荐]
 tags: [论文速读, 生成式推荐, 多智能体, 大模型微调]
 slug: trirec-tri-party-agent-recommendation

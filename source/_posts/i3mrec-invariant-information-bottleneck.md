@@ -1,6 +1,9 @@
 ---
 title: "模态缺失不等于信息丢失：I³-MRec 的信息瓶颈不变学习"
 date: 2025-08-06
+year: 2025
+venue_type: 会议
+venue_name: ACM MM 2025
 updated: 2025-10-15
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐, 图神经网络]

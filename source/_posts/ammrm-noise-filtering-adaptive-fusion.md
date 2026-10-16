@@ -1,6 +1,9 @@
 ---
 title: "噪声过滤 + 度数敏感剪边：AMMRM 处理多模态噪声与热门偏置"
 date: 2025-03-28
+year: 2025
+venue_type: 期刊
+venue_name: JKSU-CIS
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐, 图神经网络]
 slug: ammrm-noise-filtering-adaptive-fusion

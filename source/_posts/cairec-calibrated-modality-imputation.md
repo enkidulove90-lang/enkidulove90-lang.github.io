@@ -1,6 +1,9 @@
 ---
 title: "模态缺失时补出来的特征为什么不能用：CaIRec 的两阶段校准"
 date: 2026-07-29
+year: 2026
+venue_type: arXiv预印本
+venue_name: arXiv
 updated: 2026-07-31
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐]

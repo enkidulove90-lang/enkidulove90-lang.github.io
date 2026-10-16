@@ -1,6 +1,9 @@
 ---
 title: "从被动到主动：多模态大模型时代的智能体推荐（视角论文）"
 date: 2025-03-20
+year: 2025
+venue_type: arXiv预印本
+venue_name: arXiv
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐, 多智能体]
 slug: llmars-agentic-recsys-perspective

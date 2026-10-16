@@ -1,6 +1,9 @@
 ---
 title: "语义像不等于共现多：MSCA 的多视图对比对齐"
 date: 2026-04-12
+year: 2026
+venue_type: 会议
+venue_name: WWW 2026
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐, 对比学习, 图神经网络]
 slug: msca-multi-view-semantic-alignment

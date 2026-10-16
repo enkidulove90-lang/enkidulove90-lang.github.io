@@ -1,6 +1,9 @@
 ---
 title: "知识图谱塞进 LLM 塞多少才合适：KERAG_R 的检索-选择-格式化流程"
 date: 2025-07-08
+year: 2025
+venue_type: arXiv预印本
+venue_name: arXiv
 categories: [推荐系统, 知识图谱]
 tags: [论文速读, 知识图谱, 检索增强生成, 大模型微调]
 slug: kerag-rec-knowledge-enhanced-rag

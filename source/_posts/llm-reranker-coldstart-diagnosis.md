@@ -1,6 +1,9 @@
 ---
 title: "流行度基线把 LLM 重排器打穿了：冷启动重排的失败诊断"
 date: 2026-02-09
+year: 2026
+venue_type: arXiv预印本
+venue_name: arXiv
 categories: [推荐系统, 冷启动]
 tags: [论文速读, 冷启动, 大模型微调, 学术检索]
 slug: llm-reranker-coldstart-diagnosis
