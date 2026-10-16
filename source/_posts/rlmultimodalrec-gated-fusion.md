@@ -1,13 +1,12 @@
 ---
 title: "RLMultimodalRec：门控多模态图学习推荐"
-date: 2026-10-16 12:40:00
+date: 2025-05-30
 categories: [多模态推荐]
 tags: [多模态, 门控融合, 图神经网络]
 slug: rlmultimodalrec-gated-fusion
 description: "提出以LightGCN为编码器骨干的轻量级多模态推荐框架，通过门控融合模块动态平衡视觉和文本模态对每个用户-物品对的贡献。与ConfSMoE的置信度门控形成互补——前者用任务信号路…"
 ---
-
-> arXiv: 2506.00107
+> 论文：[arXiv 2506.00107](https://arxiv.org/abs/2506.00107) · 代码：论文未公开
 
 ## 主要贡献
 

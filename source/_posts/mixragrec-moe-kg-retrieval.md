@@ -1,13 +1,13 @@
 ---
 title: "检索粒度该由谁决定？拆解 MixRAGRec 的三智能体 KG-RAG 推荐"
-date: 2026-10-16 14:10:00
+date: 2026-05-27
+updated: 2026-05-29
 categories: [知识图谱推荐]
 tags: [知识图谱, 检索增强, 混合专家, LLM推荐]
 slug: mixragrec-moe-kg-retrieval
 description: "把「检索三元组还是子图」从一个超参数，变成一个由查询难度决定、并且能被训练信号直接监督的动作——这是 MixRAGRec 最值得看的地方。"
 ---
-
-> arXiv: 2605.28175（KDD 2026）· 代码：github.com/Sjay-Wang/MixRAGRec
+> 论文：[arXiv 2605.28175](https://arxiv.org/abs/2605.28175) · 代码：[GitHub](https://github.com/Sjay-Wang/MixRAGRec)
 
 ## 检索不是越多越好
 

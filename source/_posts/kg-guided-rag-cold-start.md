@@ -1,13 +1,13 @@
 ---
 title: "冷启动推荐的知识引导检索增强生成"
-date: 2026-10-16 12:46:00
+date: 2025-05-27
+updated: 2025-11-24
 categories: [知识图谱推荐]
 tags: [知识图谱, 检索增强, 冷启动]
 slug: kg-guided-rag-cold-start
 description: "提出ColdRAG框架，通过动态构建领域知识图谱和LLM引导的多跳推理，解决了冷启动推荐中静态知识图谱维护成本高、LLM依赖预过滤候选列表的问题。在三个Amazon数据集上，Rec…"
 ---
-
-> arXiv: 2505.20773
+> 论文：[arXiv 2505.20773](https://arxiv.org/abs/2505.20773) · 代码：论文未公开
 
 ## 主要贡献
 
