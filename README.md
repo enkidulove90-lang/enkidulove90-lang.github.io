@@ -8,7 +8,7 @@
 Notion 数据库（写文章）
    │  GitHub Actions 每 30 分钟（或手动 / webhook 触发）
    ▼
-scripts/notion_sync.py   Notion → source/_posts/*.md（增量，图片下载进 source/images/）
+tools/notion_sync.py   Notion → source/_posts/*.md（增量，图片下载进 source/images/）
    ▼
 hexo generate            生成静态页到 public/
    ▼
@@ -19,7 +19,7 @@ GitHub Pages             https://enkidulove90-lang.github.io（从 main 根发�
 
 ## 分支说明
 
-- `source`（本分支）：Hexo 源码、`_config.yml`、`scripts/notion_sync.py`、workflow、旧站内容 `source/legacy/`
+- `source`（本分支）：Hexo 源码、`_config.yml`、`tools/notion_sync.py`、workflow、旧站内容 `source/legacy/`
 - `main`：**只放构建产物**，由 Actions 全量覆盖，不要手改
 
 ## 配置 Secrets（Settings → Secrets and variables → Actions）
@@ -33,7 +33,7 @@ GitHub Pages             https://enkidulove90-lang.github.io（从 main 根发�
 
 `title`(title) · `status`(select: **Published**/Invisible) · `type`(select: **Post**) · `slug`(rich_text，可空自动生成) · `summary`(rich_text，可空) · `date`(date) · `category`(select) · `tags`(multi_select)
 
-> 若你的 `status` 字段是 checkbox 而非 select，改 `scripts/notion_sync.py` 里 `pq` 的过滤器。
+> 若你的 `status` 字段是 checkbox 而非 select，改 `tools/notion_sync.py` 里 `pq` 的过滤器。
 
 ## 旧内容
 
@@ -44,7 +44,7 @@ GitHub Pages             https://enkidulove90-lang.github.io（从 main 根发�
 ```bash
 npm install
 export NOTION_TOKEN=... NOTION_DATABASE_ID=...   # 可选，不填则只构建已有文章
-python scripts/notion_sync.py
+python tools/notion_sync.py
 npx hexo server
 ```
 

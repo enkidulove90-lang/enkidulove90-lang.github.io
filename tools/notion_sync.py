@@ -26,7 +26,7 @@ DB = os.environ.get("NOTION_DATABASE_ID", "").strip()
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 POSTS = os.path.join(ROOT, "source", "_posts")
 IMAGES = os.path.join(ROOT, "source", "images")
-STATE = os.path.join(ROOT, "scripts", ".notion_state.json")
+STATE = os.path.join(ROOT, "tools", ".notion_state.json")
 H = {"Authorization": f"Bearer {TOKEN}", "Notion-Version": VER, "Content-Type": "application/json"}
 
 
