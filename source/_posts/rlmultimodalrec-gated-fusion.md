@@ -37,7 +37,5 @@ description: "提出以LightGCN为编码器骨干的轻量级多模态推荐框�
 
 ---
 
-*由 Claude 基于论文全文生成*
-
 ## 基线方法: LightGCN, MMGCN, GRCN | 骨干: LightGCN+门控融合
 ## 实验效果: 门控融合优于简单拼接/平均,验证个性化模态权重有效性

@@ -56,8 +56,13 @@ STOP_SECTION = re.compile(
 # 命中即拒绝发布的关键词（未发表研究线索）
 LEAK_WORDS = ["PRISM", "LightGCNpp", "LightGCN++", "本课题", "我们的实验", "我们的方法",
               "MMEACR", "E14", "E15", "MIG", "syn 专家"]
-# 末尾机器生成署名
-MACHINE_NOTE = re.compile(r"^\*?\s*由\s*(DeepSeek|GPT|Claude|AI)[^*\n]*自动生成\s*\*?\s*$", re.M)
+# 末尾机器署名（变体很多：*由 DeepSeek (deepseek-chat) 自动生成 | 11 维度模板*、
+# *由 Claude 生成*、*由 Claude 基于论文全文 + 多源交叉验证生成* …）
+# 只匹配「整行以 *由 / 由 开头」的短行，避免误伤正文里"由 LLM 生成推荐"这类正常表述
+MACHINE_NOTE = re.compile(
+    r"^\*?\s*由\s*(?:DeepSeek|GPT|ChatGPT|Claude|Gemini|Qwen|Kimi|文心|通义|AI)\b[^\n]{0,80}$",
+    re.M | re.I,
+)
 
 
 def strip_machine_note(text):
