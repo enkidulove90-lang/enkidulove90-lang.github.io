@@ -2,8 +2,8 @@
 title: "海上远程操作中心高效认证方法"
 date: 2025-08-01
 updated: 2025-11-14
-categories: [其他领域]
-tags: [海事, 安全认证, 远程操作]
+categories: [跨学科与基础]
+tags: [论文速读, 海事认证]
 slug: maritime-remote-operation-certification
 ---
 

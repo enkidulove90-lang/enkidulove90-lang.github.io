@@ -1,8 +1,8 @@
 ---
 title: "语言世界模型驱动通用智能体"
 date: 2026-06-23
-categories: [大语言模型与Agent]
-tags: [智能体, 世界模型, 大语言模型]
+categories: [AI, 大模型与智能体]
+tags: [论文速读, 大模型与智能体, 多智能体]
 slug: qwen-agentworld
 ---
 

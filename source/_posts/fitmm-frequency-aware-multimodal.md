@@ -1,8 +1,8 @@
 ---
 title: "FITMM：自适应频率感知多模态推荐"
 date: 2026-01-30
-categories: [多模态推荐]
-tags: [多模态, 频域建模, 自适应融合]
+categories: [推荐系统, 多模态推荐]
+tags: [论文速读, 多模态推荐]
 slug: fitmm-frequency-aware-multimodal
 description: "将多模态推荐从空间域推向频域。理论证明高斯信息瓶颈(GIB)目标在正交变换下可按频带解耦，为\"先分离再融合\"范式提供理论保证。"
 ---

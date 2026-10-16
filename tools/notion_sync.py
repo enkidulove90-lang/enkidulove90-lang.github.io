@@ -149,8 +149,13 @@ def page_to_md(page):
     summary = plain((props.get("summary") or {}).get("rich_text", []))
     date = ((props.get("date") or {}).get("date") or {}).get("start") or page["created_time"][:10]
 
-    md = ["---", f"title: {title}", f"date: {date}", f"categories: [{category}]",
-          f"tags: [{', '.join(tags)}]"]
+    # 三维分类落地：Notion 的 category 写「领域大类 / 二级分类」（斜杠或逗号分隔），
+    # tags 放「任务场景 + 技术方法」；Hexo 侧 categories 支持两级、tags 为标签云
+    cats = [x.strip() for x in re.split(r"[,/、]", category) if x.strip()]
+    tags = list(dict.fromkeys(["论文速读"] + tags))
+    md = ["---", f"title: {title}", f"date: {date}",
+          "categories: [" + ", ".join(cats) + "]",
+          "tags: [" + ", ".join(tags) + "]"]
     if slug:
         md.append(f"slug: {slug}")
     if summary:

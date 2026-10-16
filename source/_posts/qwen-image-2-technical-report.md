@@ -1,8 +1,8 @@
 ---
 title: "Qwen-Image-2.0技术报告"
 date: 2026-05-11
-categories: [大语言模型与Agent]
-tags: [多模态大模型, 图像生成, 技术报告]
+categories: [AI, 大模型与智能体]
+tags: [论文速读]
 slug: qwen-image-2-technical-report
 ---
 

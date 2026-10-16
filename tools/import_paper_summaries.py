@@ -105,6 +105,15 @@ def strip_machine_note(text):
     return re.sub(r"\n+(?:-{3,}\s*\n*)+\s*$", "\n", text).rstrip()
 
 
+# 旧的一级分类名 → 新的「领域大类 / 二级分类」路径（三维分类，2026-10-16 改版）
+LOG1_CATEGORIES = {
+    "多模态推荐": ["推荐系统", "多模态推荐"],
+    "知识图谱推荐": ["推荐系统", "知识图谱"],
+    "LLM与生成式推荐": ["推荐系统", "生成式推荐"],
+    "大语言模型与Agent": ["AI", "大模型与智能体"],
+    "其他领域": ["跨学科与基础"],
+}
+
 # 摘要头部的机器元信息行（生成时间 / GitHub 待查 等对读者无意义）
 META_LINE = re.compile(
     r"^\*\*(英文标题|中文标题|论文标题|作者|会议|期刊|venue|年份|论文类型|一句话概括|"
@@ -231,8 +240,9 @@ def main():
         if item.get("updated"):
             fm.append("updated: " + item["updated"])
         fm += [
-            f"categories: [{item['category']}]",
-            "tags: [" + ", ".join(item["tags"]) + "]",
+            "categories: [" + ", ".join(LOG1_CATEGORIES.get(item["category"], [item["category"]])
+                                        if isinstance(item["category"], str) else item["category"]) + "]",
+            "tags: [" + ", ".join(["论文速读"] + item["tags"]) + "]",
             "slug: " + item["slug"],
             # 封面不写死：交给主题的 cover.default_cover 池在每次构建时随机分配
             # （池内是固定 seed 图，fastly 有 30 天 immutable 缓存，故不影响加载速度；

@@ -2,8 +2,8 @@
 title: "MAGNET：模态引导图专家网络"
 date: 2026-02-24
 updated: 2026-09-14
-categories: [多模态推荐]
-tags: [多模态, 专家网络, 图推荐]
+categories: [推荐系统, 多模态推荐]
+tags: [论文速读, 多模态推荐]
 slug: magnet-modality-guided-experts
 description: "提出\"模态组×专家族\"结构化专家空间: 3模态组(行为/视觉/语义)×3专家族(主导/均衡/互补)。熵触发两阶段路由替代静态负载均衡。"
 ---

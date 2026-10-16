@@ -17,6 +17,7 @@
 import argparse
 import json
 import os
+import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -43,8 +44,10 @@ def main():
     fm = ["---", "title: " + json.dumps(a.title, ensure_ascii=False), "date: " + a.date]
     if a.updated:
         fm.append("updated: " + a.updated)
-    fm.append(f"categories: [{a.category}]")
+    fm.append("categories: [" + ", ".join(
+        [x.strip() for x in re.split(r"[,/、]", a.category) if x.strip()]) + "]")
     tags = [t.strip() for t in a.tags.split(",") if t.strip()]
+    tags = list(dict.fromkeys(["论文速读"] + tags))   # 全局标签，供导航「论文速递」入口
     if tags:
         fm.append("tags: [" + ", ".join(tags) + "]")
     fm.append("slug: " + a.slug)

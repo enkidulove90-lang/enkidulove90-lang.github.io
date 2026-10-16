@@ -1,8 +1,8 @@
 ---
 title: "生成式推荐综述导读：给 20+ 个工业系统画一张四维坐标"
 date: 2025-12-20
-categories: [LLM与生成式推荐]
-tags: [生成式推荐, 综述, 工业落地, 语义ID]
+categories: [推荐系统, 生成式推荐]
+tags: [论文速读, 生成式推荐]
 slug: generative-recommendation-survey
 description: "把推荐从「召回→排序→竞价」的级联管线，改成一条生成式骨架——这份综述用四个维度给 20+ 个工业系统定位，并总结了 scaling law、三条收敛趋势和四个没解决的问题。"
 ---

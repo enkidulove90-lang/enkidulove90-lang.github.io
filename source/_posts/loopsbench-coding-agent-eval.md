@@ -2,8 +2,8 @@
 title: "循环工程评估基准"
 date: 2026-07-31
 updated: 2026-08-10
-categories: [大语言模型与Agent]
-tags: [智能体, 编码智能体, 评测基准]
+categories: [AI, 大模型与智能体]
+tags: [论文速读, 大模型与智能体]
 slug: loopsbench-coding-agent-eval
 ---
 

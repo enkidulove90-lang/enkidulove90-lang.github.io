@@ -1,8 +1,8 @@
 ---
 title: "分层稀疏注意力：迈向无限上下文建模"
 date: 2026-07-03
-categories: [大语言模型与Agent]
-tags: [大语言模型, 稀疏注意力, 长上下文]
+categories: [AI, 大模型与智能体]
+tags: [论文速读, 大模型与智能体]
 slug: hierarchical-sparse-attention
 ---
 

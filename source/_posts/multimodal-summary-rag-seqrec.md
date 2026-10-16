@@ -1,8 +1,8 @@
 ---
 title: "多模态大模型摘要与检索增强序列推荐"
 date: 2025-12-24
-categories: [多模态推荐]
-tags: [多模态, 大语言模型, 检索增强]
+categories: [推荐系统, 多模态推荐]
+tags: [论文速读, 多模态推荐, 序列推荐, 信息检索]
 slug: multimodal-summary-rag-seqrec
 description: "提出MMSRARec，一种基于多模态大语言模型（MLLM）的序列推荐方法。该方法通过三个核心阶段：1）利用强化学习（RLVR）将多模态物品信息自适应摘要为可解释的关键词；2）通过检…"
 ---
