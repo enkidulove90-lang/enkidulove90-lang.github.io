@@ -33,6 +33,7 @@ def main():
     ap.add_argument("--date", required=True, help="论文真实首次发布日 YYYY-MM-DD")
     ap.add_argument("--updated", default="")
     ap.add_argument("--arxiv", default="")
+    ap.add_argument("--doi", default="", help="无 arXiv 版时用 DOI 链接（ACM/IEEE/期刊）")
     ap.add_argument("--github", default="")
     ap.add_argument("--body", required=True)
     ap.add_argument("--description", default="")
@@ -58,6 +59,8 @@ def main():
     links = []
     if a.arxiv:
         links.append(f"论文：[arXiv {a.arxiv}](https://arxiv.org/abs/{a.arxiv})")
+    elif a.doi:
+        links.append(f"论文：[DOI]({a.doi})")
     if a.github:
         links.append(f"代码：[GitHub]({a.github})")
     head = ("> " + " · ".join(links) + "\n\n") if links else ""

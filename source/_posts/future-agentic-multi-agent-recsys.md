@@ -2,8 +2,8 @@
 title: "多智能体推荐系统的未来"
 date: 2025-07-02
 updated: 2026-06-28
-categories: [推荐系统, 通用推荐]
-tags: [论文速读, 通用推荐, 多智能体]
+categories: [推荐系统, 基础推荐算法]
+tags: [论文速读, 基础推荐算法, 多智能体]
 slug: future-agentic-multi-agent-recsys
 description: "这是一篇视角论文，正式定义了多智能体推荐系统（MARS）为智能体、共享环境和通信协议的三元组。论文提出了一个统一的框架，将LLM智能体、记忆、工具使用和通信协议等概念形式化，并应用…"
 ---

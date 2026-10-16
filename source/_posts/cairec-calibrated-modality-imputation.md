@@ -3,7 +3,7 @@ title: "模态缺失时补出来的特征为什么不能用：CaIRec 的两阶�
 date: 2026-07-29
 updated: 2026-07-31
 categories: [推荐系统, 多模态推荐]
-tags: [论文速读, 多模态推荐, 图神经网络]
+tags: [论文速读, 多模态推荐]
 slug: cairec-calibrated-modality-imputation
 description: "把缺失模态补出来不等于有用：CaIRec 指出结构畸变与偏好适配鸿沟是两道独立的坎，用 SIC 校准跨模态结构、PRC 适配排序空间，平均相对提升 3.77%。"
 ---

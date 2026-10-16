@@ -1,8 +1,8 @@
 ---
 title: "LLM增强的推荐去噪框架"
 date: 2025-02-13
-categories: [推荐系统, 通用推荐]
-tags: [论文速读, 通用推荐]
+categories: [推荐系统, 基础推荐算法]
+tags: [论文速读, 基础推荐算法]
 slug: llm-denoising-recommendation
 description: "本文提出LLaRD框架，首次系统性地利用大语言模型（LLM）的世界知识和推理能力来增强推荐系统的去噪能力。通过LLM生成偏好知识和关系知识，并利用信息瓶颈（IB）原理对齐去噪知识与…"
 ---
