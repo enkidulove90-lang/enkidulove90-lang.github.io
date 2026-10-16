@@ -48,6 +48,39 @@ MANIFEST = [
     # 文章已挪到 source/_drafts/，等补到真实原文再恢复，切莫加回本清单。
     {"file": "2502.09058_LLM增强的推荐去噪框架_summary.md", "category": "LLM与生成式推荐",
      "tags": ["LLM", "去噪", "推荐系统"], "slug": "llm-denoising-recommendation"},
+    # —— 大语言模型与Agent ——
+    # 以下条目「编号 ↔ 标题」都正确，只是选题本身不属于推荐系统。
+    # 按用户决定：不丢弃，另开分类归档，避免污染推荐系统主题的池子。
+    {"file": "2605.10730_summary.md", "category": "大语言模型与Agent",
+     "tags": ["多模态大模型", "图像生成", "技术报告"], "slug": "qwen-image-2-technical-report",
+     "arxiv": "2605.10730", "date": "2026-05-11"},
+    {"file": "2608.00267_summary.md", "category": "大语言模型与Agent",
+     "tags": ["智能体", "编码智能体", "评测基准"], "slug": "loopsbench-coding-agent-eval",
+     "arxiv": "2608.00267", "date": "2026-07-31", "updated": "2026-08-10"},
+    {"file": "2606.12373_summary.md", "category": "大语言模型与Agent",
+     "tags": ["智能体", "推理泛化", "可验证环境"], "slug": "verifiable-environments-lego-bricks",
+     "arxiv": "2606.12373", "date": "2026-06-10"},
+    {"file": "2607.02980_summary.md", "category": "大语言模型与Agent",
+     "tags": ["大语言模型", "稀疏注意力", "长上下文"], "slug": "hierarchical-sparse-attention",
+     "arxiv": "2607.02980", "date": "2026-07-03"},
+    {"file": "2606.24597_summary.md", "category": "大语言模型与Agent",
+     "tags": ["智能体", "世界模型", "大语言模型"], "slug": "qwen-agentworld",
+     "arxiv": "2606.24597", "date": "2026-06-23"},
+    # 2507.02097：v1 标题「Agentic Recommender Systems: Architectures, Challenges, and
+    # Evaluation」、v3 改为「The Future is Agentic: … Multi-Agent Recommender Systems」，
+    # 是同一篇论文（arXiv 版本号重命名），故属于真实可发布内容
+    {"file": "2507.02097_多智能体推荐系统的未来_summary.md", "category": "大语言模型与Agent",
+     "tags": ["智能体推荐", "多智能体", "综述"], "slug": "future-agentic-multi-agent-recsys",
+     "arxiv": "2507.02097", "date": "2025-07-02", "updated": "2026-06-28"},
+    # —— 其他领域 ——
+    # 编号正确、但与推荐系统及 LLM/Agent 都无关（湍流物理、海事认证），
+    # 单独归档，便于日后一并迁移或清理
+    {"file": "2503.00987_summary.md", "category": "其他领域",
+     "tags": ["流体力学", "随机模型", "湍流"], "slug": "pipe-flow-turbulence-transition",
+     "arxiv": "2503.00987", "date": "2025-03-02"},
+    {"file": "2508.00543_summary.md", "category": "其他领域",
+     "tags": ["海事", "安全认证", "远程操作"], "slug": "maritime-remote-operation-certification",
+     "arxiv": "2508.00543", "date": "2025-08-01", "updated": "2025-11-14"},
 ]
 
 # 命中即截断的章节标题（内部内容，不公开）
@@ -72,21 +105,51 @@ def strip_machine_note(text):
     return re.sub(r"\n+(?:-{3,}\s*\n*)+\s*$", "\n", text).rstrip()
 
 
-# 摘要头部的机器元信息行（生成时间 / GitHub 待查等对读者无意义）
-META_LINE = re.compile(r"^\*\*(英文标题|中文标题|作者|会议|GitHub|生成时间|生成模型)\*\*[:：].*$", re.M)
+# 摘要头部的机器元信息行（生成时间 / GitHub 待查 等对读者无意义）
+META_LINE = re.compile(
+    r"^\*\*(英文标题|中文标题|论文标题|作者|会议|期刊|venue|年份|论文类型|一句话概括|"
+    r"创新评估|创新评级|GitHub|代码|DOI|来源|源文件|摘要总字符数|实际解析论文数|"
+    r"生成时间|生成模型)\*\*[:：].*$",
+    re.M | re.I,
+)
 ARXIV_LINE = re.compile(r"^\*\*arXiv\s*ID\*\*[:：]\s*(\S+)\s*$", re.M)
 
 
-def clean_meta(text):
+# 长版摘要（11 维度模板）的标题：「## 维度 3: 主要创新点」→「## 主要创新点」
+DIM_ANY = re.compile(r"^(#{2,3})\s*维度\s*\d+\s*[:：]\s*", re.M)
+# 「## 维度 0: 元信息」是机器元信息 + 字段表，整节（含正文）丢弃。
+# 按行扫描而不是一次性正则，避免 CRLF / 残留分隔线导致的漏删
+DIM_META_HEAD = re.compile(r"^#{2,3}\s*维度\s*0\s*[:：]\s*元信息")
+ANY_HEAD = re.compile(r"^#{2,3}\s")
+
+
+def strip_dim_headings(text):
+    out, skip = [], False
+    for ln in text.splitlines():
+        if DIM_META_HEAD.match(ln):
+            skip = True
+            continue
+        if skip:
+            if ANY_HEAD.match(ln):   # 遇到下一个章节标题才恢复
+                skip = False
+            else:
+                continue
+        out.append(ln)
+    text = DIM_ANY.sub(r"\1 ", "\n".join(out))
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
+
+
+def clean_meta(text, emit_arxiv=True):
     """把机器元信息块整理成一行干净的 arXiv 出处。"""
     m = ARXIV_LINE.search(text)
     arxiv = m.group(1) if m else ""
     text = ARXIV_LINE.sub("", text)
     text = META_LINE.sub("", text)
+    text = strip_dim_headings(text)   # 丢掉「维度 0: 元信息」整节，并规整「维度 N:」标题
     text = re.sub(r"^[ \t]+$", "", text, flags=re.M)
     text = re.sub(r"\n{3,}", "\n\n", text).strip()
-    text = re.sub(r"^-{3,}\s*\n+", "", text)  # 去掉残留的首行横线
-    if arxiv and arxiv.lower() not in ("待查", "无", "n/a"):
+    text = re.sub(r"^(?:-{3,}[ \t]*\n+)+", "", text)  # 去掉残留的首部横线
+    if emit_arxiv and arxiv and arxiv.lower() not in ("待查", "无", "n/a"):
         text = f"> arXiv: {arxiv}\n\n" + text
     return text.strip()
 
@@ -150,7 +213,7 @@ def main():
             continue
 
         body, cut = strip_internal(body)
-        body = clean_meta(strip_machine_note(body))
+        body = clean_meta(strip_machine_note(body), emit_arxiv=not item.get("arxiv"))
 
         leaks = sorted({w for w in LEAK_WORDS if w in body})
         if leaks:
@@ -158,12 +221,16 @@ def main():
             continue
 
         desc = take_summary(body)
-        # 以 12:40 起每篇错开 1 分钟，保证首页/归档排序稳定
-        date = f"2026-10-16 12:{40 + idx:02d}:00"
+        # 优先用论文的真实发布日期；未提供时按 12:40 起每篇错开 1 分钟（保证排序稳定）
+        date = item.get("date") or f"2026-10-16 12:{40 + idx:02d}:00"
         fm = [
             "---",
             "title: " + json.dumps(title, ensure_ascii=False),
             "date: " + date,
+        ]
+        if item.get("updated"):
+            fm.append("updated: " + item["updated"])
+        fm += [
             f"categories: [{item['category']}]",
             "tags: [" + ", ".join(item["tags"]) + "]",
             "slug: " + item["slug"],
@@ -174,7 +241,14 @@ def main():
         if desc:
             fm.append("description: " + json.dumps(desc, ensure_ascii=False))
         fm.append("---")
-        post = "\n".join(fm) + "\n\n" + body + "\n"
+        # 论文 / 代码出处行（每篇都附）
+        links = []
+        if item.get("arxiv"):
+            links.append(f"论文：[arXiv {item['arxiv']}](https://arxiv.org/abs/{item['arxiv']})")
+        if item.get("github"):
+            links.append(f"代码：[GitHub]({item['github']})")
+        head = "> " + " · ".join(links) + "\n\n" if links else ""
+        post = "\n".join(fm) + "\n\n" + head + body + "\n"
 
         out = os.path.join(POSTS, item["slug"] + ".md")
         if os.path.exists(out) and not args.force:
