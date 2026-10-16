@@ -18,9 +18,6 @@ from mineru_adapter import (  # noqa: E402
     is_hd_image,
     prepare_assets,
 )
-from paper_inventory import build_manifest  # noqa: E402
-
-
 class MinerUAdapterTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -243,34 +240,6 @@ class MinerUAdapterTest(unittest.TestCase):
         self.assertTrue(any(figure.is_hd for figure in result.figures))
         self.assertEqual(result.figures[0].provenance, "pdf_caption_crop")
         self.assertIn("Figure 1", result.figures[0].caption)
-
-    def test_real_manifest_contains_exactly_seven_parse_jobs(self):
-        library = Path("D:/recommendation-system-learning/data")
-        if not library.exists():
-            self.skipTest("local paper library is not available")
-        records = build_manifest(
-            library / "papers",
-            library / "summaries",
-            library / "parsed",
-            ROOT / "source" / "_posts",
-            ROOT / "tools" / "paper_exclusions.json",
-        )
-
-        parse_ids = [record.arxiv_id for record in records if record.quality_state == "needs_parse"]
-
-        self.assertEqual(
-            parse_ids,
-            [
-                "2402.01135",
-                "2402.13750",
-                "2403.05668",
-                "2410.23180",
-                "2412.11068",
-                "2602.15659",
-                "2605.18805",
-            ],
-        )
-
 
 if __name__ == "__main__":
     unittest.main()

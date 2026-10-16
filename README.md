@@ -53,3 +53,7 @@ npx hexo server
 ## 手动触发发布
 
 GitHub 仓库页 → Actions → "Build & Publish" → Run workflow。
+
+## 定期更新论文
+
+每次只筛选并发布一篇论文的完整操作见 [docs/periodic-paper-update.md](docs/periodic-paper-update.md)。现有 `publish.yml` 只负责 Notion 同步和网站构建，不负责自动发现论文。

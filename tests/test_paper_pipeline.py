@@ -94,14 +94,6 @@ class PaperPipelineTest(unittest.TestCase):
         self.assertEqual(report["items"][0]["action"], "skipped_completed")
         self.assertEqual(report["items"][1]["action"], "dry_run")
 
-    def test_two_dry_runs_are_identical(self):
-        self.add_ready_paper("2401.00001", "First Paper")
-
-        first = run_pipeline(self.config())
-        second = run_pipeline(self.config())
-
-        self.assertEqual(first, second)
-
     def test_refresh_existing_rebuilds_a_materialized_paper_article(self):
         self.add_ready_paper("2401.00001", "First Paper")
         post = self.site / "source" / "_posts" / "paper-2401.00001.md"

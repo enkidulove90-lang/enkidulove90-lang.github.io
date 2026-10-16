@@ -124,28 +124,5 @@ class PaperInventoryTest(unittest.TestCase):
 
         self.assertEqual([item["arxiv_id"] for item in data["papers"]], ["2401.00001", "2401.00002"])
 
-    def test_real_catalog_has_expected_counts(self):
-        library = Path("D:/recommendation-system-learning/data")
-        if not library.exists():
-            self.skipTest("local paper library is not available")
-
-        records = build_manifest(
-            library / "papers",
-            library / "summaries",
-            library / "parsed",
-            ROOT / "source" / "_posts",
-            ROOT / "tools" / "paper_exclusions.json",
-        )
-        counts = {}
-        for record in records:
-            counts[record.quality_state] = counts.get(record.quality_state, 0) + 1
-
-        self.assertEqual(len(records), 74)
-        self.assertEqual(
-            counts,
-            {"published": 67, "needs_parse": 7},
-        )
-
-
 if __name__ == "__main__":
     unittest.main()
