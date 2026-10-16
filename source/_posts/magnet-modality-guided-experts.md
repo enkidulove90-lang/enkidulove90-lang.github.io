@@ -1,0 +1,38 @@
+---
+title: "MAGNET：模态引导图专家网络"
+date: 2026-10-16 12:42:00
+categories: [多模态推荐]
+tags: [多模态, 专家网络, 图推荐]
+slug: magnet-modality-guided-experts
+description: "提出\"模态组×专家族\"结构化专家空间: 3模态组(行为/视觉/语义)×3专家族(主导/均衡/互补)。熵触发两阶段路由替代静态负载均衡。"
+---
+
+**arXiv**: 2602.20723 | **作者**: Ji Dai, Quan Fang(BUPT), Dengsheng Cai
+
+**创新评级**: ⭐⭐⭐⭐ — 结构化MoE+熵触发路由
+
+## 主要贡献
+提出"模态组×专家族"结构化专家空间: 3模态组(行为/视觉/语义)×3专家族(主导/均衡/互补)。熵触发两阶段路由替代静态负载均衡。
+
+## 创新点
+1. 结构化专家空间: 三元模板实例化,避免同质化专家的语义模糊
+2. 双视图图学习: 交互图+内容诱导边
+3. 熵触发路由: 监控路由熵自动切换覆盖→专业化阶段
+4. 可解释模态归因: 聚合路由权重量化贡献
+
+## 方法论
+LightGCN编码 → 双视图图 → 模态组×专家族MoE → 熵触发路由。骨干: LightGCN(embed=64,layers=2)
+
+## Benchmark 与数据集
+| 数据集 | Recall@20基线 | MAGNET Recall | NDCG@20提升 |
+|--------|-------------|---------------|------------|
+| Amazon-Baby | ~0.0962 | >baseline | +3~5% |
+| Amazon-Sports | ~0.0998 | >baseline | +3~5% |
+| Amazon-Clothing | — | — | +3~5% |
+| Amazon-Electronics | — | — | +3~5% |
+
+## 基线方法
+LightGCN, LATTICE, MMSSL, MMSR, DualGNN
+
+## 实验效果
+4个Amazon数据集NDCG@20相对提升3.0-5.3%。长尾和稀疏反馈场景提升最大。消融: 结构化专家+熵触发+双视图三者都essential。

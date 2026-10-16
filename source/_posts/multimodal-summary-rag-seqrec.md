@@ -1,0 +1,47 @@
+---
+title: "多模态大模型摘要与检索增强序列推荐"
+date: 2026-10-16 12:43:00
+categories: [多模态推荐]
+tags: [多模态, 大语言模型, 检索增强]
+slug: multimodal-summary-rag-seqrec
+description: "提出MMSRARec，一种基于多模态大语言模型（MLLM）的序列推荐方法。该方法通过三个核心阶段：1）利用强化学习（RLVR）将多模态物品信息自适应摘要为可解释的关键词；2）通过检…"
+---
+
+> arXiv: 2512.20916
+
+## 主要贡献
+
+提出MMSRARec，一种基于多模态大语言模型（MLLM）的序列推荐方法。该方法通过三个核心阶段：1）利用强化学习（RLVR）将多模态物品信息自适应摘要为可解释的关键词；2）通过检索相似用户的历史行为，将协同信号转化为关键词上下文；3）采用多任务学习的参数高效微调（PEFT）对齐MLLM与推荐任务。该方法在三个真实数据集上取得了最优或次优性能，有效平衡了推荐性能、可解释性和推理效率，解决了现有MLLM方法在序列推荐中忽视协同信号、推理成本高和可解释性差的问题。
+
+## 创新点
+
+1. 创新点1：首次将物品多模态信息通过MLLM摘要为自然语言关键词，并采用RLVR（含信息损失、重构难度和长度三重奖励）自适应优化摘要策略，替代了不可解释的向量或语义ID。
+2. 创新点2：受RAG启发，通过传统序列推荐模型（如SASRec）检索行为相似用户，将其后续交互物品的关键词作为协同信号上下文注入MLLM，首次将协同信号以自然语言形式融入语言模型推荐系统。
+3. 创新点3：设计多任务学习框架，通过构建多种推荐指令和正负样本对比训练，结合LoRA参数高效微调，使MLLM仅需单次推理即可完成推荐，大幅降低计算和时延成本。
+
+## 方法论
+
+采用三阶段流水线：1）离线多模态摘要阶段，使用MLLM结合RLVR（GRPO算法）将物品图像和文本摘要为关键词；2）相似用户检索阶段，基于SASRec的ID特征嵌入计算余弦相似度，检索k个相似用户并将其后续交互物品的关键词作为上下文；3）多任务学习阶段，通过PEFT（LoRA）微调MLLM，使用包含正负样本的多种推荐指令进行监督学习，基于首token概率进行推荐。
+
+## Benchmark 与数据集
+
+- Microlens
+- Amazon Baby
+- Amazon Games
+
+## 实验条件
+
+- **数据与任务设置**：数据集：Microlens、Amazon Baby、Amazon Games；任务：Experiment ## 4.1 Dataset We utilized open-source and real-world datasets from diverse recommendation domains to ensure broad applicability and robust validation: (1) Microlens [18], a micro-video recommendation dataset; (2) Amazon Baby [6], from the ecommerce domain, representing dense purchasing behavior in the baby product category; and (3) Amazon Games [16], which reflects user preferences in the digital goods sector.；划分：8:1:1
+- **基线与对照**：Table 3: The Statistics of Datasets <table><tr><td>Dataset</td><td>Microlens</td><td>Amazon Baby</td><td>Amazon Game</td></tr><tr><td>#User</td><td>25411</td><td>41081</td><td>38808</td></tr><tr><td>#Item</td><td>20276</td><td>14393</td><td>13379</td></tr><tr><td>#Interaction</td><td>223263</td><td>400876</td><td>352136</td></tr><tr><td>#Avg Seqlen</td><td>11.35</td><td>13.65</td><td>13.23</td></tr></table> ## 4.2 Experimental Setup To assess the performance of baseline and our proposed method for multimodal sequential recommendations, we utilize HR@5, NDCG@5 and AUC as evaluation metrics.；## 4.3 Baseline To evaluate the efectiveness of our proposed method, we select several mainstream methods for comparison covering four categories of recommendation systems: 1.；## 4.4 Main Results Table 4 presents a comparison between our proposed MMSRARec and baseline methods across three real-world datasets.
+- **评价指标**：HR@5、NDCG@5、AUC、HITRATE
+- **实现环境与关键参数**：硬件：8×A800；框架：PyTorch
+
+> 实验条件由 Summary 2.0 从解析原文提取；证据锚点：ev-experiment-01。
+
+## 实验效果
+
+MMSRARec在三个数据集上均取得最佳或次优结果。在Microlens上HR@5达85.09（次优81.32），AUC达84.36；Amazon Baby上HR@5达81.50（次优77.61），AUC达85.27；Amazon Games上HR@5达83.74（次优79.86），AUC达85.81。相比MLLM-MSR（需6次推理，耗时7.35s），MMSRARec仅需1次推理，耗时0.73s（Qwen2.5VL-7B），性能显著提升。
+
+## 对推荐系统 Agent 开发的借鉴
+
+对推荐Agent开发有重要借鉴价值：1）算法设计上，摘要+检索增强的范式可被Agent用于压缩用户画像和引入外部知识，RLVR奖励设计（信息性、重构性、长度）可指导Agent生成更精准的摘要；2）评估方法上，HR/NDCG/AUC指标及消融实验设计（分阶段移除组件）可直接复用；3）系统架构上，离线摘要+在线推理的分离设计降低了Agent的实时计算压力，多任务指令微调策略可增强Agent对多样化推荐场景的适应能力；4）数据处理上，将协同信号转化为自然语言关键词的方法，为Agent融合结构化与非结构化信息提供了新思路。
