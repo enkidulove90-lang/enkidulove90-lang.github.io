@@ -139,12 +139,15 @@ def blocks_children(block_id):
 
 def page_to_md(page):
     props = page["properties"]
-    title = plain(props["title"]["title"]) if "title" in props else plain(props["Title"]["title"])
-    tags = [plain(t["name"]) for t in props["tags"]["multi_select"]]
-    category = plain(props["category"]["select"]["name"]) if props["category"]["select"] else "未分类"
-    slug = plain(props["slug"]["rich_text"]) or slugify(title, page["id"])
-    summary = plain(props["summary"]["rich_text"])
-    date = (page["properties"]["date"]["date"] or {}).get("start", page["created_time"][:10])
+    title = plain((props.get("title") or props.get("Title") or {}).get("title", []))
+    if not title:
+        raise ValueError("标题为空，已跳过（请在 Notion 里填上 title）")
+    tags = [t.get("name", "") for t in (props.get("tags") or {}).get("multi_select", [])]
+    sel = (props.get("category") or {}).get("select") or {}
+    category = sel.get("name") or "未分类"
+    slug = plain((props.get("slug") or {}).get("rich_text", [])) or slugify(title, page["id"])
+    summary = plain((props.get("summary") or {}).get("rich_text", []))
+    date = ((props.get("date") or {}).get("date") or {}).get("start") or page["created_time"][:10]
 
     md = ["---", f"title: {title}", f"date: {date}", f"categories: [{category}]",
           f"tags: [{', '.join(tags)}]"]
@@ -196,6 +199,9 @@ def main():
         cur = d.get("next_cursor")
     json.dump(state, open(STATE, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(f"sync done: {n_new} updated, {n_skip} unchanged")
+    if n_new + n_skip == 0:
+        print("warn: 查询命中 0 条 —— 检查 status 是否正好是 Published、type 是否正好是 Post，"
+              "以及该数据库是否已 Connect 到这个 integration", file=sys.stderr)
 
 
 if __name__ == "__main__":
