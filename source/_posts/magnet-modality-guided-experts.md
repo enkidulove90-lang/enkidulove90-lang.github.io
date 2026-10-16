@@ -4,6 +4,7 @@ date: 2026-10-16 12:42:00
 categories: [多模态推荐]
 tags: [多模态, 专家网络, 图推荐]
 slug: magnet-modality-guided-experts
+cover: https://picsum.photos/seed/magnet-modality-guided-experts/1200/630
 description: "提出\"模态组×专家族\"结构化专家空间: 3模态组(行为/视觉/语义)×3专家族(主导/均衡/互补)。熵触发两阶段路由替代静态负载均衡。"
 ---
 

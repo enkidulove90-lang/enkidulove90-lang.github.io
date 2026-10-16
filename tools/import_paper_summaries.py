@@ -126,13 +126,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("summaries_dir", help="论文摘要目录（data/summaries）")
     ap.add_argument("--dry-run", action="store_true", help="只报告，不写文件")
+    ap.add_argument("--force", action="store_true",
+                    help="覆盖已存在的文章（默认跳过，避免冲掉手工精修过的版本）")
     args = ap.parse_args()
 
     if not os.path.isdir(args.summaries_dir):
         sys.exit(f"目录不存在: {args.summaries_dir}")
     os.makedirs(POSTS, exist_ok=True)
 
-    ok, rejected = 0, []
+    ok, rejected, skipped = 0, [], []
     for idx, item in enumerate(MANIFEST):
         src = os.path.join(args.summaries_dir, item["file"])
         if not os.path.exists(src):
@@ -164,6 +166,9 @@ def main():
             f"categories: [{item['category']}]",
             "tags: [" + ", ".join(item["tags"]) + "]",
             "slug: " + item["slug"],
+            # 每篇一张唯一且稳定的在线封面（seed = slug），不占本地空间；
+            # 主题会用 cover 同时驱动文章标头、上/下一篇卡片、列表卡片
+            f"cover: https://picsum.photos/seed/{item['slug']}/1200/630",
         ]
         if desc:
             fm.append("description: " + json.dumps(desc, ensure_ascii=False))
@@ -171,6 +176,9 @@ def main():
         post = "\n".join(fm) + "\n\n" + body + "\n"
 
         out = os.path.join(POSTS, item["slug"] + ".md")
+        if os.path.exists(out) and not args.force:
+            skipped.append((item["slug"], "文章已存在（可能手工精修过），需 --force 才覆盖"))
+            continue
         if not args.dry_run:
             with open(out, "w", encoding="utf-8", newline="\n") as f:
                 f.write(post)
@@ -178,7 +186,9 @@ def main():
         extra = f"  [已截断内部章节: {cut}]" if cut else ""
         print(f"  + {title}  ->  {item['slug']}.md  ({len(post)}B){extra}")
 
-    print(f"\n写入 {ok} 篇，拒绝 {len(rejected)} 篇")
+    print(f"\n写入 {ok} 篇，跳过 {len(skipped)} 篇，拒绝 {len(rejected)} 篇")
+    for name, why in skipped:
+        print(f"  - 跳过 {name}: {why}")
     for name, why in rejected:
         print(f"  ! {name}: {why}", file=sys.stderr)
     return 1 if rejected else 0

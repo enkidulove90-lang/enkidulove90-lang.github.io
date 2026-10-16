@@ -4,6 +4,7 @@ date: 2026-10-16 12:48:00
 categories: [LLM与生成式推荐]
 tags: [LLM, 去噪, 推荐系统]
 slug: llm-denoising-recommendation
+cover: https://picsum.photos/seed/llm-denoising-recommendation/1200/630
 description: "本文提出LLaRD框架，首次系统性地利用大语言模型（LLM）的世界知识和推理能力来增强推荐系统的去噪能力。通过LLM生成偏好知识和关系知识，并利用信息瓶颈（IB）原理对齐去噪知识与…"
 ---
 

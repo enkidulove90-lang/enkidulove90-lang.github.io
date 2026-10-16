@@ -4,6 +4,7 @@ date: 2026-10-16 12:49:00
 categories: [LLM与生成式推荐]
 tags: [LLM, 多阶段推荐, 级联架构]
 slug: llm-multi-stage-recommendation
+cover: https://picsum.photos/seed/llm-multi-stage-recommendation/1200/630
 description: "本文系统性地研究了将大型语言模型（LLM）注入推荐系统全流程（召回、粗排、精排、重排）的方法。论文分析了在每个阶段引入LLM所带来的延迟与精度的权衡，并针对生产系统提出了具体的优化…"
 ---
 

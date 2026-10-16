@@ -4,6 +4,7 @@ date: 2026-10-16 12:43:00
 categories: [多模态推荐]
 tags: [多模态, 大语言模型, 检索增强]
 slug: multimodal-summary-rag-seqrec
+cover: https://picsum.photos/seed/multimodal-summary-rag-seqrec/1200/630
 description: "提出MMSRARec，一种基于多模态大语言模型（MLLM）的序列推荐方法。该方法通过三个核心阶段：1）利用强化学习（RLVR）将多模态物品信息自适应摘要为可解释的关键词；2）通过检…"
 ---
 

@@ -4,6 +4,7 @@ date: 2026-10-16 14:10:00
 categories: [知识图谱推荐]
 tags: [知识图谱, 检索增强, 混合专家, LLM推荐]
 slug: mixragrec-moe-kg-retrieval
+cover: https://picsum.photos/seed/mixragrec-moe-kg-retrieval/1200/630
 description: "把「检索三元组还是子图」从一个超参数，变成一个由查询难度决定、并且能被训练信号直接监督的动作——这是 MixRAGRec 最值得看的地方。"
 ---
 
