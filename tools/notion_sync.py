@@ -26,6 +26,7 @@ DB = os.environ.get("NOTION_DATABASE_ID", "").strip()
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 POSTS = os.path.join(ROOT, "source", "_posts")
 IMAGES = os.path.join(ROOT, "source", "images")
+PAPERS = os.path.join(ROOT, "source", "papers")
 STATE = os.path.join(ROOT, "tools", ".notion_state.json")
 H = {"Authorization": f"Bearer {TOKEN}", "Notion-Version": VER, "Content-Type": "application/json"}
 
@@ -51,16 +52,22 @@ def slugify(title, page_id):
     return (s or "post") + "-" + page_id.replace("-", "")[:8]
 
 
-def download(url, name):
-    """下载图片到 source/images/，返回本地相对路径。"""
-    os.makedirs(IMAGES, exist_ok=True)
-    path = os.path.join(IMAGES, name)
+def download_to(url, name, destination, public_prefix):
+    """下载 Notion 临时文件到稳定的站点目录。"""
+    os.makedirs(destination, exist_ok=True)
+    name = os.path.basename(name)
+    path = os.path.join(destination, name)
     if not os.path.exists(path):  # 增量：已下载过的不重复拉
         rr = requests.get(url, timeout=120)
         rr.raise_for_status()
         with open(path, "wb") as f:
             f.write(rr.content)
-    return "/images/" + name
+    return public_prefix.rstrip("/") + "/" + name
+
+
+def download(url, name):
+    """下载图片到 source/images/，返回本地相对路径。"""
+    return download_to(url, name, IMAGES, "/images")
 
 
 def blocks_rich_to_md(rich):
@@ -104,13 +111,23 @@ def block_to_md(b):
         lines.append("---")
     elif t == "image":
         src = v.get("file", {}).get("url") or (v.get("external", {}).get("url") or "")
+        alt = blocks_rich_to_md(v.get("caption", []))
         if src.startswith("https://prod-files-secure") or "notion.so" in urllib.parse.urlparse(src).netloc:
             name = hashlib.md5(src.encode()).hexdigest() + ".png"
             try:
                 src = download(src, name)
             except Exception as e:
                 print(f"  ! image download failed: {e}", file=sys.stderr)
-        lines.append(f"![]({src})")
+        lines.append(f"![{alt}]({src})")
+    elif t == "file":
+        src = v.get("file", {}).get("url") or (v.get("external", {}).get("url") or "")
+        name = os.path.basename(v.get("name") or urllib.parse.urlparse(src).path) or "paper.pdf"
+        if src.startswith("https://prod-files-secure") or "notion.so" in urllib.parse.urlparse(src).netloc:
+            try:
+                src = download_to(src, name, PAPERS, "/papers")
+            except Exception as e:
+                print(f"  ! file download failed: {e}", file=sys.stderr)
+        lines.append(f"[{name}]({src})")
     elif t == "bookmark" or t == "link_preview":
         lines.append(v.get("url", ""))
     elif t == "child_page":
@@ -156,6 +173,7 @@ def page_to_md(page):
     year = ((props.get("year") or {}).get("select") or {}).get("name") or str(date)[:4]
     venue_type = ((props.get("venue_type") or {}).get("select") or {}).get("name") or "arXiv预印本"
     venue_name = plain((props.get("venue_name") or {}).get("rich_text", []))
+    arxiv_id = plain((props.get("arxiv_id") or {}).get("rich_text", []))
 
     # 三维分类落地：Notion 的 category 写「领域大类 / 二级分类」（斜杠或逗号分隔），
     # tags 放「任务场景 + 技术方法」；Hexo 侧 categories 支持两级、tags 为标签云
@@ -170,6 +188,8 @@ def page_to_md(page):
         md.append(f"slug: {slug}")
     if summary:
         md.append(f"description: {summary}")
+    if arxiv_id:
+        md.append("arxiv_id: " + json.dumps(arxiv_id, ensure_ascii=False))
     # 封面不写死：交给主题的 cover.default_cover 池在每次构建时随机分配
     # （池内是固定 seed 图，有 30 天 immutable 缓存，不影响加载速度）
     md.append("---", )

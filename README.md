@@ -31,7 +31,9 @@ GitHub Pages             https://enkidulove90-lang.github.io（从 main 根发�
 
 ## Notion 数据库字段（必填）
 
-`title`(title) · `status`(select: **Published**/Invisible) · `type`(select: **Post**) · `slug`(rich_text，可空自动生成) · `summary`(rich_text，可空) · `date`(date) · `category`(select) · `tags`(multi_select)
+`title`(title) · `status`(select: **Published**/Invisible) · `type`(select: **Post**) · `slug`(rich_text，可空自动生成) · `summary`(rich_text，可空) · `date`(date) · `category`(select) · `tags`(multi_select) · `arxiv_id`(rich_text，论文条目的幂等键)
+
+论文批量导入默认只做 dry-run。新建论文文章明确附带本地源 PDF 时，才把 PDF 上传到对应 Notion 页面；已有文章如果原本没有源文件块，不会自动回填。Notion 文件上传使用 API `2026-03-11`，大于 20 MiB 的文件自动走 multipart。
 
 > 若你的 `status` 字段是 checkbox 而非 select，改 `tools/notion_sync.py` 里 `pq` 的过滤器。
 

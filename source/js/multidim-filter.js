@@ -12,7 +12,7 @@
 (function () {
   'use strict';
 
-  var state = { domain: '', year: '', venueType: '', venue: '' };
+  var state = { domain: '', year: '', month: '', venueType: '', venue: '' };
   var INDEX = [];
   var MOUNTED = false;
 
@@ -84,8 +84,11 @@
 
   function groupHtml(name, count, subs, dim) {
     var subHtml = subs.map(function (kv) {
-      return '<div class="md-sub" data-dim="' + dim + '" data-val="' + esc(kv[0]) +
-        '"><span class="md-sub-name">' + esc(kv[0]) + '</span><span class="md-count">' + kv[1] + '</span></div>';
+      var value = kv.length > 2 ? kv[2] : kv[0];
+      var month = kv.length > 3 ? ' data-month="' + esc(kv[3]) + '"' : '';
+      return '<div class="md-sub" data-dim="' + dim + '" data-val="' + esc(value) +
+        '" data-parent="' + esc(name) + '"' + month + '><span class="md-sub-name">' +
+        esc(kv[0]) + '</span><span class="md-count">' + kv[1] + '</span></div>';
     }).join('');
     return '<div class="md-group" data-group="' + esc(name) + '">' +
       '<div class="md-group-head"><span class="md-caret">▶</span>' +
@@ -106,7 +109,9 @@
     }).join('');
 
     var yearHtml = sortedEntries(a.years, 'name').reverse().map(function (kv) {
-      var months = sortedEntries(kv[1].months, 'name').reverse().map(function (s) { return [monthLabel(s[0]), s[1]]; });
+      var months = sortedEntries(kv[1].months, 'name').reverse().map(function (s) {
+        return [monthLabel(s[0]), s[1], kv[0], s[0]];
+      });
       return groupHtml(kv[0], kv[1].n, months, 'year');
     }).join('');
 
@@ -147,14 +152,18 @@
     if (sub) {
       var dim = sub.getAttribute('data-dim');
       var val = sub.getAttribute('data-val');
+      var parent = sub.getAttribute('data-parent') || '';
+      var month = sub.getAttribute('data-month') || '';
       var wasActive = sub.classList.contains('is-active');
       sub.parentNode.parentNode.querySelectorAll('.md-sub.is-active').forEach(function (n) { n.classList.remove('is-active'); });
       if (wasActive) {
         if (dim === 'venueType') { state.venueType = ''; state.venue = ''; }
+        else if (dim === 'year') { state.year = ''; state.month = ''; }
         else state[dim] = '';
       } else {
         sub.classList.add('is-active');
-        if (dim === 'venueType') { state.venueType = val; state.venue = ''; }
+        if (dim === 'venueType') { state.venueType = parent || val; state.venue = val; }
+        else if (dim === 'year') { state.year = val; state.month = month; }
         else state[dim] = val;
       }
       render();
@@ -175,6 +184,7 @@
   function match(p) {
     if (state.domain && p.cats.indexOf(state.domain) < 0) return false;
     if (state.year && String(p.year || String(p.date).slice(0, 4)) !== state.year) return false;
+    if (state.month && String(p.date).slice(5, 7) !== state.month) return false;
     if (state.venueType && (p.venue_type || '未标注') !== state.venueType) return false;
     if (state.venue && p.venue_name !== state.venue) return false;
     return true;
@@ -187,7 +197,7 @@
   function barHtml(n) {
     var chips = '';
     if (state.domain) chips += chip('领域', state.domain, 'domain');
-    if (state.year) chips += chip('年份', state.year, 'year');
+    if (state.year) chips += chip('年份', state.year + (state.month ? '-' + state.month : ''), 'year');
     if (state.venueType) chips += chip('类型', state.venueType, 'venueType');
     if (state.venue) chips += chip('出处', state.venue, 'venue');
     return '<span>筛选结果 <b class="md-hint">' + n + ' 篇</b></span>' + chips +
@@ -200,15 +210,23 @@
   }
 
   function itemHtml(p) {
-    var cats = p.cats.slice(0, 2).map(function (c) {
-      return '<a href="/categories/' + encodeURIComponent(c) + '/" class="post-meta-categories">' + esc(c) + '</a>';
+    var cats = p.cats.slice(0, 2).map(function (c, index) {
+      var path = p.cats.slice(0, index + 1).map(encodeURIComponent).join('/');
+      return '<a href="/categories/' + path + '/" class="post-meta-categories">' + esc(c) + '</a>';
     }).join(', ');
     var meta = [p.year, p.venue_name,
       '<span class="post-meta-date-created">' + esc(p.date) + '</span>'].filter(Boolean).join(' · ');
-    return '<div class="recent-post-item" style="height:auto;width:100%;display:block">' +
-      '<div class="recent-post-info no-cover">' +
-      '<a class="article-title" href="' + esc(p.url) + '">' + esc(p.title) + '</a>' +
+    var cover = p.cover
+      ? '<div class="post_cover left"><a href="' + esc(p.url) + '" title="' + esc(p.title) + '">' +
+        '<img class="post-bg" src="' + esc(p.cover) + '" alt="' + esc(p.title) + '" loading="lazy"></a></div>'
+      : '';
+    var infoClass = cover ? 'recent-post-info' : 'recent-post-info no-cover';
+    var excerpt = p.excerpt ? '<div class="content">' + esc(p.excerpt) + '</div>' : '';
+    return '<div class="recent-post-item">' + cover +
+      '<div class="' + infoClass + '">' +
+      '<a class="article-title" href="' + esc(p.url) + '" title="' + esc(p.title) + '">' + esc(p.title) + '</a>' +
       '<div class="article-meta-wrap">' + cats + ' · ' + meta + '</div>' +
+      excerpt +
       '</div></div>';
   }
 
@@ -218,11 +236,14 @@
   }
 
   function host() {
-    // 正文主区：优先 #recent-posts 的父容器，其次 #content-inner
-    var rp = document.getElementById('recent-posts');
-    if (rp && rp.parentNode) return { main: rp.parentNode, list: rp };
-    var ci = document.getElementById('content-inner') || document.querySelector('.layout');
-    if (ci) return { main: ci, list: null };
+    // 把筛选结果放到当前正文组件的同级位置，避免插入 #content-inner 后破坏主题布局。
+    var original = document.getElementById('recent-posts') ||
+      document.getElementById('archive') ||
+      document.getElementById('category') ||
+      document.getElementById('tag') ||
+      document.getElementById('post') ||
+      document.getElementById('page');
+    if (original && original.parentNode) return { main: original.parentNode, list: original };
     return null;
   }
 
@@ -241,7 +262,7 @@
     if (!list) {
       list = document.createElement('div');
       list.id = 'md-results';
-      list.className = 'recent-posts';
+      list.className = 'recent-posts md-results';
     }
 
     if (activeCount() === 0) {
@@ -253,6 +274,7 @@
     }
 
     var hits = INDEX.filter(match);
+    bar.className = 'md-active-bar is-on';
     bar.innerHTML = barHtml(hits.length);
     list.innerHTML = hits.length
       ? hits.map(itemHtml).join('')
@@ -265,11 +287,12 @@
       var rm = e.target.getAttribute && e.target.getAttribute('data-remove');
       if (rm) {
         if (rm === 'venueType') { state.venueType = ''; state.venue = ''; } else state[rm] = '';
+        if (rm === 'year') state.month = '';
         syncCard(); render();
         return;
       }
       if (e.target.getAttribute && e.target.getAttribute('data-clear')) {
-        state = { domain: '', year: '', venueType: '', venue: '' };
+        state = { domain: '', year: '', month: '', venueType: '', venue: '' };
         syncCard(); render();
       }
     };
@@ -280,9 +303,11 @@
     if (!card) return;
     card.querySelectorAll('.md-sub').forEach(function (n) {
       var dim = n.getAttribute('data-dim'), val = n.getAttribute('data-val');
+      var parent = n.getAttribute('data-parent') || '';
+      var month = n.getAttribute('data-month') || '';
       var on = (dim === 'domain' && state.domain === val) ||
-               (dim === 'year' && state.year === val) ||
-               (dim === 'venueType' && state.venueType === val);
+               (dim === 'year' && state.year === val && state.month === month) ||
+               (dim === 'venueType' && state.venueType === parent && state.venue === val);
       n.classList.toggle('is-active', !!on);
     });
   }
@@ -291,7 +316,7 @@
   function applyFromQuery() {
     var q = new URLSearchParams(location.search);
     var any = false;
-    ['domain', 'year', 'venueType', 'venue'].forEach(function (k) {
+    ['domain', 'year', 'month', 'venueType', 'venue'].forEach(function (k) {
       var v = q.get('f_' + k);
       if (v) { state[k] = v; any = true; }
     });
