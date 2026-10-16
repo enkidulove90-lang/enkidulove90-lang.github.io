@@ -41,12 +41,13 @@ MANIFEST = [
     {"file": "2505.20773_冷启动推荐的知识引导检索增强生成_summary.md", "category": "知识图谱推荐",
      "tags": ["知识图谱", "检索增强", "冷启动"], "slug": "kg-guided-rag-cold-start"},
     # —— LLM 与生成式推荐 ——
-    {"file": "2505.00556_生成式检索推荐综述_summary.md", "category": "LLM与生成式推荐",
-     "tags": ["生成式推荐", "检索", "综述"], "slug": "generative-retrieval-survey"},
+    # 注意：以下两篇已移出（不是笔误）。它们的 arXiv 编号在摘要库里挂错，
+    # 反查 OpenAlex/arXiv 均未找到标题对应的真实论文，疑似摘要系凭空生成：
+    #   · 2505.00556 → 实际是数学论文 "WHEN IS A + xA = R"
+    #   · 2504.00678 → 实际是 "RapidPD: 人宠 Wi-Fi 检测"
+    # 文章已挪到 source/_drafts/，等补到真实原文再恢复，切莫加回本清单。
     {"file": "2502.09058_LLM增强的推荐去噪框架_summary.md", "category": "LLM与生成式推荐",
      "tags": ["LLM", "去噪", "推荐系统"], "slug": "llm-denoising-recommendation"},
-    {"file": "2504.00678_LLM增强的多阶段推荐系统_summary.md", "category": "LLM与生成式推荐",
-     "tags": ["LLM", "多阶段推荐", "级联架构"], "slug": "llm-multi-stage-recommendation"},
 ]
 
 # 命中即截断的章节标题（内部内容，不公开）
