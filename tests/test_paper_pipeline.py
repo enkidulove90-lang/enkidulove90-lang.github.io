@@ -159,6 +159,18 @@ class PaperPipelineTest(unittest.TestCase):
 
         self.assertIn('arxiv_id: "2401.00001"', markdown)
 
+    def test_empty_notion_body_does_not_overwrite_existing_essay(self):
+        destination = self.root / "hello-rec.md"
+        existing = "---\ntitle: Hello, Rec\n---\n\n我永远喜欢推荐系统。\n"
+        destination.write_text(existing, encoding="utf-8")
+        generated = "---\ntitle: hello rec\n---\n\n"
+
+        preserved = notion_sync.preserve_existing_post_when_remote_body_is_empty(
+            generated, destination
+        )
+
+        self.assertEqual(preserved, existing)
+
 
 if __name__ == "__main__":
     unittest.main()

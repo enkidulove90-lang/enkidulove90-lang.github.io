@@ -198,6 +198,19 @@ def page_to_md(page):
     return "\n\n".join(md) + "\n"
 
 
+def preserve_existing_post_when_remote_body_is_empty(generated_md, destination):
+    """Do not replace a complete local essay with an empty Notion page."""
+    generated_parts = generated_md.split("---", 2)
+    generated_body = generated_parts[2].strip() if len(generated_parts) == 3 else ""
+    if generated_body or not os.path.exists(destination):
+        return generated_md
+    with open(destination, encoding="utf-8") as handle:
+        existing_md = handle.read()
+    existing_parts = existing_md.split("---", 2)
+    existing_body = existing_parts[2].strip() if len(existing_parts) == 3 else ""
+    return existing_md if existing_body else generated_md
+
+
 def main():
     # 未配置 Secrets 时优雅跳过，保证站点仍能正常构建
     if not TOKEN or not DB:
@@ -224,7 +237,9 @@ def main():
                 md = page_to_md(page)
                 title = re.search(r"title: (.+)", md).group(1)
                 fn = slugify(title, pid) + ".md"
-                open(os.path.join(POSTS, fn), "w", encoding="utf-8").write(md)
+                destination = os.path.join(POSTS, fn)
+                md = preserve_existing_post_when_remote_body_is_empty(md, destination)
+                open(destination, "w", encoding="utf-8").write(md)
                 state[pid] = edited
                 n_new += 1
                 print(f"  + {title}")
