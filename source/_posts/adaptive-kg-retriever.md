@@ -4,7 +4,6 @@ date: 2026-10-16 12:45:00
 categories: [知识图谱推荐]
 tags: [知识图谱, 检索增强, 自适应检索]
 slug: adaptive-kg-retriever
-cover: https://picsum.photos/seed/adaptive-kg-retriever/1200/630
 description: "提出ARK（自适应知识检索器），一种无需训练的检索框架，通过为语言模型提供全局搜索和邻域探索两个最小工具接口，使其能够自适应地在知识图谱上进行广度优先的全局搜索和深度优先的多跳推理…"
 ---
 

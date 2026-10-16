@@ -166,9 +166,9 @@ def main():
             f"categories: [{item['category']}]",
             "tags: [" + ", ".join(item["tags"]) + "]",
             "slug: " + item["slug"],
-            # 每篇一张唯一且稳定的在线封面（seed = slug），不占本地空间；
-            # 主题会用 cover 同时驱动文章标头、上/下一篇卡片、列表卡片
-            f"cover: https://picsum.photos/seed/{item['slug']}/1200/630",
+            # 封面不写死：交给主题的 cover.default_cover 池在每次构建时随机分配
+            # （池内是固定 seed 图，fastly 有 30 天 immutable 缓存，故不影响加载速度；
+            #  若要给某篇钉死封面，在这里补一行 cover: <url> 即可）
         ]
         if desc:
             fm.append("description: " + json.dumps(desc, ensure_ascii=False))

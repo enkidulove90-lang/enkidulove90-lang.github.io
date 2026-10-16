@@ -155,9 +155,8 @@ def page_to_md(page):
         md.append(f"slug: {slug}")
     if summary:
         md.append(f"description: {summary}")
-    # 每篇一张唯一且稳定的在线封面（seed = slug），不占本地空间；
-    # 主题会用 cover 同时驱动文章标头、上/下一篇卡片、列表卡片
-    md.append(f"cover: https://picsum.photos/seed/{urllib.parse.quote(slug)}/1200/630")
+    # 封面不写死：交给主题的 cover.default_cover 池在每次构建时随机分配
+    # （池内是固定 seed 图，有 30 天 immutable 缓存，不影响加载速度）
     md.append("---", )
     body = blocks_children(page["id"])
     md.extend(block_to_md(b) for b in body)

@@ -4,7 +4,6 @@ date: 2026-10-16 12:47:00
 categories: [LLM与生成式推荐]
 tags: [生成式推荐, 检索, 综述]
 slug: generative-retrieval-survey
-cover: https://picsum.photos/seed/generative-retrieval-survey/1200/630
 description: "本文对推荐系统中生成式检索方法进行了全面综述，涵盖了从序列到序列的Item ID生成、语义ID方法，以及从传统两阶段（召回+排序）向统一生成式检索管道的转变。论文系统梳理了该领域的…"
 ---
 

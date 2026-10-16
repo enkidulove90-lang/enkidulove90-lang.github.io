@@ -4,7 +4,6 @@ date: 2026-10-16 12:46:00
 categories: [知识图谱推荐]
 tags: [知识图谱, 检索增强, 冷启动]
 slug: kg-guided-rag-cold-start
-cover: https://picsum.photos/seed/kg-guided-rag-cold-start/1200/630
 description: "提出ColdRAG框架，通过动态构建领域知识图谱和LLM引导的多跳推理，解决了冷启动推荐中静态知识图谱维护成本高、LLM依赖预过滤候选列表的问题。在三个Amazon数据集上，Rec…"
 ---
 

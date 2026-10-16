@@ -4,7 +4,6 @@ date: 2026-10-16 12:41:00
 categories: [多模态推荐]
 tags: [多模态, 频域建模, 自适应融合]
 slug: fitmm-frequency-aware-multimodal
-cover: https://picsum.photos/seed/fitmm-frequency-aware-multimodal/1200/630
 description: "将多模态推荐从空间域推向频域。理论证明高斯信息瓶颈(GIB)目标在正交变换下可按频带解耦，为\"先分离再融合\"范式提供理论保证。"
 ---
 
