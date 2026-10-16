@@ -21,8 +21,8 @@ import requests
 
 API = "https://api.notion.com/v1"
 VER = "2022-06-28"
-TOKEN = os.environ["NOTION_TOKEN"]
-DB = os.environ["NOTION_DATABASE_ID"]
+TOKEN = os.environ.get("NOTION_TOKEN", "").strip()
+DB = os.environ.get("NOTION_DATABASE_ID", "").strip()
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 POSTS = os.path.join(ROOT, "source", "_posts")
 IMAGES = os.path.join(ROOT, "source", "images")
@@ -159,6 +159,10 @@ def page_to_md(page):
 
 
 def main():
+    # 未配置 Secrets 时优雅跳过，保证站点仍能正常构建
+    if not TOKEN or not DB:
+        print("notion sync skipped: NOTION_TOKEN / NOTION_DATABASE_ID not set", file=sys.stderr)
+        return 0
     os.makedirs(POSTS, exist_ok=True)
     state = json.load(open(STATE, encoding="utf-8")) if os.path.exists(STATE) else {}
     pq = {"property": "status", "select": {"equals": "Published"}}  # 若 status 是 checkbox 改见 README
