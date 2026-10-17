@@ -1,0 +1,575 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>融合权重不该是常数：MAF-KGAT 的物品级模态自适应门控 | Enkidu's RecSys Frontier</title><meta name="author" content="Enkidu"><meta name="copyright" content="Enkidu"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="把视觉特征和 KG 结构特征按固定权重拼接，隐含了「每个物品的图片质量都差不多」这个假设。MAF-KGAT 用物品级门控 + 温度系数动态分配模态权重，并加门控正则防止训练早期关掉某个模态——随机扔掉 80% 图像后仍优于纯结构模型。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="融合权重不该是常数：MAF-KGAT 的物品级模态自适应门控">
+<meta property="og:url" content="https://enkidulove90-lang.github.io/article/maf-kgat-modality-adaptive-fusion/index.html">
+<meta property="og:site_name" content="Enkidu&#39;s RecSys Frontier">
+<meta property="og:description" content="把视觉特征和 KG 结构特征按固定权重拼接，隐含了「每个物品的图片质量都差不多」这个假设。MAF-KGAT 用物品级门控 + 温度系数动态分配模态权重，并加门控正则防止训练早期关掉某个模态——随机扔掉 80% 图像后仍优于纯结构模型。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://picsum.photos/seed/recsys-frontier-13/1200/630.webp">
+<meta property="article:published_time" content="2026-02-28T16:00:00.000Z">
+<meta property="article:modified_time" content="2026-10-17T19:38:53.142Z">
+<meta property="article:author" content="Enkidu">
+<meta property="article:tag" content="论文速读">
+<meta property="article:tag" content="知识图谱">
+<meta property="article:tag" content="多模态推荐">
+<meta property="article:tag" content="图神经网络">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://picsum.photos/seed/recsys-frontier-13/1200/630.webp"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "融合权重不该是常数：MAF-KGAT 的物品级模态自适应门控",
+  "url": "https://enkidulove90-lang.github.io/article/maf-kgat-modality-adaptive-fusion/",
+  "image": "https://picsum.photos/seed/recsys-frontier-13/1200/630.webp",
+  "datePublished": "2026-02-28T16:00:00.000Z",
+  "dateModified": "2026-10-17T19:38:53.142Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "Enkidu",
+      "url": "https://enkidulove90-lang.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://enkidulove90-lang.github.io/article/maf-kgat-modality-adaptive-fusion/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":false,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '融合权重不该是常数：MAF-KGAT 的物品级模态自适应门控',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><link rel="stylesheet" href="/css/left-nav.css"><link rel="stylesheet" href="/css/pages.css"><link rel="stylesheet" href="/css/share.css"><link rel="stylesheet" href="/css/filter.css"><meta name="generator" content="Hexo 7.3.0"></head><body><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">93</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">24</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">14</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/categories/%E6%8E%A8%E8%8D%90%E7%B3%BB%E7%BB%9F/"><i class="fa-fw fas fa-chart-line"></i><span> 推荐技术报告</span></a></div><div class="menus_item"><a class="site-page" href="/categories/AI/"><i class="fa-fw fas fa-robot"></i><span> AI 技术报告</span></a></div><div class="menus_item"><a class="site-page" href="/tags/%E8%AE%BA%E6%96%87%E9%80%9F%E8%AF%BB/"><i class="fa-fw fas fa-newspaper"></i><span> 论文速递</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 文章分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 文章标签</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 历史归档</span></a></div><div class="menus_item"><a class="site-page" href="/legacy/"><i class="fa-fw fas fa-clock-rotate-left"></i><span> 旧站存档</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://picsum.photos/seed/recsys-frontier-13/1200/630.webp);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Enkidu's RecSys Frontier</span></a><a class="nav-page-title" href="/"><span class="site-name">融合权重不该是常数：MAF-KGAT 的物品级模态自适应门控</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/categories/%E6%8E%A8%E8%8D%90%E7%B3%BB%E7%BB%9F/"><i class="fa-fw fas fa-chart-line"></i><span> 推荐技术报告</span></a></div><div class="menus_item"><a class="site-page" href="/categories/AI/"><i class="fa-fw fas fa-robot"></i><span> AI 技术报告</span></a></div><div class="menus_item"><a class="site-page" href="/tags/%E8%AE%BA%E6%96%87%E9%80%9F%E8%AF%BB/"><i class="fa-fw fas fa-newspaper"></i><span> 论文速递</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 文章分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 文章标签</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 历史归档</span></a></div><div class="menus_item"><a class="site-page" href="/legacy/"><i class="fa-fw fas fa-clock-rotate-left"></i><span> 旧站存档</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">融合权重不该是常数：MAF-KGAT 的物品级模态自适应门控</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-28T16:00:00.000Z" title="发表于 2026-03-01 00:00:00">2026-03-01</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-17T19:38:53.142Z" title="更新于 2026-10-18 03:38:53">2026-10-18</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E6%8E%A8%E8%8D%90%E7%B3%BB%E7%BB%9F/">推荐系统</a><i class="fas fa-angle-right post-meta-separator"></i><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E6%8E%A8%E8%8D%90%E7%B3%BB%E7%BB%9F/%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1/">知识图谱</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">2.7k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>9分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><blockquote>
+<p>论文：<a target="_blank" rel="noopener" href="https://doi.org/10.12677/csa.2026.163084">DOI</a></p>
+</blockquote>
+<p>多模态知识图谱推荐（MMKG Rec）的常见做法是：把视觉特征和知识图谱结构特征<strong>在节点层面拼起来或按固定权重相加</strong>，再送进图传播。这个做法有一个隐含假设——<strong>每个物品的视觉信息质量差不多</strong>。</p>
+<p>真实数据里这个假设不成立：有的商品图清晰、信息量大；有的就是一张白底图或者模板图；还有一部分物品根本没有图。固定权重在这种情况下会让模型继续”听”那些没信息量的视觉特征，把噪声当成信号传下去。</p>
+<p>MAF-KGAT 针对的就是这一点：<strong>融合权重不该是全局常数，而应该是每个物品自己算出来的</strong>。</p>
+<hr>
+<h2 id="一、方法：四层结构，门控在第三层之前发生"><a href="#一、方法：四层结构，门控在第三层之前发生" class="headerlink" title="一、方法：四层结构，门控在第三层之前发生"></a>一、方法：四层结构，门控在第三层之前发生</h2><p><img src="/images/mafkgat-framework.png" alt="MAF-KGAT 模型整体框架：输入层、表示学习层、图传播与任务层、损失函数"></p>
+<p>如上图（论文图 1），模型分四部分：输入层、表示学习层、图传播与任务层、损失函数。其中<strong>表示学习层里的模态自适应门控</strong>是整篇论文的核心改动。</p>
+<h3 id="1-输入：三类信号各自编码"><a href="#1-输入：三类信号各自编码" class="headerlink" title="1. 输入：三类信号各自编码"></a>1. 输入：三类信号各自编码</h3><ul>
+<li><strong>用户–物品交互图</strong>：协同过滤信号</li>
+<li>**知识图谱三元组 (h, r, t)**：物品的结构化关联</li>
+<li><strong>物品图像</strong>：用预训练 <strong>CLIP（ViT-B&#x2F;32）</strong> 提取 <strong>512 维</strong>视觉特征</li>
+</ul>
+<h3 id="2-视觉侧：投影到结构空间再融合"><a href="#2-视觉侧：投影到结构空间再融合" class="headerlink" title="2. 视觉侧：投影到结构空间再融合"></a>2. 视觉侧：投影到结构空间再融合</h3><p>原始视觉特征是 512 维，而结构嵌入是 64 维。论文没有直接拼接，而是先用一个<strong>投影模块（线性层 + LeakyReLU + Dropout）把 512 维视觉特征映射到 64 维</strong>——目的是让两种模态落在<strong>同一个度量空间</strong>里，否则”拼接”只是把两个量纲不同的向量接在一起，融合权重也就失去了可比性。</p>
+<h3 id="3-门控融合：物品级、动态、带温度系数"><a href="#3-门控融合：物品级、动态、带温度系数" class="headerlink" title="3. 门控融合：物品级、动态、带温度系数"></a>3. 门控融合：物品级、动态、带温度系数</h3><p>这是论文与 MKGAT 的核心区别。门控网络用<strong>两层 MLP + Softmax</strong>计算每个物品的模态权重：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">g_i = Gate( e_i^vis, e_i^struct ) ∈ [0, 1]        （物品 i 的门控值）</span><br></pre></td></tr></table></figure>
+
+<p>关键性质：</p>
+<ul>
+<li><strong>粒度是物品级</strong>：每个物品一个门控值，不是全数据集一个常数，也不是按类别分组的常数。这直接对应”模态质量因物品而异”这个现实。</li>
+<li><strong>带温度系数 T &#x3D; 0.5</strong>：Softmax 的温度控制权重分布的”软硬”。T 偏小会让门控趋近于硬选择（要么全靠视觉、要么全靠结构），T 偏大则退化为平均。0.5 是在两者之间取的折中。</li>
+<li><strong>语义是”偏向 ID 表示的程度”<strong>：门控值 <code>g_i ∈ [0,1]</code> 被定义为物品</strong>偏向协同过滤（ID embedding）表示的程度</strong>——也就是”视觉信息不可信时，往结构信号那边倒”。</li>
+</ul>
+<h3 id="4-图传播：KGAT-式的高阶聚合"><a href="#4-图传播：KGAT-式的高阶聚合" class="headerlink" title="4. 图传播：KGAT 式的高阶聚合"></a>4. 图传播：KGAT 式的高阶聚合</h3><p>门控融合后的物品表示进入<strong>知识感知注意力网络</strong>做高阶传播。聚合器用的是 <strong>Bi-Interaction</strong>：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">f(e_h, e_N(h)) = LeakyReLU( W1·(e_h + e_N(h)) + W2·(e_h ⊙ e_N(h)) )</span><br></pre></td></tr></table></figure>
+
+<p>即同时保留”加性项”与”元素级乘积项”，前者传递整体偏置，后者捕捉特征交叉。层维度设为 <strong>[64, 32, 16]<strong>，邻接矩阵用</strong>随机游走归一化</strong>稳定传播。</p>
+<h3 id="5-损失：三部分联合"><a href="#5-损失：三部分联合" class="headerlink" title="5. 损失：三部分联合"></a>5. 损失：三部分联合</h3><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">L_total = L_cf + α·L_kg + β·L_gate</span><br></pre></td></tr></table></figure>
+
+<p>三部分各有明确职责：</p>
+<table>
+<thead>
+<tr>
+<th>损失</th>
+<th>形式</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>L_cf</td>
+<td>BPR 成对排序损失</td>
+<td>用户–物品偏好主任务</td>
+</tr>
+<tr>
+<td>L_kg</td>
+<td>TransR 损失（<code>f(h,r,t) = ‖W_r·e_h + e_r − W_r·e_t‖²</code>）</td>
+<td>关系建模的区分性</td>
+</tr>
+<tr>
+<td>L_gate</td>
+<td>门控正则项</td>
+<td>约束门控值分布，先验均值 <strong>μ &#x3D; 0.5</strong></td>
+</tr>
+</tbody></table>
+<p><strong>门控正则这一项值得单独说</strong>：它约束门控值的分布不要偏离 0.5 太远。理由很直接——如果不加约束，门控网络容易在训练早期就把权重推向极端（例如全信结构、完全关掉视觉），从此不再利用另一模态。加正则相当于给融合比例一个”温和先验”：允许偏离，但别跑太远。</p>
+<p>另外 <code>L_kg</code> 与 <code>L_cf</code> 是<strong>交替优化</strong>的，用小批量 Adam 分别更新嵌入损失与预测损失。</p>
+<hr>
+<h2 id="二、实验"><a href="#二、实验" class="headerlink" title="二、实验"></a>二、实验</h2><h3 id="数据集"><a href="#数据集" class="headerlink" title="数据集"></a>数据集</h3><table>
+<thead>
+<tr>
+<th></th>
+<th>Amazon Books</th>
+<th>MovieLens</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>用户数</td>
+<td>70,679</td>
+<td>41,849</td>
+</tr>
+<tr>
+<td>物品数</td>
+<td>24,915</td>
+<td>4,828</td>
+</tr>
+<tr>
+<td>交互数</td>
+<td>847,733</td>
+<td>1,813,382</td>
+</tr>
+<tr>
+<td>实体数</td>
+<td>88,572</td>
+<td>65,801</td>
+</tr>
+<tr>
+<td>关系数</td>
+<td>39</td>
+<td>19</td>
+</tr>
+<tr>
+<td>三元组数</td>
+<td>2,557,746</td>
+<td>145,406</td>
+</tr>
+</tbody></table>
+<p>参数设置：用户&#x2F;实体&#x2F;关系嵌入均为 64 维，卷积层 <strong>[64, 32, 16]<strong>，Adam，学习率 1e−3，L2 系数 1e−5，验证集指标连续 10 轮无提升则早停；</strong>每个方法跑 10 次取平均</strong>。</p>
+<h3 id="主结果"><a href="#主结果" class="headerlink" title="主结果"></a>主结果</h3><table>
+<thead>
+<tr>
+<th>模型</th>
+<th>Amazon Books R@20</th>
+<th>Books NDCG@20</th>
+<th>MovieLens R@20</th>
+<th>ML NDCG@20</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>NFM（协同过滤）</td>
+<td>0.1323</td>
+<td>0.0847</td>
+<td>0.3520</td>
+<td>0.4632</td>
+</tr>
+<tr>
+<td>CKE</td>
+<td>0.1311</td>
+<td>0.0852</td>
+<td>0.3585</td>
+<td>0.4661</td>
+</tr>
+<tr>
+<td>CFKG</td>
+<td>0.1109</td>
+<td>0.0755</td>
+<td>0.3447</td>
+<td>0.4520</td>
+</tr>
+<tr>
+<td>RippleNet</td>
+<td>0.1270</td>
+<td>0.0883</td>
+<td>0.3627</td>
+<td>0.4718</td>
+</tr>
+<tr>
+<td>KGAT</td>
+<td>0.1443</td>
+<td>0.0971</td>
+<td>0.3750</td>
+<td>0.4793</td>
+</tr>
+<tr>
+<td>MMGCN</td>
+<td>0.1500</td>
+<td>0.1011</td>
+<td>0.3900</td>
+<td>0.4977</td>
+</tr>
+<tr>
+<td>MKGAT（最接近的工作）</td>
+<td>0.1539</td>
+<td>0.1036</td>
+<td>0.3978</td>
+<td>0.5081</td>
+</tr>
+<tr>
+<td><strong>MAF-KGAT</strong></td>
+<td><strong>0.1603</strong></td>
+<td><strong>0.1072</strong></td>
+<td><strong>0.4121</strong></td>
+<td><strong>0.5230</strong></td>
+</tr>
+<tr>
+<td>相对提升</td>
+<td>+4.2%</td>
+<td>+3.5%</td>
+<td>+3.6%</td>
+<td>+2.9%</td>
+</tr>
+</tbody></table>
+<p>相对提升是对 <strong>MKGAT</strong>（最接近的工作，同样是 KGAT + 视觉特征）算的。这个对照很关键：它把”加视觉模态”和”<strong>动态</strong>融合视觉模态”两件事分开了——涨点来自后者。</p>
+<p>值得注意的是基线里 KGAT（0.1443）已经强于多数协同过滤方法，而加上视觉的 MKGAT 到 0.1539，再换成自适应门控是 0.1603。<strong>三步各贡献一段，不是一步到位。</strong></p>
+<h3 id="消融：动态-vs-静态"><a href="#消融：动态-vs-静态" class="headerlink" title="消融：动态 vs. 静态"></a>消融：动态 vs. 静态</h3><p>在 Amazon Books 上拆融合策略：</p>
+<table>
+<thead>
+<tr>
+<th>变体</th>
+<th>Recall@20</th>
+<th>NDCG@20</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Base（KGAT，无图像）</td>
+<td>0.1462</td>
+<td>0.0968</td>
+</tr>
+<tr>
+<td>+ 图像（简单拼接）</td>
+<td>0.1504</td>
+<td>0.1007</td>
+</tr>
+<tr>
+<td>+ 图像（线性融合）</td>
+<td>0.1556</td>
+<td>0.1031</td>
+</tr>
+<tr>
+<td><strong>完整模型（自适应门控）</strong></td>
+<td><strong>0.1603</strong></td>
+<td><strong>0.1072</strong></td>
+</tr>
+</tbody></table>
+<p>相对 Base，完整模型 <strong>Recall@20 +9.6%、NDCG@20 +10.7%<strong>。而”线性融合”到”自适应门控”这一步的增量是 0.1556 → 0.1603——</strong>说明在已经用了模态的情况下，动态权重还能再挤出 3 个点</strong>。这也是全篇最核心的实验结论。</p>
+<h3 id="超参数敏感性"><a href="#超参数敏感性" class="headerlink" title="超参数敏感性"></a>超参数敏感性</h3><p><strong>嵌入维度</strong>（论文图 2）：</p>
+<p><img src="/images/mafkgat-dimension.png" alt="嵌入维度对性能的影响：64 维最优，过小受限、过大引入冗余"></p>
+<p>64 维最佳；维度太小表达力不足，太大则引入冗余并轻微退化——典型的”容量并非越大越好”。这与 KGAT 类模型的常见结论一致。</p>
+<p><strong>门控偏置初始化</strong>（表 4）：</p>
+<table>
+<thead>
+<tr>
+<th>偏置 g 初始化</th>
+<th>Recall@20</th>
+<th>NDCG@20</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>0.1</td>
+<td>0.1567</td>
+<td>0.1043</td>
+</tr>
+<tr>
+<td>0.3</td>
+<td>0.1556</td>
+<td>0.1023</td>
+</tr>
+<tr>
+<td>0.5</td>
+<td>0.1590</td>
+<td>0.1065</td>
+</tr>
+<tr>
+<td>0.7</td>
+<td>0.1564</td>
+<td>0.1045</td>
+</tr>
+<tr>
+<td><strong>0.9</strong></td>
+<td><strong>0.1603</strong></td>
+<td><strong>0.1072</strong></td>
+</tr>
+</tbody></table>
+<p>偏置越大，训练初期越偏向结构信息。结果上 0.9 最优，0.1 到 0.9 的波动在 0.1556–0.1603 之间，整体<strong>比较平滑</strong>——论文据此认为模型对该超参不敏感，实践上不必精调。</p>
+<p><strong>模型深度</strong>（表 5）：</p>
+<table>
+<thead>
+<tr>
+<th>GNN 层数</th>
+<th>Books R@20</th>
+<th>Books NDCG@20</th>
+<th>ML R@20</th>
+<th>ML NDCG@20</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1 层</td>
+<td>0.1560</td>
+<td>0.1042</td>
+<td>0.4052</td>
+<td>0.5160</td>
+</tr>
+<tr>
+<td><strong>2 层</strong></td>
+<td><strong>0.1603</strong></td>
+<td><strong>0.1072</strong></td>
+<td><strong>0.4121</strong></td>
+<td><strong>0.5230</strong></td>
+</tr>
+<tr>
+<td>3 层</td>
+<td>0.1585</td>
+<td>0.1061</td>
+<td>0.4094</td>
+<td>0.5201</td>
+</tr>
+</tbody></table>
+<p>两层最优，三层轻微退化——论文归因于过平滑。这个现象在 GNN 推荐里是常态，<strong>堆深不如堆对</strong>。</p>
+<h3 id="两模态是互补的：t-SNE-证据"><a href="#两模态是互补的：t-SNE-证据" class="headerlink" title="两模态是互补的：t-SNE 证据"></a>两模态是互补的：t-SNE 证据</h3><p><img src="/images/mafkgat-tsne.png" alt="t-SNE 可视化：CLIP 视觉嵌入与 KGAT 结构嵌入部分重叠但整体分布差异明显"></p>
+<p>论文图 3 把线性投影后的 CLIP 视觉嵌入与 KGAT 结构嵌入做 t-SNE：两者<strong>部分重叠但整体分布明显不同</strong>。这是一条直接的设计依据——正因为两种模态在语义空间里既不重合也不完全无关，所以：</p>
+<ul>
+<li><strong>融合前保留模态差异</strong>（先投影对齐、再拼接，而不是先平均）</li>
+<li><strong>高层用门控动态加权</strong>（而非固定比例）</li>
+</ul>
+<p>也解释了为什么”简单拼接”（0.1504）与”线性融合”（0.1556）都不如动态门控（0.1603）。</p>
+<h3 id="冷启动与图像缺失：鲁棒性验证"><a href="#冷启动与图像缺失：鲁棒性验证" class="headerlink" title="冷启动与图像缺失：鲁棒性验证"></a>冷启动与图像缺失：鲁棒性验证</h3><p><strong>冷启动</strong>（Amazon Books 上交互 &lt; 5 次的用户子集，表 6）：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>Recall@20</th>
+<th>NDCG@20</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>KGAT</td>
+<td>0.1164</td>
+<td>0.0655</td>
+</tr>
+<tr>
+<td>MMGCN</td>
+<td>0.1182</td>
+<td>0.0668</td>
+</tr>
+<tr>
+<td>MKGAT</td>
+<td>0.1241</td>
+<td>0.0720</td>
+</tr>
+<tr>
+<td><strong>MAF-KGAT</strong></td>
+<td><strong>0.1256</strong></td>
+<td><strong>0.0732</strong></td>
+</tr>
+</tbody></table>
+<p>提升幅度比全量场景小（0.1241 → 0.1256），但方向一致：<strong>引入视觉模态的两个模型（MKGAT、MAF-KGAT）明显高于只依赖结构的 KGAT</strong>，说明视觉信息在交互稀疏时是有效的补充信号。</p>
+<p><strong>图像缺失</strong>（表 7，随机移除不同比例图像特征）：</p>
+<table>
+<thead>
+<tr>
+<th>图像缺失比例</th>
+<th>MAF-KGAT</th>
+<th>KGAT</th>
+<th>相对提升</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>0%</td>
+<td>0.1603</td>
+<td>0.1452</td>
+<td>+10.4%</td>
+</tr>
+<tr>
+<td>20%</td>
+<td>0.1589</td>
+<td>0.1451</td>
+<td>+9.5%</td>
+</tr>
+<tr>
+<td>50%</td>
+<td>0.1552</td>
+<td>0.1452</td>
+<td>+7.0%</td>
+</tr>
+<tr>
+<td><strong>80%</strong></td>
+<td><strong>0.1501</strong></td>
+<td>0.1450</td>
+<td><strong>+3.6%</strong></td>
+</tr>
+</tbody></table>
+<p>这组数字最能说明门控机制的价值：即使<strong>随机扔掉 80% 的图像特征</strong>，MAF-KGAT（0.1501）依然高于完全没有图像的 KGAT（0.1450）。性能是平滑退化而不是崩塌，说明门控确实在图像不可用时把权重交给了结构信号。</p>
+<hr>
+<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>MAF-KGAT 的结构很简洁——就是在 KGAT 前面插一个物品级的门控融合。它的价值集中在一条判断上：**多模态融合的权重应该是”学出来的、逐物品的”，而不是”设定的、全局的”**。</p>
+<p>三处可以带走的结论：</p>
+<ol>
+<li><strong>粒度决定了适应性</strong>：门控做到物品级，才能应对”有的物品图有信息、有的没有”这种真实分布；静态融合（无论拼接还是线性加权）都做不到。</li>
+<li><strong>融合前要先对齐空间</strong>：512 维视觉特征先投影到 64 维结构空间，权重才有可比性。</li>
+<li><strong>给融合比例加个温和先验</strong>：门控正则（μ &#x3D; 0.5）防止训练早期把某个模态彻底关掉。</li>
+<li><strong>鲁棒性可被直接测量</strong>：图像缺失扫描（0%→80%）是一条很有说服力的证据链——它证明了机制在”数据变坏”时的行为，而不只是”数据最好时”的峰值。</li>
+</ol>
+<p>值得说明的两点边界：一是本文的视觉特征只用 CLIP 图像特征，文本模态未纳入（作者已列在 future work）；二是消融显示”动态门控相对线性融合”的增量（约 3 个百分点）小于”加视觉相对不加视觉”的增量——<strong>模态本身的价值仍大于融合策略的价值</strong>，这一点在评估投入产出时值得记住。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li>李若雯, 徐晓婧. 引入模态自适应融合机制的多模态知识图谱推荐方法. 计算机科学与应用, 2026, 16(3): 26-39. DOI: <a target="_blank" rel="noopener" href="https://doi.org/10.12677/csa.2026.163084">10.12677&#x2F;csa.2026.163084</a></li>
+<li>核心基线：KGAT（Knowledge Graph Attention Network for Recommendation, KDD’19）、MKGAT（KGAT + 视觉融合）、MMGCN（多模态图卷积推荐）</li>
+<li>相关知识图谱推荐：CKE、CFKG、RippleNet、NFM</li>
+<li>视觉编码器：CLIP (ViT-B&#x2F;32)</li>
+</ul>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://enkidulove90-lang.github.io">Enkidu</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://enkidulove90-lang.github.io/article/maf-kgat-modality-adaptive-fusion/">https://enkidulove90-lang.github.io/article/maf-kgat-modality-adaptive-fusion/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://enkidulove90-lang.github.io" target="_blank">Enkidu's RecSys Frontier</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E8%AE%BA%E6%96%87%E9%80%9F%E8%AF%BB/">论文速读</a><a class="post-meta__tags" href="/tags/%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1/">知识图谱</a><a class="post-meta__tags" href="/tags/%E5%A4%9A%E6%A8%A1%E6%80%81%E6%8E%A8%E8%8D%90/">多模态推荐</a><a class="post-meta__tags" href="/tags/%E5%9B%BE%E7%A5%9E%E7%BB%8F%E7%BD%91%E7%BB%9C/">图神经网络</a></div><div class="post-share"><div class="addtoany"><div class="a2a_kit a2a_kit_size_32 a2a_default_style"><a class="a2a_button_copy_link"></a><a class="a2a_button_wechat"></a><a class="a2a_button_qq"></a><a class="a2a_button_sina_weibo"></a><a class="a2a_button_email"></a><a class="a2a_button_facebook"></a><a class="a2a_button_x"></a><a class="a2a_button_telegram"></a><a class="a2a_button_facebook_messenger"></a><a class="a2a_button_line"></a><a class="a2a_button_reddit"></a><a class="a2a_button_whatsapp"></a><a class="a2a_button_linkedin"></a><a class="a2a_dd" target="_blank" rel="noopener" href="https://www.addtoany.com/share"></a></div></div><script async="async" src="https://static.addtoany.com/menu/page.js"></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/article/cammsr-category-guided-moe-seqrec/" title="专家该建模模态组合而不是单个模态：CAMMSR 的品类引导 MoE"><img class="cover" src="https://picsum.photos/seed/recsys-frontier-18/1200/630.webp" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">专家该建模模态组合而不是单个模态：CAMMSR 的品类引导 MoE</div></div><div class="info-2"><div class="info-item-1"> 论文：arXiv 2603.04320  序列推荐里的多模态融合，主流做法是”每个模态各自编码 → 再按权重加权求和”。CAMMSR 指出这套流程漏掉了一件事：模态之间是有协同关系的——图和文放在一起才说明一个商品是什么，分开编码再相加就把这层关系丢掉了。而且用户对模态的关注是动态、且和品类相关的：买手机时看参数（文本），买衣服时看款式（图片）。 整体设计CAMMSR 把”品类（category）”当作调制模态权重的上下文信号，用一套品类引导的注意力混合专家做融合。  框架左侧是流程说明、右侧逐组件展开，共四块：①物品表示初始化——ID、文本、图像三路分别编码；②品类引导的注意力混合专家（核心）：门控网络根据物品的品类决定各专家的权重，而每个专家不是作用在单个模态上，而是作用在多个模态拼接后的特征上——这是它和”先分开加权”最本质的区别；③用户兴趣学习——把各模态的行为序列各自送进 Transformer 编码器，建模兴趣演化；④模态交换对比学习——构造”交换了模态的序列”作为增强视图做对齐。 机制一：为什么专家要作用在”拼接后”的特征上融合模块的形式是： 1ê_&#123;i...</div></div></div></a><a class="pagination-related" href="/article/magnet-modality-guided-experts/" title="MAGNET：模态引导图专家网络"><img class="cover" src="https://picsum.photos/seed/recsys-frontier-09/1200/630.webp" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">MAGNET：模态引导图专家网络</div></div><div class="info-2"><div class="info-item-1"> 论文：arXiv 2602.20723 · 代码：GitHub  融合这件事，不该由一个人说了算多模态推荐的基本假设是：把图像、文本这些内容信号接进协同过滤，能在交互稀疏和长尾分布下补上信息。这在实践里确实成立，但有个常被糊过去的难点——不同模态的信号本质上是异质的，而且会在具体语境里互相冲突。 一张裙子图片看起来很好看，但评论里全在说”穿着不舒服”，而这位用户过去对同品牌的中性体验也没帮上忙。最终决策是这几路信号博弈的结果，而不是简单加权。问题在于，现有的做法大多让所有物品走同一条融合路径：一套固定的权重、一个共享的融合模块。结果是表征互相纠缠、强势模态压倒弱势模态，模型既说不清”为什么这么融”，也调不动。 换成 vanilla MoE 就万事大吉了吗？也不是。论文指出两个具体病灶：专家的语义是模糊的（没人规定某个专家到底负责什么），以及稀疏路由不稳定（训练早期就容易坍缩到少数几个专家）。MAGNET 想解决的正是这两点——让”融什么”和”怎么融”都变得显式可控、可解释。 机制：双层控制 + 熵触发两阶段训练MAGNET 的设计分三个层次： ① 表征层：双视图图学习。 用内容...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/article/mmgcf-graph-collaborative-filtering/" title="多模态特征该以多少成本接入：MMGCF 的极简路线"><img class="cover" src="https://picsum.photos/seed/recsys-frontier-04/1200/630.webp" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-01</div><div class="info-item-2">多模态特征该以多少成本接入：MMGCF 的极简路线</div></div><div class="info-2"><div class="info-item-1"> 论文：DOI · 代码：GitHub  多模态推荐这条线上的论文大多在刷精度，MMGCF 反过来问了一个工程问题：这些方法带来的精度提升，值不值得它们增加的成本？ 现象：边际精度 vs 显著成本论文的观察很直白：大量现有多模态推荐方法（MMGCN、GRCN、LATTICE、FREEDOM 一类）在标准数据集上只拿到边际级的性能增益，代价却是模型复杂度上升、训练时间变长。所以它的目标不是”更复杂”，而是在几乎不增加复杂度的前提下把多模态特征用起来。 机制：把多模态特征接在 CF 骨干上，用可学习权重调和MMGCF 的结构刻意做得很薄，由四部分构成：  骨干协同过滤：基于 LightGCN 提供用户&#x2F;物品的 ID 嵌入； 多模态分支：处理预训练好的多模态物品特征； Alpha 加权：引入可学习参数 α（用 sigmoid 一类变换约束到 [0,1]）动态调节两路信号（ID 协同信号与多模态信号）的相对贡献； 融合与排序。   流程图只有一条主干：ID 侧走 LightGCN 聚合，模态侧走特征变换，两路在 α 处加权汇合。这张图值得看的地方是它”有多简单”——没有额外的对...</div></div></div></a><a class="pagination-related" href="/article/ammrm-noise-filtering-adaptive-fusion/" title="噪声过滤 + 度数敏感剪边：AMMRM 处理多模态噪声与热门偏置"><img class="cover" src="https://picsum.photos/seed/recsys-frontier-17/1200/630.webp" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-03-28</div><div class="info-item-2">噪声过滤 + 度数敏感剪边：AMMRM 处理多模态噪声与热门偏置</div></div><div class="info-2"><div class="info-item-1"> 论文：DOI  多模态推荐的两个老问题是”模态里有噪声”和”推荐结果同质化”，AMMRM 把它们放在同一个模型里处理：噪声过滤门降噪，度数敏感剪边抑制热门物品带来的同质化。 现象：噪声与热门偏置是一对孪生问题论文点出两件事：多模态数据里普遍存在无关的视觉细节与冗余文本描述，会干扰物品建模；同时推荐系统对热门物品的偏好会让结果趋同。两者在图上其实是同一个机制的两面——热门物品连接度高，既容易把噪声沿边传播出去，也容易主导表示学习。 机制一：多模态噪声过滤门 架构图分三块：(a) 噪声过滤模块、(b) 特征增强模块、(c) 融合与预测。(a) 里有两个递进的过滤器：多模态噪声过滤门处理模态特征层面的噪声，用户-物品图噪声过滤处理图结构层面的噪声。这个”特征层 + 结构层”两级过滤是它的设计特点——很多方法只在特征层降噪，忽略了噪声会沿图结构扩散。  这张图专门展开过滤门内部：输入模态特征如何被门控机制加权、哪部分被保留、哪部分被压掉。它的意义是把”滤波”这个抽象说法落到可检查的操作上——每一个模态维度上的保留强度都是学出来的，而不是固定阈值截断。 机制二：度数敏感剪边（degree...</div></div></div></a><a class="pagination-related" href="/article/mmsr-adaptive-multimodal-fusion/" title="融合顺序不该是超参：MMSR 用模态增强图做自适应多模态融合"><img class="cover" src="https://picsum.photos/seed/recsys-frontier-20/1200/630.webp" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2023-08-30</div><div class="info-item-2">融合顺序不该是超参：MMSR 用模态增强图做自适应多模态融合</div></div><div class="info-2"><div class="info-item-1"> 论文：arXiv 2308.15980 · 代码：GitHub  多模态序列推荐里有个长期争论：模态特征应该在早期（拼进 item 表示再送序列模型）还是晚期（序列模型各跑一遍再融合）融合？MMSR 的立场是——这个问题不该有全局答案，不同用户、甚至同一用户的不同行为，最优顺序都不同，所以要让模型自己决定。 现象：融合顺序和序列长度纠缠在一起 这张案例分析把”模态序列”的两种组织方式摆在一起对比：Order&#x2F;Match 指按原始时序排列的模态序列，disordered 指打乱顺序后的序列。论文用这张图说明一件事——模态之间的时序依赖本身携带信息，如果把模态序列当成无序的集合去融合（晚期融合的典型做法），这部分信息就丢了；反之如果强行按固定顺序早期融合，又会把”某个模态主导”的假设硬编码进模型。 机制：把用户历史建成”模态增强图”，让节点异步更新MMSR 的做法是把每个用户的历史序列展开成一张图：  同质节点之间的边表示模态内的序列关系（图像→图像、文本→文本），保留时序； 异质节点之间的边表示跨模态依赖（同一物品的图与文）。  图传播时引入双注意力——对同质邻居和异质...</div></div></div></a><a class="pagination-related" href="/article/margo-modality-reliability/" title="模态不可靠时该信谁：MARGO 给模态权重加显式监督"><img class="cover" src="https://picsum.photos/seed/recsys-frontier-13/1200/630.webp" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-04-23</div><div class="info-item-2">模态不可靠时该信谁：MARGO 给模态权重加显式监督</div></div><div class="info-2"><div class="info-item-1"> 论文：arXiv 2504.16524 · 代码：GitHub  多模态推荐的方法论默认”每个物品的图、文都是有效信息”，于是把融合权重交给模型自己学。MARGO 指出这个默认有问题：真实数据里的模态本身就不靠谱——图片是白底图、文本是模板化标题、甚至图文描述的是不同东西。 现象：模态不可靠不是例外 这张图直接摆出数据集里的”坏样本”：有的商品主图是纯白底甚至占位图，有的标题只是品牌名重复，还有图文明显不匹配的情况。论文的论点是这类样本不是噪声例外，而是常态——在这类数据上学出来的模态权重往往是错的，因为它只有”推荐精度”这一个（间接）监督信号，权重错了也可能靠其他模态掩盖过去。 这引出了 MARGO 的核心主张：模态权重需要显式监督，而不是交给主任务间接学。 整体设计 框架图的关键在于”多出来的一条监督线”。常规做法是：各模态编码 → 加权融合 → 排序损失，权重只被排序损失间接约束。MARGO 在这条链上加了模态可靠性（modality reliability）的显式监督：先估计每个物品在每个模态上的可靠程度，再用它作为目标去校准权重（即图中的权重校准分支），最后才是融合与...</div></div></div></a><a class="pagination-related" href="/article/nlgclplus-neighbor-layer-contrastive/" title="对比学习不必靠造视图：NLGCL+ 用 GNN 的邻层结构做多模态推荐"><img class="cover" src="https://picsum.photos/seed/recsys-frontier-20/1200/630.webp" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-03-31</div><div class="info-item-2">对比学习不必靠造视图：NLGCL+ 用 GNN 的邻层结构做多模态推荐</div></div><div class="info-2"><div class="info-item-1"> 论文：DOI · 代码：GitHub  图对比学习（GCL）是缓解推荐稀疏性的常用手段，但它的标准做法是”先造视图，再对齐”：随机丢边、丢特征、加噪声，然后在两个人工增强的视图之间做对比。NLGCL+ 这篇论文提出了一个很朴素的反问——GNN 的邻接层本身不就是天然的两个视图吗？为什么要造。 造出来的视图有两个代价论文把现有 GCL 方法在多模态推荐上的问题拆成两面：  效果面：随机生成的增强视图会引入语义无关的噪声，扭曲关键的结构与特征信息。推荐场景里”交互过的节点”天然就是语义相关的邻居，随机丢边反而可能把最有用的那条边丢掉。 效率面：构造增强视图（以及随之而来的额外前向&#x2F;反向、SVD 分解等）都要付出额外计算与显存。  第二点在多模态推荐里尤其明显——视图是×模态数翻倍的。  这张图上下两半对照两种范式。上半是传统 GCL：一个图先被”增强”成两个视图（随机扰动），再互相拉近，增强算子本身是额外开销，且扰动强度是个需要调的超参。下半是 NLGCL+ 的做法：直接用 GNN 逐层传播产生的表示序列——第 0 层的用户表示与第 1 层的物品表示构成一对正样本（反之亦...</div></div></div></a><a class="pagination-related" href="/article/msca-multi-view-semantic-alignment/" title="语义像不等于共现多：MSCA 的多视图对比对齐"><img class="cover" src="https://picsum.photos/seed/recsys-frontier-21/1200/630.webp" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-04-12</div><div class="info-item-2">语义像不等于共现多：MSCA 的多视图对比对齐</div></div><div class="info-2"><div class="info-item-1"> 论文：DOI  多模态推荐同时要处理两类结构：语义结构（同模态内相似的内容，比如两部片的封面风格接近）和交互结构（用户共现形成的物品—物品关系）。多数方法把这两类分开处理——图网络负责交互结构，对比学习或跨模态对齐负责语义，最后再融合。 分开处理的问题在于：语义相似和结构相邻常常不是一回事。两个物品在语义上很近（同类产品、风格相似），但实际共现很少；反过来，常被一起交互的物品在视觉或文本上可能毫无相似之处。如果不把两者的关系显式对齐，融合出来的表示会同时含有这两类不一致的信号。 MSCA（Multi-view Semantic Contrastive Alignment）的做法是：把”语义模式”拆成多个视图，然后用对比学习把各视图与交互结构对齐。   一、方法：多视图语义 + 对比对齐 1. 多视图语义模式编码器如上图，MSCA 构造多个语义视图：    视图 内容 回答的问题    物品—物品结构视图 从交互&#x2F;共现关系得到的物品关联 “谁和谁常被一起看”   模态内视图 单模态内部的语义相似（如图像—图像、文本—文本） “谁和谁长得&#x2F;写得像”   跨模态视...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">Enkidu</div><div class="author-info-description">推荐系统论文速递 / 技术报告 / 实践笔记</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">93</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">24</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">14</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/xxxxxx"><i class="fab fa-github"></i><span>Follow Me</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">推荐系统内容分享库 · 内容源自 Notion，每 30 分钟自动同步</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E6%96%B9%E6%B3%95%EF%BC%9A%E5%9B%9B%E5%B1%82%E7%BB%93%E6%9E%84%EF%BC%8C%E9%97%A8%E6%8E%A7%E5%9C%A8%E7%AC%AC%E4%B8%89%E5%B1%82%E4%B9%8B%E5%89%8D%E5%8F%91%E7%94%9F"><span class="toc-number">1.</span> <span class="toc-text">一、方法：四层结构，门控在第三层之前发生</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E8%BE%93%E5%85%A5%EF%BC%9A%E4%B8%89%E7%B1%BB%E4%BF%A1%E5%8F%B7%E5%90%84%E8%87%AA%E7%BC%96%E7%A0%81"><span class="toc-number">1.1.</span> <span class="toc-text">1. 输入：三类信号各自编码</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E8%A7%86%E8%A7%89%E4%BE%A7%EF%BC%9A%E6%8A%95%E5%BD%B1%E5%88%B0%E7%BB%93%E6%9E%84%E7%A9%BA%E9%97%B4%E5%86%8D%E8%9E%8D%E5%90%88"><span class="toc-number">1.2.</span> <span class="toc-text">2. 视觉侧：投影到结构空间再融合</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E9%97%A8%E6%8E%A7%E8%9E%8D%E5%90%88%EF%BC%9A%E7%89%A9%E5%93%81%E7%BA%A7%E3%80%81%E5%8A%A8%E6%80%81%E3%80%81%E5%B8%A6%E6%B8%A9%E5%BA%A6%E7%B3%BB%E6%95%B0"><span class="toc-number">1.3.</span> <span class="toc-text">3. 门控融合：物品级、动态、带温度系数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-%E5%9B%BE%E4%BC%A0%E6%92%AD%EF%BC%9AKGAT-%E5%BC%8F%E7%9A%84%E9%AB%98%E9%98%B6%E8%81%9A%E5%90%88"><span class="toc-number">1.4.</span> <span class="toc-text">4. 图传播：KGAT 式的高阶聚合</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-%E6%8D%9F%E5%A4%B1%EF%BC%9A%E4%B8%89%E9%83%A8%E5%88%86%E8%81%94%E5%90%88"><span class="toc-number">1.5.</span> <span class="toc-text">5. 损失：三部分联合</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E5%AE%9E%E9%AA%8C"><span class="toc-number">2.</span> <span class="toc-text">二、实验</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%95%B0%E6%8D%AE%E9%9B%86"><span class="toc-number">2.1.</span> <span class="toc-text">数据集</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%BB%E7%BB%93%E6%9E%9C"><span class="toc-number">2.2.</span> <span class="toc-text">主结果</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%B6%88%E8%9E%8D%EF%BC%9A%E5%8A%A8%E6%80%81-vs-%E9%9D%99%E6%80%81"><span class="toc-number">2.3.</span> <span class="toc-text">消融：动态 vs. 静态</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%B6%85%E5%8F%82%E6%95%B0%E6%95%8F%E6%84%9F%E6%80%A7"><span class="toc-number">2.4.</span> <span class="toc-text">超参数敏感性</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%A4%E6%A8%A1%E6%80%81%E6%98%AF%E4%BA%92%E8%A1%A5%E7%9A%84%EF%BC%9At-SNE-%E8%AF%81%E6%8D%AE"><span class="toc-number">2.5.</span> <span class="toc-text">两模态是互补的：t-SNE 证据</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%86%B7%E5%90%AF%E5%8A%A8%E4%B8%8E%E5%9B%BE%E5%83%8F%E7%BC%BA%E5%A4%B1%EF%BC%9A%E9%B2%81%E6%A3%92%E6%80%A7%E9%AA%8C%E8%AF%81"><span class="toc-number">2.6.</span> <span class="toc-text">冷启动与图像缺失：鲁棒性验证</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E6%80%BB%E7%BB%93"><span class="toc-number">3.</span> <span class="toc-text">三、总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#References"><span class="toc-number">4.</span> <span class="toc-text">References</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/article/hello-rec-3fb59581/" title="Hello Rec: 我和推荐系统的故事"><img src="https://picsum.photos/seed/recsys-frontier-21/1200/630.webp" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Hello Rec: 我和推荐系统的故事"/></a><div class="content"><a class="title" href="/article/hello-rec-3fb59581/" title="Hello Rec: 我和推荐系统的故事">Hello Rec: 我和推荐系统的故事</a><time datetime="2026-10-15T16:00:00.000Z" title="发表于 2026-10-16 00:00:00">2026-10-16</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/article/paper-2608.01847/" title="FOCUS：基于耦合松弛与双粒度缩放的FP4优化"><img src="https://picsum.photos/seed/recsys-frontier-04/1200/630.webp" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="FOCUS：基于耦合松弛与双粒度缩放的FP4优化"/></a><div class="content"><a class="title" href="/article/paper-2608.01847/" title="FOCUS：基于耦合松弛与双粒度缩放的FP4优化">FOCUS：基于耦合松弛与双粒度缩放的FP4优化</a><time datetime="2026-07-31T16:00:00.000Z" title="发表于 2026-08-01 00:00:00">2026-08-01</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/article/paper-2608.02441/" title="智能体商业世界：可审计可验证的Vibe Commerce环境"><img src="https://picsum.photos/seed/recsys-frontier-16/1200/630.webp" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="智能体商业世界：可审计可验证的Vibe Commerce环境"/></a><div class="content"><a class="title" href="/article/paper-2608.02441/" title="智能体商业世界：可审计可验证的Vibe Commerce环境">智能体商业世界：可审计可验证的Vibe Commerce环境</a><time datetime="2026-07-31T16:00:00.000Z" title="发表于 2026-08-01 00:00:00">2026-08-01</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/article/paper-2608.02711/" title="混元3D-Buffalo 1.0：统一多模态3D生成、理解与编辑框架"><img src="https://picsum.photos/seed/recsys-frontier-01/1200/630.webp" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="混元3D-Buffalo 1.0：统一多模态3D生成、理解与编辑框架"/></a><div class="content"><a class="title" href="/article/paper-2608.02711/" title="混元3D-Buffalo 1.0：统一多模态3D生成、理解与编辑框架">混元3D-Buffalo 1.0：统一多模态3D生成、理解与编辑框架</a><time datetime="2026-07-31T16:00:00.000Z" title="发表于 2026-08-01 00:00:00">2026-08-01</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/article/paper-2608.03091/" title="位置偏差破坏列表式LLM重排序的偏好一致性"><img src="https://picsum.photos/seed/recsys-frontier-06/1200/630.webp" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="位置偏差破坏列表式LLM重排序的偏好一致性"/></a><div class="content"><a class="title" href="/article/paper-2608.03091/" title="位置偏差破坏列表式LLM重排序的偏好一致性">位置偏差破坏列表式LLM重排序的偏好一致性</a><time datetime="2026-07-31T16:00:00.000Z" title="发表于 2026-08-01 00:00:00">2026-08-01</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/article/paper-2608.07051/" title="YOLO-PEFT：YOLO系列参数高效微调"><img src="https://picsum.photos/seed/recsys-frontier-14/1200/630.webp" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="YOLO-PEFT：YOLO系列参数高效微调"/></a><div class="content"><a class="title" href="/article/paper-2608.07051/" title="YOLO-PEFT：YOLO系列参数高效微调">YOLO-PEFT：YOLO系列参数高效微调</a><time datetime="2026-07-31T16:00:00.000Z" title="发表于 2026-08-01 00:00:00">2026-08-01</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2025 - 2026 By Enkidu</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"></div><script defer src="/js/multidim-filter.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="搜索文章" type="text"/></div><hr/><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div></body></html>
