@@ -1,5 +1,5 @@
 ---
-title: "基于偏好优化的LLM序列推荐Token选择方法"
+title: "TSPORec：用偏好优化为LLM序列推荐挑选信息Token"
 date: 2026-08-01
 year: 2026
 venue_type: "arXiv预印本"
@@ -8,61 +8,101 @@ categories: [推荐系统, 论文速递]
 tags: [论文速递]
 slug: paper-2608.09605
 arxiv_id: "2608.09605"
-description: "论文提出TSPORec，一种面向LLM序列推荐的三阶段Token选择框架。"
+description: "TSPORec 冻结LLM主干、以两次采样序列的交叉熵比较构造代理奖励学习Token选择策略，在Amazon Books和Pixel上最高提升31.25% NDCG，并把推理开销降低63.4%。"
 ---
 
 > 论文：[arXiv 2608.09605](https://arxiv.org/abs/2608.09605) · 代码：[GitHub](https://github.com/WNQzhu/TSPORec.git) · PDF：[本地阅读](/papers/2608.09605.pdf)
 
-论文提出TSPORec，一种面向LLM序列推荐的三阶段Token选择框架。该方法首先预训练基于LLM的推荐模型，然后冻结LLM主干并附加策略头，通过新设计的代理奖励函数学习Token选择策略，最后利用选出的信息性Token重训练模型。TSPORec能够从物品全文描述中自动识别关键Token，而非仅使用前几个Token，在提升推荐性能的同时显著降低推理开销。实验表明，在Amazon Books和Pixel数据集上，TSPORec相比六个基线方法最高提升29.29%的Recall和31.25%的NDCG，推理开销降低最高63.4%。
+基于大语言模型的序列推荐把物品的标题、描述、标签等文本编码成物品嵌入，再交给用户侧模型聚合出用户表示。这条路线之所以有效，是因为LLM能同时利用丰富的语义信息和用户历史中的异构偏好；但代价也很直接：一次推理要处理“序列长度 × 每物品Token数”的输入，计算和显存开销都随文本长度线性增长。
 
-## 研究问题
+为了压住成本，现有做法普遍只截取物品描述的前若干个Token。这个选择看似中性，实际上把“哪些文本值得读”这一信息筛选问题固化成了一个与内容无关的位置先验：描述开头往往是套话、模板或通用标签，真正有区分度的实体、属性、风格词可能出现在更靠后的位置。论文把这一矛盾摆到台面上：能否在全文范围内识别信息量最高的Token，既提升推荐效果，又缩短输入序列？
 
-论文提出TSPORec，一种面向LLM序列推荐的三阶段Token选择框架。该方法首先预训练基于LLM的推荐模型，然后冻结LLM主干并附加策略头，通过新设计的代理奖励函数学习Token选择策略，最后利用选出的信息性Token重训练模型。TSPORec能够从物品全文描述中自动识别关键Token，而非仅使用前几个Token，在提升推荐性能的同时显著降低推理开销。实验表明，在Amazon Books和Pixel数据集上，TSPORec相比六个基线方法最高提升29.29%的Recall和31.25%的NDCG，推理开销降低最高63.4%。
+TSPORec 的答案不是设计一个新的打分函数直接排序，而是把Token选择本身当作一个可学习的策略，用推荐任务自身的反馈来训练它。它的真实地位在于把“输入压缩”从预处理技巧提升为与推荐目标联合优化的决策问题，并且给出了一个绕开子集指数级枚举的代理奖励构造。
 
-## 方法：核心思路与整体框架
+这一方法有明确的前置条件：需要一个已经预训练好的LLM推荐底座（论文以HLLM式用户LLM/物品LLM结构为基座），需要物品全文可获取，并且接受一次性多出的训练开销。它面向的是部署期推理成本敏感、而训练可以离线完成的场景——这也解释了论文为何把效率论证放在“物品嵌入离线预计算”和“用户与物品LLM均在线”两种服务形态下分别给出。
 
-TSPORec采用三阶段训练流水线。第一阶段，基于InfoNCE损失预训练用户LLM和物品LLM，物品嵌入取[ITEM]特殊Token的最后一层隐藏状态。第二阶段，冻结LLM主干，附加可学习策略头，通过query-key注意力机制计算每个Token的重要性分数，并基于两次独立采样的Token子序列构建代理奖励信号，使用策略梯度优化选择策略。第三阶段，利用学习到的策略选择高概率Token chunk，构建精炼数据集后重训练模型。
+## 一、方法：三阶段流水线与代理奖励驱动的Token选择
 
-![图 1：Figure 1: Overview of TSPORec’s Three-Stage Training Pipeline: (1) LLM Pretraining, (2) Token Selection Policy Learning, (3) Token Selection and Retraining.](/images/papers/2608.09605/3c3c933526d8dd15434702eed8fc316d19daf924b0aa22ddf5fac45b602d5e74.jpg)
+TSPORec 把问题写成：给定物品Token序列 $T=\{t_1,\dots,t_n\}$，传统方法取前 $k$ 个Token得到 $\mathbf{e}_i=\mathrm{LLM}(t_1,\dots,t_k)$；TSPORec 则要学出一个信息性子集 $T_k\subseteq T$，用 $\mathbf{e}_i'=\mathrm{LLM}(T_k)$ 替代前缀嵌入。选择在chunk级别进行：从序列中挑出 $\lfloor k/c\rfloor$ 个连续Token块，$c$ 为块大小，$c=1$ 即退化为Token级选择。这个粒度参数是后文消融的核心变量。
 
-*图 1 · 原图说明：Figure 1: Overview of TSPORec’s Three-Stage Training Pipeline: (1) LLM Pretraining, (2) Token Selection Policy Learning, (3) Token Selection and Retraining.*
+![TSPORec 三阶段训练流水线](/images/papers/2608.09605/3c3c933526d8dd15434702eed8fc316d19daf924b0aa22ddf5fac45b602d5e74.jpg)
 
-**图示解释：** TSPORec采用三阶段训练流水线。
+读这张图可以按从左到右的三段来看。第一段是预训练：用户LLM与物品LLM用InfoNCE损失联合训练，物品嵌入取序列末尾特殊Token `[ITEM]` 的最后一层隐状态 $\mathbf{h}_{k+1}$，这一步为后续奖励计算提供“裁判”。第二段是策略学习：LLM主干被冻结，只挂一个可学习的策略头，它用query-key注意力给每个Token打重要性分，再按softmax概率采样出Token块；同一段历史被独立采样两次，得到两条子序列，分别经冻结的用户/物品LLM得到两个用户嵌入，与完整物品嵌入做交叉熵比较，胜者获得奖励，策略据此更新。第三段是选择与重训：用训练好的策略在全量数据上挑出高概率chunk，构造精炼数据集，重新训练推荐模型。三段之间的数据流是单向的——预训练产物只作为冻结裁判，策略只改“读哪些Token”，不改LLM权重。
 
-## 创新点
+策略头的打分是双向的。对Token $t_i$，重要性为 $\mathrm{info}(t_i)=\langle W_Q\mathbf{h}_i, W_K\mathbf{h}_{k+1}\rangle/\sqrt{d}$，其中 $\mathbf{h}_{k+1}$ 是预训练得到的物品嵌入。这意味着分数同时来自标准注意力编码的语义信息，以及预训练物品嵌入携带的协同过滤信号。论文在分析top-k logit策略失效时明确把原因归到“单向注意力无法有效捕捉跨序列的协同信号”，这正是双向设计要解决的问题。
 
-1. 提出三阶段Token选择流水线：预训练LLM推荐模型、基于代理奖励学习Token选择策略、利用选定Token重训练模型，实现了从全文描述中自动识别信息性Token的目标，且在不同LLM和数据集上展现强泛化能力。
-2. 设计了一种新颖的代理奖励函数，通过对比两次独立采样的Token子序列所构建的用户嵌入与完整物品嵌入之间的交叉熵损失，引导策略学习区分信息性Token与非信息性Token，解决了Token子集评估的指数级复杂度问题。
-3. 采用双向评分机制计算Token重要性：同时利用标准注意力机制编码语义信息和预训练物品嵌入提供协同过滤信号，使Token选择能够联合捕获丰富语义与序列协同模式，优于单向的top-k logit选择策略。
-4. 引入chunk级别的Token选择粒度控制，通过可调节的chunk大小在Token级和粗粒度选择之间灵活权衡，实验发现更细粒度的选择单元能带来更有效的Token选择效果。
+代理奖励是全文最关键的机制。穷举所有Token子集是指数级复杂度，TSPORec 改为对同一交互历史做两次独立采样，得到 $\mathcal{I}_M'$ 与 $\mathcal{I}_M''$，分别构造用户嵌入 $\mathbf{e}_u'$、$\mathbf{e}_u''$，再各自与完整物品嵌入 $\mathbf{e}_i$ 及 $N$ 个负样本计算交叉熵 $\mathcal{L}_{\mathrm{ce}}^1$、$\mathcal{L}_{\mathrm{ce}}^2$。奖励定义为：若 $\mathcal{L}_{\mathrm{ce}}^1\le\mathcal{L}_{\mathrm{ce}}^2$ 则 $r=1$，否则 $r=-1$。优化目标为 $\mathcal{R}(\theta)=\mathbb{E}[r\cdot(\log P(\mathcal{I}_M'\mid\theta)-\log P(\mathcal{I}_M''\mid\theta))]$。直观上，交叉熵更低意味着该子序列构造的用户嵌入更接近真实偏好分布，策略被推去提高“更好那一次采样”的似然。论文的Theorem 1给出三条性质：交叉熵越小对应KL散度意义下越紧的偏好分布近似；两次采样共有的chunk梯度相互抵消、不参与更新；该目标确实提升信息性chunk的概率、压低其余chunk。
 
-## 实验：数据、基线与结果
+第三阶段把策略用于全量数据：chunk $c$ 的概率定义为其内部Token概率之积 $P(c)=\prod_{i=1}^{|c|}p_i$，按此挑出高概率块，重建数据集后重训。一个实现细节是，由于起始Token占据独立特征空间，TSPORec 在所有采样序列中保留前16个Token作为前缀，不参与筛选。
 
-### 数据集与设置
+## 二、实验：两个数据集、六个基线与效率账本
 
-任务为序列推荐（Sequential Recommendation），预测用户下一个可能交互的物品。使用Amazon Books（694,898用户，686,624物品，10,053,086交互，密度2.1×10^-5）和Pixel（200,000用户，96,282物品，3,965,656交互，密度2.1×10^-4）两个公开数据集。采用leave-one-out评估协议：最近一次交互用于测试，倒数第二次用于验证，其余用于训练。物品描述截断至64、128、256个Token。Amazon Books使用标题和描述字段，Pixel使用标题、标签和描述文本特征。TSPORec保留前16个Token作为前缀。
+实验任务是序列推荐，采用leave-one-out协议：最近一次交互作测试、倒数第二次作验证、其余作训练。主实验用Qwen3-Embedding-0.6B作主干、文本截断64 Token、chunk size为8；泛化实验换TinyLlama-1.1B主干，并把选出的Token用于LLMinit初始化。
 
-### Benchmark 与结果
+| 项目 | 设置 |
+| --- | --- |
+| 数据集 | Amazon Books（694,898用户 / 686,624物品 / 10,053,086交互，密度 $2.1\times10^{-5}$）；Pixel（200,000用户 / 96,282物品 / 3,965,656交互，密度 $2.1\times10^{-4}$） |
+| 文本字段 | Amazon Books用标题与描述；Pixel用标题、标签与描述 |
+| 截断长度 | 64 / 128 / 256 Token |
+| 基线 | SASRec、HSTU、LLMinit、HLLM，以及HLLM的random / top-k logits / first-k 三种Token选择变体，共六个基线变体 |
+| 指标 | Recall@5/10/50、NDCG@5/10/50，三次实验取平均 |
+| 训练配置 | 基线学习率 $1\times10^{-4}$，HLLM训练5 epoch，其余最多200 epoch并早停；负样本128，最大序列长度10；策略学习5 epoch、学习率 $1\times10^{-3}$ |
+| 硬件 | 8×H100 与 8×A800 GPU集群；效率测试在单张H100、batch size 32、物品序列长度10 |
 
-在Amazon Books数据集上，TSPORec相比SASRec最高提升29.29% Recall@K和31.25% NDCG@K，平均提升29.43%；在Pixel数据集上最高提升19.63% Recall@K和18.24% NDCG@K，平均提升16.79%。与HLLM(first-k)相比，TSPORec在Amazon Books上R@5从4.16提升至4.37，N@5从2.80提升至2.94。随机Token选择使HLLM性能提升从24.40%降至2.14%，top-k logit选择（+5.36%）甚至不如first-k基线（+24.40%）。效率方面，TSPORec仅用64个Token即可达到HLLM使用256个Token的性能，推理开销降低63.4%（物品嵌入离线预计算场景）和61.3%（在线服务场景）。泛化性方面，使用TinyLlama-1.1B时TSPORec平均提升4.12%，用于LLMinit初始化时提升3.76%。
+主结果如下（Qwen3-Embedding-0.6B，64 Token）：
 
-![图 2：Figure 6: Comparison of token distributions selected by first-k and TSPORec.](/images/papers/2608.09605/42b9f36735a4a51ab181f7289bcf226e58d66c88e6c379b79c7379a6a2346b85.jpg)
+| 数据集 | 方法 | R@5 | R@10 | R@50 | N@5 | N@10 | N@50 | 平均提升 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Amazon Books | SASRec | 3.38 | 5.09 | 11.59 | 2.24 | 2.79 | 4.20 | +0.0% |
+| Amazon Books | HSTU | 2.88 | 4.51 | 11.06 | 1.89 | 2.41 | 3.83 | -11.46% |
+| Amazon Books | LLMinit | 3.29 | 5.05 | 11.74 | 2.18 | 2.74 | 4.19 | -1.14% |
+| Amazon Books | HLLM(random) | 3.29 | 5.17 | 12.96 | 2.17 | 2.77 | 4.45 | +2.14% |
+| Amazon Books | HLLM(top-k logits) | 3.39 | 5.34 | 13.35 | 2.24 | 2.86 | 4.59 | +5.36% |
+| Amazon Books | HLLM(first-k) | 4.16 | 6.29 | 14.49 | 2.80 | 3.48 | 5.25 | +24.40% |
+| Amazon Books | TSPORec | 4.37 | 6.55 | 14.98 | 2.94 | 3.64 | 5.47 | +29.86% |
+| Pixel | SASRec | 2.41 | 3.77 | 9.63 | 1.59 | 2.03 | 3.29 | +0.0% |
+| Pixel | HSTU | 2.14 | 3.41 | 8.85 | 1.40 | 1.81 | 2.97 | -10.22% |
+| Pixel | LLMinit | 2.65 | 4.10 | 10.53 | 1.73 | 2.19 | 3.58 | +8.92% |
+| Pixel | HLLM(random) | 2.82 | 4.39 | 11.07 | 1.84 | 2.34 | 3.78 | +15.71% |
+| Pixel | HLLM(top-k logits) | 2.79 | 4.36 | 11.02 | 1.82 | 2.33 | 3.76 | +14.89% |
+| Pixel | HLLM(first-k) | 2.80 | 4.41 | 11.15 | 1.83 | 2.35 | 3.80 | +15.88% |
+| Pixel | TSPORec | 2.88 | 4.51 | 11.20 | 1.88 | 2.40 | 3.85 | +18.15% |
 
-*图 2 · 原图说明：Figure 6: Comparison of token distributions selected by first-k and TSPORec.*
+最值得对照的不是SASRec，而是同架构的HLLM(first-k)：在Amazon Books上R@5从4.16升到4.37、N@5从2.80升到2.94，六个指标全部同向提升，说明增益来自“选哪些Token”而非换模型。Pixel上的绝对差距更小（R@5 2.80→2.88），但方向一致。论文报告的相对SASRec最高提升为29.29% Recall与31.25% NDCG，平均提升在Books为29.43%、Pixel为16.79%。
 
-**图示解释：** 在Amazon Books数据集上，TSPORec相比SASRec最高提升29.29% Recall@K和31.25% NDCG@K，平均提升29.43%；在Pixel数据集上最高提升19.63% Recall@K和18.24% NDCG@K，平均提升16.79%。
+Token选择策略本身的对比给出了更强的信号：随机选择把HLLM相对SASRec的提升从24.40%压到2.14%，而top-k logits只有+5.36%，甚至不如first-k的+24.40%。这说明“按logit取高分Token”并不是有效的重要性度量，论文将其归因于单向注意力难以携带协同信号——这正是TSPORec双向打分要补的缺口。
 
-### 消融实验
+![first-k 与 TSPORec 选出的Token分布对比](/images/papers/2608.09605/42b9f36735a4a51ab181f7289bcf226e58d66c88e6c379b79c7379a6a2346b85.jpg)
 
-对比四类基线方法：(1) 传统ID-based序列推荐模型SASRec和HSTU；(2) 语义初始化方法LLMinit；(3) 层次化LLM框架HLLM。此外，为研究Token选择影响，将基线适配不同Token选择策略（随机选择、top-k logit、first-k），共形成六个基线变体。消融实验包括：不同Token序列长度（64/128/256）、不同训练与选择chunk大小组合（T16S1/T16S8/T16S16/T16S32）、不同LLM主干（Qwen3-Embedding-0.6B和TinyLlama-1.1B）、不同下游SR模型（LLMinit）。
+这张分布图回答的是“TSPORec到底选走了什么”。横轴是Token，纵轴是计数，两条分布分别对应first-k与TSPORec。阅读时重点看高频区的差异：TSPORec的曲线在高频Token处明显被压低，说明它系统性地过滤掉跨物品共享的“热Token”。这类Token语义特异性低，用户LLM难以靠它们区分物品；把它们换成内容词，物品嵌入才更有判别力。案例研究给出了同一结论的具体形态：在Pixel的样例中，TSPORec删去“released in the summer of In accordance”这类功能词片段，改选“cucumber、endless mode、Penny”等内容词；另一个样例中它删去泛化标签“tag: Cover Song”，改选词曲作者等具体元数据。
 
-## 总结
+长度与效率实验构成第二组证据。在Amazon Books上，HLLM与TSPORec都随Token长度增加而提升；在Pixel上，HLLM在长度继续增加后性能反而下降，说明并非所有Token都有正贡献，噪声Token会伤害推荐。关键结论是：TSPORec仅用64个Token即可达到或超过HLLM用256个Token的性能。推理时间上，物品LLM主导开销且占比随长度上升：64/128/256 Token对应的总时间为326/536/843 ms，其中物品LLM分别为299/509/817 ms，用户LLM稳定在约27 ms。据此，在物品嵌入离线预计算的场景下推理开销降低63.4%，在物品与用户LLM均在线时降低61.3%。
 
-论文提出TSPORec，一种面向LLM序列推荐的三阶段Token选择框架。
+| Token数 | 物品LLM $I_t$ (ms) | 用户LLM $U_t$ (ms) | 总计 (ms) |
+| --- | --- | --- | --- |
+| 64 | 299 | 27 | 326 |
+| 128 | 509 | 27 | 536 |
+| 256 | 817 | 26 | 843 |
+
+泛化性方面，换用TinyLlama-1.1B主干后，TSPORec在Amazon Books上R@5 4.16、R@10 6.30、N@5 2.78、N@10 3.46，相对HLLM的3.99/6.07/2.66/3.33平均提升4.12%；把TSPORec选出的Token用于LLMinit初始化，R@5从3.29升到3.42、R@10从5.05升到5.23，提升3.76%。这说明选出的Token携带的不只是对某一主干的适配信息，而是可迁移的推荐信号。
+
+粒度消融在Amazon Books、128 Token输入下进行，记训练chunk为 $k_1$、选择chunk为 $k_2$。四种配置T16S1、T16S8、T16S16、T16S32相对HLLM平均提升分别为3.54%、2.15%、2.54%、0.53%，全部为正，说明方法对参数不敏感；但随选择chunk增大整体呈下降趋势，更细的选择单元更有效。论文进一步用top-k logits选择验证了同一趋势，并据此论证top-k logits的失效源于单向性，而非打乱了句子结构。
+
+代价方面，三阶段流水线使TSPORec比单阶段基线多约21.5小时训练时间（8×H100集群）。论文的立场是这是一次性成本，部署期推理效率才是长期约束。
+
+## 三、总结
+
+TSPORec 的机制可以概括为：把“读哪些Token”建模为chunk级采样策略，用冻结的预训练推荐模型作裁判，通过两次独立采样的交叉熵比较构造±1代理奖励，绕开子集枚举的指数复杂度，再用策略筛出的Token重训模型。双向打分让Token重要性同时吸收语义注意力与协同过滤信号，这是它相对top-k logits的关键差异。
+
+证据层面，最硬的对照是同架构的HLLM(first-k)：Amazon Books上六个指标一致提升，R@5 4.16→4.37、N@5 2.80→2.94；策略对比显示随机选择几乎抹平LLM带来的增益（+24.40%→+2.14%），说明Token选择是这条路线不可回避的变量；效率上64 Token追平256 Token，推理开销降低63.4%或61.3%。
+
+边界同样清楚。方法依赖一个已预训练的LLM推荐底座和可获取的物品全文，额外训练时间约21.5小时；主实验集中在两个数据集、两种主干，且chunk消融只在Amazon Books上完成；代理奖励是二值比较信号，其信息量受限于两次采样的区分度。
+
+可迁移的设计启示是：当系统需要在离散的上下文片段上做取舍时，不必先构造一个精确的效用函数，可以用“同一输入两次采样、以下游任务损失定胜负”的相对信号来训练选择器——这种成对比较式的奖励构造，对Agent的工具选择、上下文压缩与记忆筛选模块同样适用。
 
 ## References
 
-- TSPORec: Token Selection via Preference Optimization for LLM-Based Sequential Recommendation：[arXiv 2608.09605](https://arxiv.org/abs/2608.09605)
-
-- [代码：GitHub](https://github.com/WNQzhu/TSPORec.git)
-- [PDF源文件](/papers/2608.09605.pdf)
+- Wenqiao Zhu, Chao Xu, Haipang Wu, Ji Liu. *TSPORec: Token Selection via Preference Optimization for LLM-Based Sequential Recommendation.* arXiv:2608.09605. [arXiv](https://arxiv.org/abs/2608.09605) · [代码](https://github.com/WNQzhu/TSPORec.git)
+- Junyi Chen, Lu Chi, Bingyue Peng, Zehuan Yuan. *HLLM: Enhancing Sequential Recommendations via Hierarchical Large Language Models for Item and User Modeling.* arXiv:2409.12740.
+- Jesse Harte et al. *Leveraging Large Language Models for Sequential Recommendation.* RecSys 2023.
+- Yu Cheng et al. *An Image Dataset for Benchmarking Recommender Systems with Raw Pixels.* arXiv:2309.06789.
