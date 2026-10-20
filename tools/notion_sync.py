@@ -244,6 +244,19 @@ def preserve_existing_post_when_remote_body_is_empty(generated_md, destination):
     return existing_md if existing_body else generated_md
 
 
+def published_posts_query():
+    """Return a fresh query that makes Draft pages impossible to sync."""
+    return {
+        "filter": {
+            "and": [
+                {"property": "status", "select": {"equals": "Published"}},
+                {"property": "type", "select": {"equals": "Post"}},
+            ]
+        },
+        "sorts": [{"property": "date", "direction": "descending"}],
+    }
+
+
 def main():
     # 未配置 Secrets 时优雅跳过，保证站点仍能正常构建
     if not TOKEN or not DB:
@@ -251,9 +264,7 @@ def main():
         return 0
     os.makedirs(POSTS, exist_ok=True)
     state = json.load(open(STATE, encoding="utf-8")) if os.path.exists(STATE) else {}
-    pq = {"property": "status", "select": {"equals": "Published"}}  # 若 status 是 checkbox 改见 README
-    pt = {"property": "type", "select": {"equals": "Post"}}
-    body = {"filter": {"and": [pq, pt]}, "sorts": [{"property": "date", "direction": "descending"}]}
+    body = published_posts_query()
     n_new = n_skip = 0
     cur = None
     while True:
