@@ -159,6 +159,19 @@ class PaperPipelineTest(unittest.TestCase):
 
         self.assertIn('arxiv_id: "2401.00001"', markdown)
 
+    def test_notion_title_with_colon_is_yaml_quoted(self):
+        page = {
+            "id": "page-id",
+            "created_time": "2026-01-01T00:00:00Z",
+            "properties": {
+                "title": {"title": [{"plain_text": "Hello Rec: 我和推荐系统的故事"}]},
+            },
+        }
+        with patch.object(notion_sync, "blocks_children", return_value=[]):
+            markdown = notion_sync.page_to_md(page)
+
+        self.assertIn('title: "Hello Rec: 我和推荐系统的故事"', markdown)
+
     def test_empty_notion_body_does_not_overwrite_existing_essay(self):
         destination = self.root / "hello-rec.md"
         existing = "---\ntitle: Hello, Rec\n---\n\n我永远喜欢推荐系统。\n"

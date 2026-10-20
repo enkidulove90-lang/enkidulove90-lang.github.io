@@ -208,7 +208,7 @@ def page_to_md(page):
     # tags 放「任务场景 + 技术方法」；Hexo 侧 categories 支持两级、tags 为标签云
     cats = [x.strip() for x in re.split(r"[,/、]", category) if x.strip()]
     tags = list(dict.fromkeys(["论文速读"] + tags))
-    md = ["---", f"title: {title}", f"date: {date}",
+    md = ["---", "title: " + json.dumps(title, ensure_ascii=False), f"date: {date}",
           f"year: {year}", f"venue_type: {venue_type}",
           "venue_name: " + (json.dumps(venue_name, ensure_ascii=False) if venue_name else '""'),
           "categories: [" + ", ".join(cats) + "]",
