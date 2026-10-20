@@ -3,6 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import requests
+
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
@@ -54,6 +56,54 @@ class RecordingTransport:
             self.counter += 1
             return {"id": f"file-{self.counter}"}
         return {"status": "ok"}
+
+
+class SchemaTransport(RecordingTransport):
+    def request(self, method, path, **kwargs):
+        self.calls.append((method, path, kwargs))
+        if method == "GET" and path == "/databases/database":
+            return {"data_sources": [{"id": "source"}]}
+        if method == "GET" and path == "/data_sources/source":
+            return {
+                "properties": {
+                    "title": {"type": "title"},
+                    "slug": {"type": "rich_text"},
+                    "status": {"type": "select"},
+                    "type": {"type": "select"},
+                }
+            }
+        if method == "POST" and path == "/pages":
+            return {"id": "page-1"}
+        return {"results": []}
+
+
+class FlakyTransport:
+    def __init__(self):
+        self.calls = 0
+
+    def request(self, method, path, **kwargs):
+        self.calls += 1
+        if self.calls == 1:
+            raise requests.exceptions.SSLError("temporary EOF")
+        return {"markdown": "ok"}
+
+
+class PageListTransport(SchemaTransport):
+    def request(self, method, path, **kwargs):
+        if method == "POST" and path == "/data_sources/source/query":
+            self.calls.append((method, path, kwargs))
+            return {
+                "results": [
+                    {
+                        "id": "page-1",
+                        "properties": {
+                            "slug": {"rich_text": [{"plain_text": "paper-one"}]}
+                        },
+                    }
+                ],
+                "has_more": False,
+            }
+        return super().request(method, path, **kwargs)
 
 
 class NotionPublishTest(unittest.TestCase):
@@ -186,6 +236,120 @@ class NotionPublishTest(unittest.TestCase):
         self.assertEqual(create[2]["json"]["number_of_parts"], 2)
         self.assertEqual([call[2]["data"]["part_number"] for call in sends], [1, 2])
         self.assertEqual(len(completes), 1)
+
+    def test_find_page_by_slug_queries_the_slug_property(self):
+        transport = RecordingTransport()
+        client = NotionClient("secret", transport=transport)
+
+        result = client.find_page_by_slug("database", "hello-rec")
+
+        self.assertIsNone(result)
+        query = next(call for call in transport.calls if call[1].endswith("/query"))
+        self.assertEqual(
+            query[2]["json"]["filter"],
+            {"property": "slug", "rich_text": {"equals": "hello-rec"}},
+        )
+
+    def test_markdown_and_uploaded_image_methods_use_order_preserving_endpoints(self):
+        transport = RecordingTransport()
+        client = NotionClient("secret", transport=transport)
+
+        client.replace_markdown("page-1", "Before")
+        client.append_uploaded_image("page-1", "file-1", "Figure")
+        client.append_markdown("page-1", "After")
+
+        self.assertEqual(
+            transport.calls,
+            [
+                (
+                    "PATCH",
+                    "/pages/page-1/markdown",
+                    {"json": {"type": "replace_content", "replace_content": {"new_str": "Before"}}},
+                ),
+                (
+                    "PATCH",
+                    "/blocks/page-1/children",
+                    {
+                        "json": {
+                            "children": [
+                                {
+                                    "object": "block",
+                                    "type": "image",
+                                    "image": {
+                                        "type": "file_upload",
+                                        "file_upload": {"id": "file-1"},
+                                        "caption": [
+                                            {"type": "text", "text": {"content": "Figure"}}
+                                        ],
+                                    },
+                                }
+                            ]
+                        }
+                    },
+                ),
+                (
+                    "PATCH",
+                    "/pages/page-1/markdown",
+                    {
+                        "json": {
+                            "type": "insert_content",
+                            "insert_content": {"content": "After", "position": {"type": "end"}},
+                        }
+                    },
+                ),
+            ],
+        )
+
+    def test_retrieve_markdown_uses_enhanced_markdown_endpoint(self):
+        transport = RecordingTransport()
+        client = NotionClient("secret", transport=transport)
+
+        client.retrieve_markdown("page-1")
+
+        self.assertEqual(
+            transport.calls,
+            [("GET", "/pages/page-1/markdown", {})],
+        )
+
+    def test_create_filters_optional_properties_against_live_schema(self):
+        transport = SchemaTransport()
+        client = NotionClient("secret", transport=transport)
+
+        client.create_page(
+            "database",
+            {
+                "title": "Paper",
+                "slug": "paper",
+                "status": "Published",
+                "summary": "Not available in this database",
+                "arxiv_id": "2401.00001",
+            },
+        )
+
+        create = next(call for call in transport.calls if call[1] == "/pages")
+        self.assertEqual(
+            set(create[2]["json"]["properties"]),
+            {"title", "slug", "status", "type"},
+        )
+
+    def test_transient_network_failure_is_retried(self):
+        transport = FlakyTransport()
+        client = NotionClient("secret", transport=transport, retry_backoff=0)
+
+        result = client.retrieve_markdown("page-1")
+
+        self.assertEqual(result, {"markdown": "ok"})
+        self.assertEqual(transport.calls, 2)
+
+    def test_list_pages_by_slug_queries_database_once(self):
+        transport = PageListTransport()
+        client = NotionClient("secret", transport=transport)
+
+        pages = client.list_pages_by_slug("database")
+
+        self.assertEqual(pages, {"paper-one": {"id": "page-1"}})
+        queries = [call for call in transport.calls if call[1].endswith("/query")]
+        self.assertEqual(len(queries), 1)
 
 
 if __name__ == "__main__":
