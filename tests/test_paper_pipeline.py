@@ -184,6 +184,23 @@ class PaperPipelineTest(unittest.TestCase):
 
         self.assertEqual(notion_sync.page_slug(page), "paper-2509.06002")
 
+    def test_targeted_notion_sync_fetches_only_the_requested_page(self):
+        page = {
+            "id": "page-id",
+            "created_time": "2026-10-20T00:00:00Z",
+            "last_edited_time": "2026-10-20T01:00:00Z",
+            "properties": {
+                "title": {"title": [{"plain_text": "Paper"}]},
+                "status": {"select": {"name": "Published"}},
+                "type": {"select": {"name": "Post"}},
+            },
+        }
+        with patch.object(notion_sync, "api", return_value=page) as api:
+            pages = list(notion_sync.iter_published_pages("page-id"))
+
+        self.assertEqual(pages, [page])
+        api.assert_called_once_with("GET", "/pages/page-id")
+
     def test_empty_notion_body_does_not_overwrite_existing_essay(self):
         destination = self.root / "hello-rec.md"
         existing = "---\ntitle: Hello, Rec\n---\n\n我永远喜欢推荐系统。\n"

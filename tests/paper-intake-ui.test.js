@@ -119,6 +119,27 @@ test('failed cards say unpublished and expose retry', async () => {
   app.destroy();
 });
 
+test('published article links bypass the pre-build browser cache', () => {
+  const dom = createDom();
+  const app = mountPaperIntake({
+    window: dom.window,
+    document: dom.window.document,
+    api: { hasSession: () => true, listJobs: async () => [] }
+  });
+
+  app.renderJobs([{
+    id: 'job-published',
+    status: 'published',
+    siteUrl: 'https://enkidulove90-lang.github.io/article/paper-2509.06002/',
+    updatedAt: '2026-10-20T08:56:00Z'
+  }]);
+
+  const link = app.completed.querySelector('a');
+  assert.ok(link);
+  assert.equal(link.href, 'https://enkidulove90-lang.github.io/article/paper-2509.06002/?build=2026-10-20T08%3A56%3A00Z');
+  app.destroy();
+});
+
 test('API stores owner bearer only in sessionStorage', async () => {
   const dom = createDom();
   const calls = [];

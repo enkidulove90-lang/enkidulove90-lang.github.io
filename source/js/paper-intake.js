@@ -113,6 +113,16 @@
     return node;
   }
 
+  function freshPublicationUrl(siteUrl, updatedAt, baseUrl) {
+    try {
+      const target = new URL(siteUrl, baseUrl);
+      target.searchParams.set('build', updatedAt || String(Date.now()));
+      return target.href;
+    } catch {
+      return siteUrl;
+    }
+  }
+
   function icon(doc, className) {
     const node = element(doc, 'i', className);
     node.setAttribute('aria-hidden', 'true');
@@ -285,7 +295,7 @@
       const actions = element(doc, 'div', 'paper-task-actions');
       if (job.siteUrl && job.status === 'published') {
         const link = element(doc, 'a', '', '阅读文章');
-        link.href = job.siteUrl;
+        link.href = freshPublicationUrl(job.siteUrl, job.updatedAt, win.location.href);
         actions.append(link);
       }
       if (job.status === 'failed' && job.retryable) {
@@ -434,5 +444,13 @@
     });
   }
 
-  return { SESSION_KEY, bootPaperIntake, createPaperIntakeApi, mapJobGroup, mountPaperIntake, normalizeJob };
+  return {
+    SESSION_KEY,
+    bootPaperIntake,
+    createPaperIntakeApi,
+    freshPublicationUrl,
+    mapJobGroup,
+    mountPaperIntake,
+    normalizeJob
+  };
 });

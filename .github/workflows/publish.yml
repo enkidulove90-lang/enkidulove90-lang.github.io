@@ -38,12 +38,23 @@ jobs:
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          NOTION_PAGE_ID: ${{ github.event.client_payload.notion_page_id }}
         run: |
           pip install --quiet requests
           python tools/notion_sync.py
 
       - name: Build cached paper-map places
         run: python tools/build_places.py
+
+      - name: Persist incremental Notion mirror
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- tools/.notion_state.json source/_posts source/images source/papers source/_data/places.json
+          if ! git diff --cached --quiet; then
+            git commit -m "content: sync Notion incrementally"
+            git push origin HEAD:source
+          fi
 
       - name: Install deps
         run: npm ci || npm install
@@ -52,7 +63,17 @@ jobs:
         env:
           CARTO_API_KEY: ${{ secrets.CARTO_API_KEY }}
           PAPER_INTAKE_API_BASE: ${{ secrets.PAPER_INTAKE_API_BASE }}
-        run: npx hexo clean && npx hexo generate
+          TARGET_SLUG: ${{ github.event.client_payload.slug }}
+        run: |
+          rebuild_site() {
+            npx hexo clean
+            npx hexo generate
+            test -f public/index.html
+            if [ -n "$TARGET_SLUG" ]; then
+              test -f "public/article/$TARGET_SLUG/index.html"
+            fi
+          }
+          rebuild_site
 
       - name: Keep .nojekyll (force_orphan 会重写 main，需重建)
         run: touch public/.nojekyll

@@ -267,6 +267,32 @@ def published_posts_query():
     }
 
 
+def is_published_post(page):
+    props = page.get("properties") or {}
+    status = ((props.get("status") or {}).get("select") or {}).get("name")
+    content_type = ((props.get("type") or {}).get("select") or {}).get("name")
+    return status == "Published" and content_type == "Post"
+
+
+def iter_published_pages(page_id=""):
+    """Yield one intake page when provided, otherwise reconcile database metadata."""
+    if page_id:
+        page = api("GET", f"/pages/{page_id}")
+        if is_published_post(page):
+            yield page
+        return
+    body = published_posts_query()
+    cursor = None
+    while True:
+        if cursor:
+            body["start_cursor"] = cursor
+        data = api("POST", f"/databases/{DB}/query", json=body)
+        yield from data.get("results", [])
+        if not data.get("has_more"):
+            return
+        cursor = data.get("next_cursor")
+
+
 def main():
     # 未配置 Secrets 时优雅跳过，保证站点仍能正常构建
     if not TOKEN or not DB:
@@ -274,35 +300,27 @@ def main():
         return 0
     os.makedirs(POSTS, exist_ok=True)
     state = json.load(open(STATE, encoding="utf-8")) if os.path.exists(STATE) else {}
-    body = published_posts_query()
+    target_page_id = os.environ.get("NOTION_PAGE_ID", "").strip()
     n_new = n_skip = 0
-    cur = None
-    while True:
-        if cur:
-            body["start_cursor"] = cur
-        d = api("POST", f"/databases/{DB}/query", json=body)
-        for page in d.get("results", []):
-            pid = page["id"]
-            edited = page["last_edited_time"]
-            if state.get(pid) == edited:
-                n_skip += 1
-                continue
-            try:
-                md = page_to_md(page)
-                title = re.search(r"title: (.+)", md).group(1)
-                fn = page_slug(page) + ".md"
-                destination = os.path.join(POSTS, fn)
-                md = preserve_existing_post_when_remote_body_is_empty(md, destination)
-                open(destination, "w", encoding="utf-8").write(md)
-                state[pid] = edited
-                n_new += 1
-                print(f"  + {title}")
-            except Exception as e:
-                print(f"  ! {pid} failed: {e}", file=sys.stderr)
-            time.sleep(0.34)
-        if not d.get("has_more"):
-            break
-        cur = d.get("next_cursor")
+    for page in iter_published_pages(target_page_id):
+        pid = page["id"]
+        edited = page["last_edited_time"]
+        if state.get(pid) == edited:
+            n_skip += 1
+            continue
+        try:
+            md = page_to_md(page)
+            title = re.search(r"title: (.+)", md).group(1)
+            fn = page_slug(page) + ".md"
+            destination = os.path.join(POSTS, fn)
+            md = preserve_existing_post_when_remote_body_is_empty(md, destination)
+            open(destination, "w", encoding="utf-8").write(md)
+            state[pid] = edited
+            n_new += 1
+            print(f"  + {title}")
+        except Exception as e:
+            print(f"  ! {pid} failed: {e}", file=sys.stderr)
+        time.sleep(0.34)
     json.dump(state, open(STATE, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(f"sync done: {n_new} updated, {n_skip} unchanged")
     if n_new + n_skip == 0:
