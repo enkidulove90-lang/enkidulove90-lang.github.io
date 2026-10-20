@@ -1,17 +1,24 @@
 ---
+
 title: "LLM 如何重塑多模态推荐：一篇以提示、训练与数据适配为轴的综述"
-date: 2025-05-01
-year: 2025
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
-categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+date: 2026-10-19
+
+year: 2026
+
+venue_type: arXiv预印本
+
+venue_name: ""
+
+categories: [未分类]
+
+tags: [论文速读]
+
 slug: paper-2505.09777
-arxiv_id: "2505.09777"
-description: "该综述提出以 LLM 功能为中心的 MRS 分类法，将集成策略分为提示、训练与数据适配三类，并系统梳理了跨领域可迁移技术、评估指标与数据集资源。"
+
 ---
 
-> 论文：[arXiv 2505.09777](https://arxiv.org/abs/2505.09777) · PDF：[本地阅读](/papers/2505.09777.pdf)
+> 论文：[arXiv 2505.09777](https://arxiv.org/abs/2505.09777) · PDF：[本地阅读](https://app.notion.com/papers/2505.09777.pdf)
 
 多模态推荐系统（MRS）长期面临数据稀疏、冷启动和模态错位等难题，传统协同过滤与神经编码器虽不断演进，却难以在推理阶段灵活利用外部知识。大语言模型（LLM）的兴起为这一领域注入了新的可能：它们凭借预训练世界知识、语义推理和上下文学习能力，能够在无需重训练的情况下处理多样化的推荐输入，尤其适合冷启动与跨域场景。然而，LLM 的引入也带来了计算成本、黑盒 API 限制和推理延迟等现实约束，使得如何高效、可控地将 LLM 融入 MRS 成为亟待厘清的问题。
 
@@ -55,7 +62,7 @@ description: "该综述提出以 LLM 功能为中心的 MRS 分类法，将集�
 
 知识图谱转换利用 KG 统一异构数据，提供结构化语义关系，有助于缓解幻觉并增强可解释性。IndustryScopeGPT 构建多模态 KG 并通过 Cypher 查询与 LLM 集成，RecInDial 将对话链接到 DBpedia 子图。语义 ID 转换将用户/物品 ID 映射为语义 token 空间，PEPLER 和 TTDS 分别采用离散提示和向量量化语义索引。表格到文本转换通过模板或 ICL 将结构化表格转为自然语言，CTRL 和 AltFS 是典型代表。图像摘要使用 MLLM 将视觉输入转为文本描述，HLLM 将图像序列摘要为文本以提升可扩展性。行为到文本摘要则将点击、浏览等交互日志转化为自然语言总结，支持下游推理。
 
-![图 1：多模态推荐系统中 LLM 集成策略的分类框架](/images/papers/2505.09777/figure_001_adaptation.png)
+![图 1：多模态推荐系统中 LLM 集成策略的分类框架](/images/5304a2d7f4eeeaadfda8881e94b27b6b.png)
 
 这张图展示了综述的核心分类逻辑：左侧是结构化与多模态输入，中间经过不同的适配策略（如知识图谱转换、语义 ID 转换、表格到文本、图像摘要等），右侧汇入 LLM 的输入空间。阅读时可按从左到右的顺序，先看输入模态的多样性，再关注中间适配层的技术分支，最后理解不同策略如何影响 LLM 的推理与生成。该图支撑了作者的核心主张：LLM 的集成并非单一技术，而是一个由数据形态和任务需求共同决定的设计空间。
 
@@ -63,13 +70,12 @@ description: "该综述提出以 LLM 功能为中心的 MRS 分类法，将集�
 
 本文为综述论文，未进行新的实验。其分析基于所引用的原始论文中的实验设置与结果，涵盖推荐、搜索、公平性、特征选择、知识图谱构建等多种任务。下表汇总了综述所涉及的数据集、模型与评估资源。
 
-| 维度 | 内容 |
-| --- | --- |
-| 数据集 | Amazon Reviews（多类别）、Yelp、MovieLens、Steam、KuaiRand、MicroLens、BabyMind、GNSS 数据集等 |
-| 模型类型 | 传统协同过滤、基于内容的推荐、GCN 推荐、PLM 基线、LLM/MLLM 基线 |
-| 任务类型 | 推荐准确性、解释生成、冷启动、特征选择、知识图谱构建、公平性 |
-| 评估指标 | Recall、NDCG、Hit Rate、多样性、公平性、BLEU、ROUGE、BLEURT、LLM 评估器 |
-| 实现条件 | 原文未披露统一的硬件、软件、模型版本与训练/推理参数；各引用论文设置各异 |
+
+
+
+
+
+
 
 由于综述未进行统一实验，无法提供主结果对比表。作者在正文中引述了若干代表性发现：PEPLER 在解释生成任务上优于基线；VIP5 在冷启动场景下性能提升显著；TMF 通过软提示融合多模态特征提升了推荐准确性；PMMRec 通过多模态对比学习预训练在多个数据集上取得 SOTA。这些结果来自各自原始论文，具体数值因数据集和实验设置而异，综述未进行跨论文的数值汇总或复现。
 
@@ -87,8 +93,12 @@ description: "该综述提出以 LLM 功能为中心的 MRS 分类法，将集�
 
 ## References
 
-- Alejo López-Ávila, Jinhua Du. A Survey on Large Language Models in Multimodal Recommender Systems. arXiv:2505.09777, 2025. [arXiv](https://arxiv.org/abs/2505.09777) · [PDF](/papers/2505.09777.pdf)
+- Alejo López-Ávila, Jinhua Du. A Survey on Large Language Models in Multimodal Recommender Systems. arXiv:2505.09777, 2025. [arXiv](https://arxiv.org/abs/2505.09777) · [PDF](https://app.notion.com/papers/2505.09777.pdf)
+
 - Liu et al. 多模态推荐系统综述（被本文引用为传统编码器中心分类的代表）.
+
 - Sileo et al. 零样本推荐中的硬提示方法（被本文引用为早期代表工作）.
+
 - PEPLER: 基于软提示的个性化解释生成（被本文引用为混合提示与语义 ID 的典型案例）.
+
 - VIP5: 多模态个性化提示与冷启动推荐（被本文引用为语义 ID 与视觉 token 融合的代表）.

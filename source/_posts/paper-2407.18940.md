@@ -1,17 +1,24 @@
 ---
+
 title: "LitSearch：用597个真实文献搜索问题重新校准检索基准"
-date: 2024-07-01
-year: 2024
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
-categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+date: 2026-10-19
+
+year: 2026
+
+venue_type: arXiv预印本
+
+venue_name: ""
+
+categories: [未分类]
+
+tags: [论文速读]
+
 slug: paper-2407.18940
-arxiv_id: "2407.18940"
-description: "LitSearch 以 GPT-4 改写内联引文与作者自写两种方式构建 597 个文献搜索问题，实验显示 GritLM-7B 在具体问题上 Recall@5 达 74.8%，比 BM25 高 24.8 个百分点，GPT-4o 重排序再提升 4.4%。"
+
 ---
 
-> 论文：[arXiv 2407.18940](https://arxiv.org/abs/2407.18940) · PDF：[本地阅读](/papers/2407.18940.pdf)
+> 论文：[arXiv 2407.18940](https://arxiv.org/abs/2407.18940) · PDF：[本地阅读](https://app.notion.com/papers/2407.18940.pdf)
 
 研究者在做文献综述、确认某个方法是否已被提出、或回忆一篇读过的论文时，往往需要向检索系统提出一个完整的自然语言问题，而不是输入几个关键词。这类查询要求系统理解研究概念、在整篇文章的层面进行推理，并区分大量主题相近的候选论文。然而，现有的引用推荐数据集大多直接把论文中的内联引用片段当作查询，这些片段常常噪声大、范围过宽或高度依赖上下文，难以代表真实的文献搜索需求。
 
@@ -31,11 +38,11 @@ LitSearch 的构建分为两条并行的数据流，最终汇入同一套人工�
 
 两条流汇合后，作者团队对每个问题进行人工审查，标注具体性和质量。具体性分为 broad 与 specific：broad 指语料中约有 20 篇论文能满足该问题，specific 指约有 5 篇。质量分为 0、1、2 三档，质量 0 表示问题过于宽泛（语料中超过 20 篇论文可满足），直接排除；最终只保留质量 1 或 2 的问题，并对有明显小错误的问题做改写。内联引文子集最终保留 351 个问题，作者自写子集保留 246 个问题，合计 597 个。
 
-![作者自写问题的收集说明](/images/papers/2407.18940/6a9b4e2dd78ed82386156fd69a06fb71ba28c55632785eed5371975ea70612ee.jpg)
+![作者自写问题的收集说明](/images/e23f45e35f02bb44daa67e6faf842ce6.png)
 
 这张图展示的是发给 ACL 2023 与 ICLR 2024 作者的 Google Forms 填写说明。阅读时先看表单如何定义“文献搜索问题”，再看它对问题长度、是否包含目标论文标题等提出的约束。它支撑的主张是：作者自写子集并非随意收集，而是在统一说明下产出的，这为后续按来源分层分析提供了可比性。
 
-![GPT-4 生成内联引文问题的提示](/images/papers/2407.18940/e9dc2916bb1ed66249edb37069548bf1b0cb50448a276bcafaee1af4f50dfa00.jpg)
+![GPT-4 生成内联引文问题的提示](/images/bcd1022bf4ceeda9752273f349435f26.png)
 
 这张图给出的是内联引文问题生成阶段使用的 GPT-4 提示。阅读顺序是先看输入部分：采样得到的引用段落与被引用论文标题；再看指令部分：要求生成一个能由段落中引用论文回答的搜索问题；最后看两个上下文示例。它对应方法中的关键一步——把“引用片段”转成“搜索问题”，而词重叠过滤和人工审查则是对这一步输出的纠偏。
 
@@ -43,28 +50,26 @@ LitSearch 的构建分为两条并行的数据流，最终汇入同一套人工�
 
 实验默认只用论文标题和摘要做嵌入，评估指标为 Recall@K。具体问题报告 Recall@5 与 Recall@20，宽泛问题报告 Recall@20。参与比较的检索器包括 BM25、GTR-T5-large、Instructor-XL、E5-large-v2 和 GritLM-7B；
 
-| 项目 | 设置 |
-|---|---|
-| 检索语料 | ACL Anthology 与 ICLR 论文，共 64,183 篇 |
-| 文档表示 | 默认标题+摘要，平均 134 词；全文平均 6,041 词 |
-| 问题总数 | 597（内联引文 351，作者自写 246） |
-| 检索器 | BM25、GTR-T5-large、Instructor-XL、E5-large-v2、GritLM-7B |
-| 重排序 | GPT-4o vanilla reranking、GPT-4o one-hop reranking |
-| 指标 | Recall@5、Recall@20 |
+
+
+
+
+
+
+
 
 主结果如下表所示。GritLM-7B 在宽泛问题上平均 Recall@20 为 70.8，在具体问题上平均 Recall@5 为 74.8，是所有纯检索器中最高的；BM25 对应的两个数字分别为 39.9 和 50.0。指令微调的嵌入模型（Instructor、E5、GritLM）整体优于 BM25 和 GTR。
 
-| 系统 | 内联宽泛 R@20 | 内联具体 R@5 | 内联具体 R@20 | 作者宽泛 R@20 | 作者具体 R@5 | 作者具体 R@20 | 平均宽泛 R@20 | 平均具体 R@5 |
-|---|---|---|---|---|---|---|---|---|
-| BM25 | 37.4 | 38.5 | 55.8 | 48.6 | 62.6 | 73.5 | 39.9 | 50.0 |
-| GTR-T5-large | 45.7 | 38.5 | 51.5 | 37.1 | 40.8 | 55.9 | 43.8 | 39.6 |
-| Instructor-XL | 56.3 | 48.9 | 60.0 | 57.1 | 55.9 | 70.1 | 56.5 | 52.3 |
-| E5-large-v2 | 55.8 | 50.4 | 63.9 | 54.3 | 62.6 | 75.8 | 55.4 | 56.2 |
-| GritLM-7B | 69.7 | 67.7 | 77.9 | 74.3 | 82.5 | 89.1 | 70.8 | 74.8 |
-| GPT-4o reranking（BM25） | 54.9 | 60.0 | 67.5 | 77.1 | 76.8 | 82.9 | 59.9 | 68.0 |
-| GPT-4o one-hop（BM25） | 62.0 | 64.1 | 71.6 | 74.3 | 73.5 | 77.7 | 64.8 | 68.6 |
-| GPT-4o reranking（GritLM） | 74.7 | 73.2 | 79.9 | 77.1 | 85.8 | 92.4 | 75.3 | 79.2 |
-| GPT-4o one-hop（GritLM） | 72.9 | 70.3 | 78.4 | 74.3 | 84.4 | 87.2 | 73.2 | 77.0 |
+
+
+
+
+
+
+
+
+
+
 
 重排序的效果需要分开看。以 GritLM 为基座时，vanilla reranking 把平均具体 Recall@5 从 74.8 提到 79.2，是表中最好的组合；但 one-hop reranking 在同一基座上反而降到 77.0，低于 vanilla。作者对此的解释是，GritLM 的初始检索结果已经包含目标论文，one-hop 扩展没有带来额外收益。以 BM25 为基座时，两种重排序都带来明显提升，one-hop 的平均具体 Recall@5 为 68.6，略高于 vanilla 的 68.0。
 
@@ -72,18 +77,17 @@ LitSearch 的构建分为两条并行的数据流，最终汇入同一套人工�
 
 全文与标题摘要的对比是一个值得注意的负结果。下表显示，加入全文并没有带来一致提升，部分设置下反而下降，例如 GritLM 在内联具体问题上从 67.7 降到 63.4，在作者具体问题上从 82.5 降到 73.0。作者将原因指向现有嵌入模型的上下文长度（GritLM 为 2,048）与训练数据文档长度（MS-MARCO 平均 56 词、NQ 平均 79 词）远短于论文全文。
 
-| 检索器 | 内联宽泛 R@20 | 内联具体 R@5 | 作者宽泛 R@20 | 作者具体 R@5 |
-|---|---|---|---|---|
-| BM25 | 37.4 | 38.5 | 48.6 | 62.6 |
-| BM25 + 全文 | 18.6 | 23.8 | 65.7 | 71.6 |
-| GTR-T5-large | 45.7 | 38.5 | 37.1 | 40.8 |
-| GTR-T5-large + 全文 | 43.9 | 39.4 | 45.7 | 39.8 |
-| Instructor-XL | 56.3 | 48.9 | 57.1 | 55.9 |
-| Instructor-XL + 全文 | 53.0 | 50.9 | 57.1 | 56.9 |
-| E5-large-v2 | 55.8 | 50.4 | 54.3 | 62.6 |
-| E5-large-v2 + 全文 | 56.9 | 48.7 | 60.0 | 62.1 |
-| GritLM-7B | 69.7 | 67.7 | 74.3 | 82.5 |
-| GritLM-7B + 全文 | 70.8 | 63.4 | 65.7 | 73.0 |
+
+
+
+
+
+
+
+
+
+
+
 
 与商业搜索工具的对比是在 80 个具体问题（40 个内联、40 个作者自写）上做的人工研究，作者明确说明这不是严格同语料的对比。Google Search 在内联具体问题上 Recall@5 为 23.1，在作者具体问题上为 62.5；Google Scholar 分别为 20.5 和 17.5；Elicit 分别为 23.1 和 17.5。三者整体落后于稠密检索器。
 
@@ -99,7 +103,10 @@ LitSearch 的机制贡献在于把文献搜索的查询形态从“引用片段�
 
 ## References
 
-- Ajith, A., Xia, M., Chevalier, A., Goyal, T., Chen, D., & Gao, T. LitSearch: A Retrieval Benchmark for Scientific Literature Search. arXiv:2407.18940. https://arxiv.org/abs/2407.18940
+- Ajith, A., Xia, M., Chevalier, A., Goyal, T., Chen, D., & Gao, T. LitSearch: A Retrieval Benchmark for Scientific Literature Search. arXiv:2407.18940. [https://arxiv.org/abs/2407.18940](https://arxiv.org/abs/2407.18940)
+
 - Thakur, N., Reimers, N., Rücklé, A., Srivastava, A., & Gurevych, I. BEIR: A Heterogeneous Benchmark for Zero-shot Evaluation of Information Retrieval Models. arXiv:2104.08663.
+
 - Muennighoff, N., Tazi, N., Magne, L., & Reimers, N. MTEB: Massive Text Embedding Benchmark. arXiv:2210.07316.
+
 - Muennighoff, N., Su, H., Wang, L., Yang, N., Wei, F., Yu, T., Singh, A., & Kiela, D. Generative Representational Instruction Tuning. arXiv:2402.09906.

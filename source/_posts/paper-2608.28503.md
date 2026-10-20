@@ -1,17 +1,24 @@
 ---
+
 title: "SG-UMP：让多模态推荐先滤波、再注意、后融合，并按数据集重排顺序"
-date: 2026-08-01
+
+date: 2026-10-19
+
 year: 2026
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
-categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+venue_type: arXiv预印本
+
+venue_name: ""
+
+categories: [未分类]
+
+tags: [论文速读]
+
 slug: paper-2608.28503
-arxiv_id: "2608.28503"
-description: "SG-UMP 把多模态序列推荐拆成频率滤波、层次注意力和多尺度融合三个可重排模块，用条件互信息正则化的路由器按数据集选择执行顺序，在四个数据集上对 SASRec、STOSA、Oracle4Rec 分别取得 21.96%、24.93%、18.91% 的平均提升。"
+
 ---
 
-> 论文：[arXiv 2608.28503](https://arxiv.org/abs/2608.28503) · 代码：[GitHub](https://github.com/esemsc-xz524/SG-UMP) · PDF：[本地阅读](/papers/2608.28503.pdf)
+> 论文：[arXiv 2608.28503](https://arxiv.org/abs/2608.28503) · 代码：[GitHub](https://github.com/esemsc-xz524/SG-UMP) · PDF：[本地阅读](https://app.notion.com/papers/2608.28503.pdf)
 
 多模态序列推荐（MSR）的常见做法，是用 CLIP 这类预训练编码器把商品图片和文本压成向量，再交给 SASRec、STOSA 等序列骨干做下一物品预测。问题在于，预训练编码器学到的是通用语义：它知道一件外套“像外套”，却不知道某位用户买外套时其实一直在看墨镜。论文用一张注意力可视化把这种错位摆了出来——预训练编码器把注意力放在外套上，而两位用户分别更关注墨镜和手袋。
 
@@ -27,7 +34,7 @@ SG-UMP 的定位不是新的序列骨干，而是一个即插即用的多模态�
 
 SG-UMP 的数据流可以概括为：物品的 ID、图像、文本嵌入先经过模态专属的门控函数，得到三个模态表示；路由器据此为三个功能模块打分并排序；三个模块按该顺序依次处理拼接后的多模态表示；最后经均值池化得到用户表示，送入序列骨干。整个插件不替换骨干，只改变多模态嵌入被加工的方式。
 
-![SG-UMP 整体框架与各组件结构](/images/papers/2608.28503/fccd40f3d44c3b8fc4af3a058854104d2f2aaeb41e49683dde42bd3fb3d2fc8f.jpg)
+![SG-UMP 整体框架与各组件结构](/images/7b17c7f6036e7b89081f0280c33de9c2.png)
 
 读这张图可以按 (a) 到 (e) 的顺序展开。(a) 是全局：左侧输入 ID、图像、文本三路嵌入，中间是 Module Combiner 里的三个模块，右侧是 Module Router 给出的排序结果，最终汇入序列骨干。(b) 放大路由器：每个模态先过各自的线性投影与激活，再为三个模块分别算分，汇总后 softmax 得到调度分布，降序排列即执行顺序。(c) 是频率滤波层，嵌入被变换到频域、滤掉高频分量、再重建回时域，输出维度不变。(d) 是层次注意力层，先用 MLP 加 Sigmoid 从 ID 嵌入算出模态重要性，乘到图文表示上，再统一过自注意力。(e) 是多尺度融合层，模态独有专家与模态共享专家并行，由门控网络加权求和。这张图支撑的核心主张是：三个模块的输入输出维度一致，因此可以任意换序而不破坏数据流——这正是“可重排”在工程上成立的前提。
 
@@ -39,42 +46,39 @@ SG-UMP 的数据流可以概括为：物品的 ID、图像、文本嵌入先经�
 
 实验设置如下表所示。需要留意的是四个数据集的密度都极低（0.01%–0.05%），Yelp 的序列最长、最稀疏，这会影响后面对顺序实验的解读。
 
-| 项目 | 设置 |
-| --- | --- |
-| 数据集 | Amazon Home、Beauty、Office、Yelp，均 5-core 预处理 |
-| 规模 | Home 66,519 用户 / 28,237 物品 / 551,682 交互；Beauty 22,363 / 12,101 / 198,502；Office 4,905 / 2,421 / 53,258；Yelp 287,116 / 148,523 / 4,392,169 |
-| 划分 | leave-one-out：最后一项测试，倒数第二项验证，其余训练 |
-| 骨干 | SASRec、STOSA、Oracle4Rec |
-| 基线 | 传统：SASRec、BERT4-Rec、LightGCN、STOSA、FMLP-Rec、Oracle4Rec；多模态：VBPR、MMMLP、MML、MMSR、MMSBR、MP4SR |
-| 指标 | Recall@10/20、NDCG@10/20 |
-| 编码器 | CLIP ViT-B/32，文本与图像共用 |
-| 关键超参 | 专家数 {1,2,3,4,5}，α ∈ {0.1,0.2,0.5,1.0,2.0}，滤波层数 {1,2,3,4,5}，网格搜索 |
-| 实现 | NVIDIA 4090，5 次运行取平均，p < 0.05 |
+
+
+
+
+
+
+
+
+
+
 
 主结果中，最强的多模态基线是 MP4SR 与 MML，Oracle4Rec 则是传统组里最强的对照。SG-UMP 接入 Oracle4Rec 后在四个数据集上均超过所有基线，相对最强基线的提升在 Yelp 上最小（R@10 为 7.22%），在 Office 的 N@10 上最大（17.61%）。
 
-| 数据集 | 指标 | 最强基线（MP4SR / MML） | SG-UMP+Oracle4Rec | 相对最强基线 |
-| --- | --- | --- | --- | --- |
-| Home | R@10 | 0.0237（MML） | 0.0264 | 11.39% |
-| Home | N@20 | 0.0158（MMSBR） | 0.0178 | 12.66% |
-| Beauty | R@10 | 0.0735（MML） | 0.0807 | 9.80% |
-| Beauty | N@20 | 0.0512（MML） | 0.0565 | 10.35% |
-| Office | R@10 | 0.0901（Oracle4Rec） | 0.1017 | 12.87% |
-| Office | N@10 | 0.0511（Oracle4Rec） | 0.0601 | 17.61% |
-| Yelp | R@10 | 0.0291（MML） | 0.0312 | 7.22% |
-| Yelp | N@20 | 0.0186（MP4SR） | 0.0202 | 8.60% |
+
+
+
+
+
+
+
+
+
 
 骨干层面的平均提升为 SASRec 21.96%、STOSA 24.93%、Oracle4Rec 18.91%。值得注意的是，提升幅度并不均匀：STOSA 在 Home 上的 R@10 从 0.0169 升到 0.0242（+43.20%），而在 Office 上只有 +12.85%；SASRec 在 Office 上的 N@10 提升 8.21%，是表中最小的相对增益之一。这说明插件对骨干的增益依赖骨干本身对多模态信息的利用程度，而非一个恒定倍率。
 
 消融实验在 STOSA 上进行，移除任一模块都会掉点，但掉点幅度不同。移除层次注意力层在 Beauty 和 Office 上退化最大（Beauty N@10 从 0.0455 降到 0.0408），移除频率滤波层在 Home 上退化明显（N@10 从 0.0144 降到 0.0121），移除 MoE 融合层同样带来一致下降。这组结果支撑的是“三个模块互补”而非“某一个模块独挑大梁”。
 
-| 配置 | Home N@10 | Beauty N@10 | Office N@10 | Yelp N@10 |
-| --- | --- | --- | --- | --- |
-| STOSA（无插件） | 0.0098 | 0.0339 | 0.0516 | 0.0128 |
-| w/o Filter | 0.0121 | 0.0406 | 0.0521 | 0.0134 |
-| w/o Attention | 0.0120 | 0.0408 | 0.0520 | 0.0136 |
-| w/o MOE | 0.0124 | 0.0403 | 0.0523 | 0.0131 |
-| SG-UMP+STOSA | 0.0144 | 0.0455 | 0.0563 | 0.0151 |
+
+
+
+
+
+
 
 顺序实验是论文验证第二条设计原则的关键。三个模块的全部六种排列在四个数据集上的最优解各不相同：Home 为 c-b-a，Beauty 为 b-a-c，Office 为 a-c-b，Yelp 为 a-b-c。以 Home 的 N@20 为例，最优的 c-b-a 为 0.0167，而最差的 a-c-b 只有 0.0144，差距接近 16%；Office 的 R@20 上，a-c-b 的 0.1454 与 c-a-b 的 0.1295 差距更大。这直接说明固定流水线会付出可观的性能代价，也解释了路由器存在的必要性。论文还观察到 Recall 类指标比 NDCG 对顺序更敏感。
 
@@ -82,7 +86,7 @@ SG-UMP 的数据流可以概括为：物品的 ID、图像、文本嵌入先经�
 
 可视化分析提供了定性佐证，但论文自己也提醒不要过度解读。
 
-![注意力可视化：预训练编码器、近似用户视角与 SG-UMP+STOSA 的对比](/images/papers/2608.28503/eeacc17bf8c64c866f69b8b9e229ef0cfff7cd5e15ab77667c09c23c3c6f3680.jpg)
+![注意力可视化：预训练编码器、近似用户视角与 SG-UMP+STOSA 的对比](/images/b33cb9870945f1c29f2e3658c6789eca.png)
 
 三列从左到右分别是：仅用预训练嵌入的 STOSA、由显著物品属性近似出的用户视角、以及 SG-UMP 加 STOSA。红色文字标出重要属性，绿色背景深浅表示模型分配的注意力强度。第一列的注意力比较分散，常常落在与用户兴趣无关的商品特征上；第二列是构造出来的参照，突出与用户历史统计相关的属性；第三列中 SG-UMP 的注意力更集中到这些有意义的特征上。这张图支撑的主张是插件让注意力更贴近用户相关信号，但它是定性证据——参照本身是近似的，论文在讨论部分也明确表示模块有效性主要依据定量结果判断。
 
@@ -97,7 +101,11 @@ SG-UMP 的机制可以压缩成一句话：把多模态嵌入处理拆成频率�
 ## References
 
 1. Xinyi Zhang, Yutong Li, Peijie Sun. SG-UMP: Sequence-Guided Universal Multimodal Prioritization Calculation Framework. arXiv:2608.28503. [https://arxiv.org/abs/2608.28503](https://arxiv.org/abs/2608.28503) · 代码：[https://github.com/esemsc-xz524/SG-UMP](https://github.com/esemsc-xz524/SG-UMP)
-2. Wang-Cheng Kang, Julian McAuley. Self-Attentive Sequential Recommendation. ICDM 2018.
-3. Jiaxi Tang, Ke Wang. Personalized Top-N Sequential Recommendation via Convolutional Sequence Embedding. WSDM 2018.
-4. Ziwei Fan et al. Modeling Sequential Recommendation as Missing Information Imputation. 相关序列推荐工作.
-5. Alec Radford et al. Learning Transferable Visual Models From Natural Language Supervision. ICML 2021.
+
+1. Wang-Cheng Kang, Julian McAuley. Self-Attentive Sequential Recommendation. ICDM 2018.
+
+1. Jiaxi Tang, Ke Wang. Personalized Top-N Sequential Recommendation via Convolutional Sequence Embedding. WSDM 2018.
+
+1. Ziwei Fan et al. Modeling Sequential Recommendation as Missing Information Imputation. 相关序列推荐工作.
+
+1. Alec Radford et al. Learning Transferable Visual Models From Natural Language Supervision. ICML 2021.

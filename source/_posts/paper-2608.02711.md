@@ -1,17 +1,24 @@
 ---
+
 title: "Hunyuan3D-Buffalo 1.0：用统一多模态架构打通3D理解、生成与编辑"
-date: 2026-08-01
+
+date: 2026-10-19
+
 year: 2026
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
-categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+venue_type: arXiv预印本
+
+venue_name: ""
+
+categories: [未分类]
+
+tags: [论文速读]
+
 slug: paper-2608.02711
-arxiv_id: "2608.02711"
-description: "腾讯混元提出统一3D多模态框架，以VLM语义引擎驱动DiT生成，并用Nano3D-v2规模化构建编辑数据，在文本到3D与3D编辑基准上取得领先，同时揭示生成与理解对编辑的双向增益。"
+
 ---
 
-> 论文：[arXiv 2608.02711](https://arxiv.org/abs/2608.02711) · 代码：[GitHub](https://github.com/Tencent-Hunyuan/Hunyuan3D-Buffalo1.0) · PDF：[本地阅读](/papers/2608.02711.pdf)
+> 论文：[arXiv 2608.02711](https://arxiv.org/abs/2608.02711) · 代码：[GitHub](https://github.com/Tencent-Hunyuan/Hunyuan3D-Buffalo1.0) · PDF：[本地阅读](https://app.notion.com/papers/2608.02711.pdf)
 
 3D内容创作长期被拆成三条互不相通的流水线：理解模型负责描述和定位，生成模型负责从文本或图像造出资产，编辑模型负责在已有资产上做局部修改。这种分工在工程上清晰，却让模型难以学到统一的“语义—视觉—几何”表示，也让一个自然的问题悬而未决：理解、生成和编辑能否在同一个训练框架里互相增强？
 
@@ -31,7 +38,7 @@ VLM的3D感知走双通路：结构通路处理XYZ坐标和表面法线，捕捉
 
 生成侧的条件注入分两种情形。文本到3D时，VLM处理交错的文本、图像和3D形状提示，输出隐藏状态，经连接器投影后通过交叉注意力条件化去噪器。编辑与部件生成时，除语义嵌入外，源3D表示还会与噪声隐变量拼接后送入DiT的自注意力层，让模型在去噪过程中直接看到原始几何。论文明确指出，编辑和部件生成共享相同的数据准备与训练流程，部件生成被视为目标区域即被查询部件的编辑特例。
 
-![Hunyuan3D-Buffalo 1.0 统一框架总览](/images/papers/2608.02711/f624f59b62c4a636b053cfb4e9dc98c73e345ccc13f751475a3ba2d4369a3fac.jpg)
+![Hunyuan3D-Buffalo 1.0 统一框架总览](/images/7e623b29a601e280809017fea48b2e56.png)
 
 这张总览图适合先看整体再看分支：左侧是3D理解任务，中间是文本到3D生成，右侧是编辑与部件生成，三者共享同一个VLM主干，并在需要时接入DiT。它支撑的核心主张是“单一架构覆盖四类任务”，而不是四个独立模型的拼装。
 
@@ -41,7 +48,7 @@ VLM的3D感知走双通路：结构通路处理XYZ坐标和表面法线，捕捉
 
 编辑语料由Nano3D-v2生成，这是论文在数据侧最实质的工程贡献。它先渲染八个标准视角，用视觉语言模型选出对目标编辑语义最显著的锚点视图，再用Qwen-Image在该视图上做指令引导的2D编辑；随后由像素级差异得到2D编辑掩码，训练一个自回归Transformer结合源体素表示预测3D编辑包围盒，盒内体素可改、盒外冻结；接着用TRELLIS的体素Transformer做体素级FlowEdit，并把盒外体素替换回源体素以抑制全局身份漂移；再用LATTICE做子体素几何精修，用原生纹理生成模型做基于反演的纹理修补，并在边界带做alpha混合；最后用视觉语言模型对多视角渲染做完整性过滤、指令重标注和四维验证。
 
-![Nano3D-v2 编辑数据构建流水线](/images/papers/2608.02711/585543982771788dec982dde72206a3bc3dfdf161c081b4ba997e138b7eb506d.jpg)
+![Nano3D-v2 编辑数据构建流水线](/images/08ec43b824c249c48feaed367b55bc6b.png)
 
 阅读这张流水线图时，可以按“锚点视图选择—编辑规划—体素编辑—几何纹理精修—标注过滤”的顺序追踪数据流。它支撑的主张是：编辑对的几何一致性不是靠单次2D生成碰运气，而是靠学习式3D定位加盒外冻结逐级约束出来的。
 
@@ -51,35 +58,33 @@ VLM的3D感知走双通路：结构通路处理XYZ坐标和表面法线，捕捉
 
 论文的实验覆盖四个任务：3D理解、文本到3D生成、指令引导3D编辑和文本引导部件生成。理解任务在UniPart-Bench上评估，该基准以部件为中心，每个物体表示为RGB点云，标注轴对齐部件包围盒、部件级文本、物体级描述和部件感知问答；部件标注分Q1粗粒度类别名和Q2细粒度自然语言描述两种粒度。对比基线包括GPT4Point、PointLLM-7B/13B、ShapeLLM-13B、ShapeLLM-Omni-7B、Part-X-MLLM和UniVerse3D。指标上，包围盒定位用IoU，文本输出用SBERT、SimCSE、BLEU-1、ROUGE-L和METEOR。
 
-| 项目 | 设置 |
-| --- | --- |
-| 理解基准 | UniPart-Bench，RGB点云输入，部件包围盒与部件/物体级文本标注 |
-| 理解任务 | 纯包围盒列举、多部件定位（Q1/Q2）、单部件定位（Q1/Q2）、包围盒到文本（Q1/Q2）、部件问答 |
-| 理解指标 | IoU、SBERT、SimCSE、BLEU-1、ROUGE-L、METEOR |
-| 生成与编辑 | 文本到3D生成、指令引导3D编辑、文本引导部件生成，论文称达到最先进或领先水平 |
-| 训练语料 | 理解、文本到3D、编辑三类语料，编辑语料含人类编辑、物体编辑和部件生成子集 |
-| 实现条件 | VLM基于预训练LLM初始化，3D-DiT从Hunyuan3D-2.1初始化，Q-Former压缩为512 token；训练超参数与划分比例未完整披露 |
+
+
+
+
+
+
+
 
 主结果方面，Hunyuan3D-VLM在部件问答和物体级描述两组任务上均领先所有对比基线。部件问答上，SBERT为85.47、SimCSE为89.06、BLEU-1为49.95、ROUGE-L为45.01、METEOR为45.79；物体级描述上，SBERT为72.94、SimCSE为73.60、BLEU-1为50.93、ROUGE-L为52.84、METEOR为50.47。最强的相关基线是UniVerse3D，其部件问答五项分别为83.11、87.16、46.79、43.94、42.05，物体级描述五项分别为65.18、66.25、42.75、44.17、41.11。也就是说，部件问答上的领先幅度在SBERT约2.4分、METEOR约3.7分，而物体级描述上的领先更明显，SBERT差距约7.8分、BLEU-1差距约8.2分。这说明统一训练带来的收益在整体语义描述上比在部件级问答上更突出，后者已经接近饱和区间。
 
-| 模型 | 部件问答 SBERT | 部件问答 METEOR | 物体描述 SBERT | 物体描述 METEOR |
-| --- | --- | --- | --- | --- |
-| GPT4Point | 48.32 | 16.19 | 25.60 | 12.70 |
-| PointLLM-7B | 61.30 | 22.45 | 42.79 | 16.90 |
-| PointLLM-13B | 56.36 | 21.80 | 43.51 | 17.45 |
-| ShapeLLM-13B | 61.19 | 24.45 | 25.15 | 12.84 |
-| ShapeLLM-Omni-7B | 57.35 | 23.24 | 31.18 | 14.30 |
-| Part-X-MLLM | 78.98 | 34.24 | 53.82 | 30.71 |
-| UniVerse3D | 83.11 | 42.05 | 65.18 | 41.11 |
-| Hunyuan3D-VLM | 85.47 | 45.79 | 72.94 | 50.47 |
+
+
+
+
+
+
+
+
+
 
 全任务分解进一步暴露了能力结构的不均衡。纯包围盒列举的IoU为0.864，多部件定位Q1和Q2的IoU分别为0.880和0.844，说明“把所有部件框出来”相对稳健；但单部件定位Q1的IoU降到0.626，Q2进一步降到0.525，部件问答的IoU为0.633。文本侧则相反，单部件定位Q1的SBERT达到78.95，部件问答的SBERT为85.47。这组数字提示：模型在语言层面理解部件指称的能力较强，而在细粒度、尤其是自然语言描述驱动的单部件空间定位上仍有明显代价，这也是后续统一3D定位值得盯住的短板。
 
-![部件生成定性结果](/images/papers/2608.02711/d73ee56a0906b6d131c106b997fc93adfcd67eff4c01f8352a2b41fc5c21577b.jpg)
+![部件生成定性结果](/images/1ef463cd1a42c548baa83a42a845c94b.png)
 
 这张图展示的是文本引导部件生成的定性样例，阅读时应关注被查询部件是否从整体中被干净地分离、剩余部分是否保持完整。它支撑的主张是部件生成可以作为统一模型的原生指令跟随任务完成，而不依赖专门的多扩散路径流水线。
 
-![形状编辑定性结果](/images/papers/2608.02711/22f283436e2a5e2abd0672976ded8f6650ae6632bb97615b723602b5f87b64f2.jpg)
+![形状编辑定性结果](/images/e897184d4896019eadd1ef272db2effd.png)
 
 这张图对应形状编辑的定性对比，重点看编辑区域是否按指令改变、未编辑区域是否保持身份与结构。它支撑的是源物体条件化在编辑中的实际作用，但属于定性证据，不能替代定量指标。
 
@@ -98,7 +103,11 @@ Hunyuan3D-Buffalo 1.0 的机制核心是把3D多模态任务统一到“VLM语�
 ## References
 
 - Hunyuan3D-Buffalo 1.0: A Unified Multimodal Model for Scalable 3D Generation, Understanding, and Editing. arXiv:2608.02711. [arXiv](https://arxiv.org/abs/2608.02711) · [GitHub](https://github.com/Tencent-Hunyuan/Hunyuan3D-Buffalo1.0)
+
 - Nano3D: 3D editing via agentic tool chains. （Nano3D-v2 的前身工作，论文中作为编辑数据构建的基线）
+
 - TRELLIS: Structured 3D latents for scalable and versatile 3D generation. （体素Transformer与3D生成基座）
+
 - Part-X-MLLM: Part-level 3D multimodal LLM. （部件级3D对话数据与特殊token设计来源）
+
 - ShapeLLM-Omni: Unified 3D multimodal model. （3D理解数据与对比基线）

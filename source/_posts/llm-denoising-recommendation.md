@@ -1,17 +1,23 @@
 ---
+
 title: "LLM增强的推荐去噪框架"
-date: 2025-02-13
-year: 2025
-venue_type: 会议
-venue_name: WWW 2025
-location_type: Affiliation
-affil_city: [Hefei]
-affiliation_name: "University of Science and Technology of China"
-categories: [推荐系统, 基础推荐算法]
-tags: [论文速读, 基础推荐算法]
+
+date: 2026-10-19
+
+year: 2026
+
+venue_type: arXiv预印本
+
+venue_name: ""
+
+categories: [未分类]
+
+tags: [论文速读]
+
 slug: llm-denoising-recommendation
-description: "本文提出LLaRD框架，首次系统性地利用大语言模型（LLM）的世界知识和推理能力来增强推荐系统的去噪能力。通过LLM生成偏好知识和关系知识，并利用信息瓶颈（IB）原理对齐去噪知识与…"
+
 ---
+
 > 论文：[arXiv 2502.09058](https://arxiv.org/abs/2502.09058) · 代码：[GitHub](https://github.com/shuyao-wang/LLaRD)
 
 ## 隐式反馈里的噪声，靠什么判
@@ -39,7 +45,9 @@ LLaRD 生成两类去噪知识，再引入一个约束把它们对齐到推荐�
 把三层对照着前面两个瓶颈看就清楚了：
 
 - **不依赖外部辅助信息。** 偏好知识和关系知识都是从**现有观测数据 + 交互图**里推出来的，不需要额外特征工程或跨域数据，绕开了"外部知识不可得"的限制。
+
 - **不依赖脆弱的预设假设。** 传统方法假设噪声在某种统计意义上可区分（loss 大、梯度异常……）。LLaRD 让 LLM 从语义和关系两个角度给出**内容层面**的判断依据，避免了"假设不成立就集体失效"的风险。
+
 - **IB 把生成式知识纳入了可控范围。** 这一步相当于给 LLM 的输出加了一道与任务目标挂钩的过滤器，让它只保留对推荐有用的部分。
 
 ## 实验说明了什么
@@ -47,16 +55,22 @@ LLaRD 生成两类去噪知识，再引入一个约束把它们对齐到推荐�
 三个基准数据集、两个主流骨干模型（GMF / LightGCN）：
 
 - LLaRD 在**所有数据集、两个骨干**上都稳定领先主流去噪方法；
+
 - 相对第二好的方法 BOD，平均提升约 **6.92%（GMF）** 与 **11.79%（LightGCN）**；
+
 - 对交互数据驱动的去噪方法（T-CE、DeCA、DCF、SGDL）的提升幅度达到 **46.1%–68.53%**——这类方法受限于只能从观测数据内部找模式、靠训练 loss 判噪，LLaRD 从语义与关系两个外部视角切入，差距就体现在这里；
+
 - 作为对照，LLM 增强方向的 RLMRec 也明显优于 SGL、SimGCL 这类传统对比学习基线（约 +14.93%），说明"引入 LLM 的任务相关知识"这条路线本身是有效的；
+
 - 在**不同噪声水平**的扫描下，以及**不同冷启动水平**下，LLaRD 都保持领先。
 
 ## 三点可以抄走的
 
 1. **让 LLM 输出"候选知识"，再用任务目标过滤，而不是直接信它。** 把 IB 这类与任务对齐的约束放在生成之后，是生成式知识能落地的前提条件。
-2. **在图上做 CoT，而不是在文本上做。** 关系知识的价值来自交互图的结构，沿图做推理比在纯文本提示里做更贴合推荐场景。
-3. **去噪评估要扫噪声水平，而不是只看一个点。** 论文的噪声水平扫描与冷启动分层结果才是真正说明"去噪能力"的证据；单点指标很容易被别的因素掩盖。
+
+1. **在图上做 CoT，而不是在文本上做。** 关系知识的价值来自交互图的结构，沿图做推理比在纯文本提示里做更贴合推荐场景。
+
+1. **去噪评估要扫噪声水平，而不是只看一个点。** 论文的噪声水平扫描与冷启动分层结果才是真正说明"去噪能力"的证据；单点指标很容易被别的因素掩盖。
 
 ## 总结
 
@@ -66,6 +80,8 @@ LLaRD 把去噪问题的信息源从"辅助特征"和"交互统计"扩到了"语
 
 ## References
 
-1. Unleashing the Power of Large Language Model for Denoising Recommendation (LLaRD), 2025. https://arxiv.org/abs/2502.09058
-2. 代码：https://github.com/shuyao-wang/LLaRD
-3. 相关方法：RLMRec（语义与协同空间对齐）、BOD（次优基线）、T-CE / DeCA / DCF / SGDL（交互数据驱动去噪）
+1. Unleashing the Power of Large Language Model for Denoising Recommendation (LLaRD), 2025. [https://arxiv.org/abs/2502.09058](https://arxiv.org/abs/2502.09058)
+
+1. 代码：[https://github.com/shuyao-wang/LLaRD](https://github.com/shuyao-wang/LLaRD)
+
+1. 相关方法：RLMRec（语义与协同空间对齐）、BOD（次优基线）、T-CE / DeCA / DCF / SGDL（交互数据驱动去噪）

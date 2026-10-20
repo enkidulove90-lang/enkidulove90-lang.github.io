@@ -1,17 +1,24 @@
 ---
+
 title: "10%令牌改写就能操纵RAG推荐：LLM驱动的隐蔽投毒攻击"
-date: 2025-05-01
-year: 2025
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
-categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+date: 2026-10-19
+
+year: 2026
+
+venue_type: arXiv预印本
+
+venue_name: ""
+
+categories: [未分类]
+
+tags: [论文速读]
+
 slug: paper-2505.05196
-arxiv_id: "2505.05196"
-description: "论文形式化RAG推荐系统的提供方文本投毒攻击，用情感编辑、邻居借用与链式重写在10%令牌预算和SBERT相似度约束下重写项目描述，MovieLens实验显示链式攻击把OpenAI管道中目标项目平均排名从7.00压到4.67，而系统级Recall与nDCG仅小幅波动。"
+
 ---
 
-> 论文：[arXiv 2505.05196](https://arxiv.org/abs/2505.05196) · PDF：[本地阅读](/papers/2505.05196.pdf)
+> 论文：[arXiv 2505.05196](https://arxiv.org/abs/2505.05196) · PDF：[本地阅读](https://app.notion.com/papers/2505.05196.pdf)
 
 检索增强生成（RAG）已经成为推荐系统落地的一种主流形态：系统先从外部知识库中检索候选项目，再让大语言模型基于检索到的文本重排或生成最终推荐。相比只依赖协同过滤信号的传统管线，这种做法能利用项目描述、评论、标签等文本元数据，对长尾和新上架项目更友好，也能在不重训模型的情况下吸收实时信息。但代价是，推荐结果对文本线索的依赖被显著放大——谁掌握了项目描述，谁就在一定程度上掌握了项目被看见的机会。
 
@@ -25,7 +32,7 @@ description: "论文形式化RAG推荐系统的提供方文本投毒攻击，用
 
 攻击的目标函数写得很紧凑：对每个目标项目，在令牌编辑距离不超过原描述长度一定比例、且语义相似度不低于阈值的前提下，最大化（提升场景）或最小化（打压场景）该项目在top-N检索或top-K推荐中的曝光变化。实验中N取50、K取20，编辑预算为10%，相似度阈值σ_min为0.80，邻居数量n为5。提升场景针对长尾项目，打压场景针对短头热门项目，两者共用同一套约束。
 
-![图1：RAG推荐管线与投毒位置](/images/papers/2505.05196/figure_001_RAG_Attack_ver3.png)
+![图1：RAG推荐管线与投毒位置](/images/6e30a14fe7001c10d969711251bd7eee.png)
 
 这张图给出了理解全文的数据流：左侧是检索阶段，编码器从项目描述库中选出候选项目；右侧是生成阶段，LLM结合用户查询与检索文本做重排或生成推荐。红色箭头标出的正是攻击入口——攻击者不碰用户行为，只改项目描述文本，让检索和生成两个环节对同一个项目产生不同的感知。读图时可以先看检索与生成之间的分工，再看红色箭头为何能同时影响两端：描述既参与嵌入匹配，又作为LLM的输入上下文，因此一次改写会在两个阶段各留下一次痕迹。
 
@@ -37,33 +44,31 @@ description: "论文形式化RAG推荐系统的提供方文本投毒攻击，用
 
 实验在MovieLens ml-latest-small上进行，项目按流行度分为长尾与短头两段，分别对应提升与打压目标。管线先用Sentence Transformer做嵌入检索，再由OpenAI LLM重排或生成推荐；用户画像有两种构建方式，一是结构化模板手工构造，二是LLM自动摘要。论文未披露训练/验证/测试划分、硬件环境与具体模型版本，这是复现时需要注意的边界。
 
-| 维度 | 设置 |
-| --- | --- |
-| 数据集 | MovieLens ml-latest-small |
-| 项目分段 | 长尾（提升目标）与短头（打压目标） |
-| 检索/重排模块 | Sentence Transformer 检索 + OpenAI LLM 重排 |
-| 用户画像 | 手工模板；LLM自动摘要 |
-| 攻击变体 | Emotional、Neighborhood、Chain |
-| 基线 | 无攻击的原始描述（Original） |
-| 关键约束 | 令牌编辑预算10%，SBERT相似度≥0.80，邻居数n=5 |
-| 评价指标 | 攻击项目平均排名Rank、Recall@20、nDCG@20 |
-| 检索与推荐规模 | top-N=50，top-K=20 |
+
+
+
+
+
+
+
+
+
+
 
 主结果按提升与打压两个场景、三种管线（检索、LLM画像推荐、手工画像推荐）分别报告。下表摘取推荐阶段的关键数值，排名越低表示提升越强，打压场景则相反。
 
-| 场景与管线 | 变体 | OpenAI Rank | OpenAI Recall | OpenAI nDCG | ST Rank | ST Recall | ST nDCG |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 提升·LLM画像推荐 | Original | 7.00 | 0.0944 | 0.1808 | 5.27 | 0.0701 | 0.1561 |
-| 提升·LLM画像推荐 | Emotional | 8.25 | 0.0793 | 0.1838 | 8.00 | 0.0758 | 0.1634 |
-| 提升·LLM画像推荐 | Neighborhood | 6.67 | 0.0739 | 0.1546 | 6.40 | 0.0652 | 0.1573 |
-| 提升·LLM画像推荐 | Chain | 4.67 | 0.0830 | 0.1749 | 7.50 | 0.0699 | 0.1548 |
-| 提升·手工画像推荐 | Original | 6.50 | 0.0853 | 0.1823 | 4.92 | 0.0761 | 0.1583 |
-| 提升·手工画像推荐 | Neighborhood | 3.00 | 0.0804 | 0.1695 | 7.33 | 0.0661 | 0.1417 |
-| 提升·手工画像推荐 | Chain | 5.89 | 0.0834 | 0.1743 | 1.00 | 0.0725 | 0.1684 |
-| 打压·LLM画像推荐 | Original | 5.72 | 0.0943 | 0.1842 | 4.95 | 0.0733 | 0.1543 |
-| 打压·LLM画像推荐 | Chain | 5.44 | 0.0747 | 0.1760 | 4.44 | 0.0707 | 0.1599 |
-| 打压·手工画像推荐 | Original | 5.65 | 0.0972 | 0.1837 | 4.96 | 0.0767 | 0.1694 |
-| 打压·手工画像推荐 | Chain | 5.38 | 0.0740 | 0.1748 | 5.00 | 0.0716 | 0.1488 |
+
+
+
+
+
+
+
+
+
+
+
+
 
 先看提升场景。在OpenAI的LLM画像推荐管线中，链式攻击把目标项目平均排名从7.00降到4.67，是三种变体中位移最大的一例；情感编辑反而把排名推到8.25，方向与目标相反；邻居借用小幅降到6.67。手工画像管线里，邻居借用把排名从6.50压到3.00，链式攻击为5.89，说明不同画像构建方式会改变哪种变体占优。ST一侧则出现明显例外：LLM画像下链式攻击把排名从5.27推到7.50，手工画像下链式攻击却把排名压到1.00，方向并不一致。
 
@@ -84,7 +89,11 @@ RQ3关注系统级代价。表中最明显的现象是Recall与nDCG没有出现�
 ## References
 
 - Nazary, F., Deldjoo, Y., Di Noia, T., & Di Sciascio, E. (2025). Stealthy LLM-Driven Data Poisoning Attacks Against Embedding-Based Retrieval-Augmented Recommender Systems. UMAP Adjunct '25. [arXiv 2505.05196](https://arxiv.org/abs/2505.05196) · [DOI](https://doi.org/10.1145/3708319.3733675)
+
 - Xue, J., Zheng, M., Hu, Y., Liu, F., Chen, X., & Lou, Q. (2024). BadRAG: Identifying Vulnerabilities in Retrieval Augmented Generation of Large Language Models. arXiv:2406.00083.
+
 - Zou, W., Geng, R., Wang, B., & Jia, J. (2024). PoisonedRAG: Knowledge Poisoning Attacks to Retrieval-Augmented Generation of Large Language Models. arXiv:2402.07867.
+
 - Nazary, F., Deldjoo, Y., & di Noia, T. (2025). Poison-RAG: Adversarial Data Poisoning Attacks on Retrieval-Augmented Generation in Recommender Systems. ECIR 2025, Springer, 239–251.
+
 - Reimers, N., & Gurevych, I. (2019). Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks. arXiv:1908.10084.

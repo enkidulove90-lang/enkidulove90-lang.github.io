@@ -1,17 +1,24 @@
 ---
+
 title: "PaSaMaster：用递归自进化检索把文献发现的幻觉率压到零"
-date: 2026-05-01
+
+date: 2026-10-19
+
 year: 2026
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
-categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+venue_type: arXiv预印本
+
+venue_name: ""
+
+categories: [未分类]
+
+tags: [论文速读]
+
 slug: paper-2605.14306
-arxiv_id: "2605.14306"
-description: "PaSaMaster 将文献检索重构为意图—论文相关性排序，通过导航器与馆员群的策略反馈循环迭代细化意图，在 38 个学科的 PaSaMaster-Bench 上以 0% 源幻觉、$0.05/查询的成本取得 F1@20=23.00，比 Google Scholar 高 16.5 倍。"
+
 ---
 
-> 论文：[arXiv 2605.14306](https://arxiv.org/abs/2605.14306) · 代码：[GitHub](https://github.com/sjtu-sai-agents/PaSaMaster) · PDF：[本地阅读](/papers/2605.14306.pdf)
+> 论文：[arXiv 2605.14306](https://arxiv.org/abs/2605.14306) · 代码：[GitHub](https://github.com/sjtu-sai-agents/PaSaMaster) · PDF：[本地阅读](https://app.notion.com/papers/2605.14306.pdf)
 
 科学文献检索长期被一个结构性矛盾卡住：能保证来源真实的系统（关键词检索、语义检索）往往把复杂的研究意图压缩成几个词，而能理解复杂意图的生成式大模型又容易凭空编造论文。PaSaMaster 的出发点正是这个矛盾——它不试图在“理解”和“真实”之间折中，而是把文献发现重新定义为“意图—论文相关性排序”问题：所有候选论文必须来自经过验证的语料库，每一个相关性判断都必须有原文证据支撑。
 
@@ -25,7 +32,7 @@ PaSaMaster 的部署前提是三层基础设施：一个把超过 1.6 亿篇论�
 
 PaSaMaster 把查询 q 映射为一个按相关性排序、且每条推荐都可追溯的论文列表 P。整个流程由四个算子串联：PLAN 生成检索策略 S 与验证清单 C；RETRIEVE 从语料库和多通道工具中拉取初始候选集；VERIFY 对每篇候选按清单逐项打分并定位证据；RERANK 做跨论文的列表级重排。
 
-![PaSaMaster 与 PaSaMaster-Bench 总览](/images/papers/2605.14306/b3d40710676739648d7d5154aec61a1e34ff00ac635fbd5560421f95feab0b92.jpg)
+![PaSaMaster 与 PaSaMaster-Bench 总览](/images/492cad1c3a74b96b4dbf0367b83cd8a3.png)
 
 读这张图可以先看上半部分 a：左侧的自然语言意图进入导航器，被拆成检索策略和验证清单；中间馆员群并行执行多通道检索、证据验证和意图—论文打分；右侧输出的是带论文级相关性分数、推荐理由和逐条约束判断的 top-K 列表。下半部分 b 是配套基准的构建流程：专家写意图、多通道召回候选池、再按清单逐项标注，最终形成 244 个任务、覆盖 38 个学科的目标论文集。这张图支撑的核心主张是：系统的输出空间被限制在验证语料库内，而意图理解可以在检索过程中被反复修正。
 
@@ -47,30 +54,28 @@ PaSaMaster 把查询 q 映射为一个按相关性排序、且每条推荐都可
 
 实验在 PaSaMaster-Bench 上进行，评测截断 K=20，指标包括 Recall@20、Precision@20、F1-score@20、NDCG@20，以及每查询成本和源幻觉率。基线分四组：词法检索（Google Scholar）、语义检索（OpenScholar、Bohrium Science Navigator）、生成式 LLM（DeepSeek-v3.2、Kimi-K2.5、MiniMax-M2.7、GLM-5、Gemini-3.1-pro、GPT-5.2，均配备 Search 与 Visit 工具做工具辅助检索）、固定流水线智能体检索（Google Scholar Labs）。
 
-| 项目 | 设置 |
-|---|---|
-| 基准 | PaSaMaster-Bench，244 个任务，38 个学科 |
-| 查询类型 | 多约束自然语言意图，含主题、方法、应用、 venue/时间、排除规则 |
-| 标注方式 | 领域专家按清单逐项标注，论文须满足全部必需条件才计入目标集 |
-| 评测截断 | K=20 |
-| 指标 | NDCG@20、Recall@20、Precision@20、F1-score@20、源幻觉率、每查询成本 |
-| 生成式基线 | 均配备 Search/Visit 工具，ReAct 式检索与来源核验 |
+
+
+
+
+
+
+
 
 主结果如下表所示。PaSaMaster 在全部质量指标上领先，同时保持 0% 源幻觉，成本为每查询 0.05 美元。
 
-| 方法 | NDCG@20 | Recall@20 | Precision@20 | F1@20 | 幻觉率 | 成本（美元） |
-|---|---|---|---|---|---|---|
-| Google Scholar | 2.07 | 1.69 | 1.48 | 1.39 | 0 | — |
-| OpenScholar | 14.61 | 11.68 | 8.52 | 7.92 | 0 | — |
-| Bohrium Science Navigator | 22.39 | 19.37 | 12.50 | 12.26 | 0 | — |
-| DeepSeek-v3.2 | 35.82 | 24.76 | 15.35 | 15.56 | 12.94 | 0.28 |
-| Kimi-K2.5 | 37.80 | 28.08 | 16.95 | 17.36 | 26.59 | 0.16 |
-| MiniMax-M2.7 | 30.70 | 24.23 | 14.42 | 15.11 | 32.66 | 0.18 |
-| GLM-5 | 35.89 | 28.99 | 16.93 | 18.18 | 21.64 | 0.56 |
-| Gemini-3.1-pro | 31.34 | 21.30 | 11.68 | 12.48 | 27.54 | 0.38 |
-| GPT-5.2 | 31.59 | 25.32 | 16.82 | 16.69 | 5.65 | 6.06 |
-| Google Scholar Labs | 30.54 | 29.01 | 18.79 | 18.87 | 0 | — |
-| PaSaMaster | 39.52 | 33.24 | 23.46 | 23.00 | 0 | 0.05 |
+
+
+
+
+
+
+
+
+
+
+
+
 
 最强的生成式 LLM 基线是 GLM-5，F1@20 为 18.18；固定流水线基线 Google Scholar Labs 为 18.87。PaSaMaster 的 23.00 分别比它们高 26.5% 和 21.9%。与词法检索的对比更能说明意图压缩的代价：Google Scholar 的 F1@20 只有 1.39，PaSaMaster 是其 16.5 倍。语义检索虽然把 F1 提到 7.92 和 12.26，但仍明显落后，说明被动语义匹配不足以处理需要约束推理和多轮细化的查询。
 
@@ -103,5 +108,7 @@ PaSaMaster 的机制可以概括为三件事：用导航器与馆员群之间的
 ## References
 
 - Du, Y., Jin, T., Kang, J., Pang, X., Chai, J., Miao, T., Liu, F., Wang, W., Yao, S., Zhang, Y., Chen, S. *Towards Recursive Self-Evolving Agentic Literature Retrieval*. arXiv:2605.14306. [arXiv](https://arxiv.org/abs/2605.14306) · [代码](https://github.com/sjtu-sai-agents/PaSaMaster)
+
 - Google Scholar Labs. 固定流水线智能体检索的代表性系统，作为本文的主要对照基线之一。
+
 - OpenScholar 与 Bohrium Science Navigator. 语义检索范式的代表性系统，用于对比被动语义匹配在复杂意图下的局限。

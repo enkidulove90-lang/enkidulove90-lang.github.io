@@ -1,17 +1,24 @@
 ---
+
 title: "REAM：按注意力头分配融合系数，把慢思考推荐模型的推理压短 24.3%"
-date: 2026-08-01
+
+date: 2026-10-19
+
 year: 2026
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
-categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+venue_type: arXiv预印本
+
+venue_name: ""
+
+categories: [未分类]
+
+tags: [论文速读]
+
 slug: paper-2608.10447
-arxiv_id: "2608.10447"
-description: "REAM 以慢思考推荐模型为锚点，按注意力头的推理重要性与参数敏感度分配快思考任务向量，在 Book、Music、Yelp 上最多缩短 24.3% 推理长度并优于通用模型融合基线。"
+
 ---
 
-> 论文：[arXiv 2608.10447](https://arxiv.org/abs/2608.10447) · 代码：[GitHub](https://github.com/linhledieu/REAM) · PDF：[本地阅读](/papers/2608.10447.pdf)
+> 论文：[arXiv 2608.10447](https://arxiv.org/abs/2608.10447) · 代码：[GitHub](https://github.com/linhledieu/REAM) · PDF：[本地阅读](https://app.notion.com/papers/2608.10447.pdf)
 
 基于大语言模型的推荐系统正在从“直接打分”走向“先推理再打分”。快思考模型把用户历史与物品描述直接映射为一个评分，推理成本低；慢思考模型则先写出结构化的推理轨迹——分析用户偏好、分析物品特征、判断用户与物品是否匹配——最后才给出评分。后者在偏好信号稀疏或隐式时往往更准，但代价是推理轨迹冗长：无论输入难易，模型都倾向于把三段分析写满，延迟与算力随之上升，而准确率并不总是同步提高。
 
@@ -27,7 +34,7 @@ REAM 的回答是把粒度落到单个注意力头上。已有研究报告，与
 
 REAM 的起点是任务向量。设基座为 θ_B，慢思考模型 θ_S（RecZero）与快思考模型 θ_F（TALLRec）相对同一参考点的更新分别为 Δ_S = θ_S − θ_B 与 Δ_F = θ_F − θ_B。融合写成 θ_merged = θ_B + Σ λ_m Δ_m 的形式；REAM 的特化是保留慢思考模型为锚点，只把 Δ_F 按注意力头分区注入，每个头 b 拥有独立系数 α_b。为了让快思考模型的参数差异覆盖完整权重矩阵、与逐头融合的粒度对齐，TALLRec 被从二分类的喜欢/不喜欢预测全参数微调改造为直接评分预测。
 
-![REAM 框架总览](/images/papers/2608.10447/7832e3b02bc301f6487e52a39d48b82c29aa0bd89f882dd3222717def8d24fb5.jpg)
+![REAM 框架总览](/images/dd48bc6824d2cc408e616416354a28f6.png)
 
 读这张框架图可以按“先测量、再分配、后合并”的顺序走：左侧是慢思考模型在 500 条校准样本上生成的结构化轨迹，中间两支分别估计每个注意力头的两类统计量，右侧把快思考任务向量按头切分、乘以各自的 α_b 后加回慢思考权重。它支撑的主张是：融合系数不是全局超参，而是由推理证据的流向和参数敏感度算出来的逐头量。
 
@@ -37,7 +44,7 @@ REAM 的起点是任务向量。设基座为 θ_B，慢思考模型 θ_S（RecZe
 
 两类信号合起来给出每个头的推理重要性，再与参数敏感度联合决定 α_b：对推理关键且对参数变化敏感的头施加保守更新，对推理不关键、不敏感的头允许吸收更多快思考更新。在固定注入预算下，这被写成一个注水（water-filling）问题求解，从而在“缩短推理”和“保护预测行为”之间做显式权衡。整个流程只需一次前向统计，不引入训练目标，也不改变解码。
 
-![各层各头融合系数](/images/papers/2608.10447/19fa18851344bf06d98272ea3a1955d8b11525f963631b0e8d96c253b5111d2c.jpg)
+![各层各头融合系数](/images/2c05d05b4f20f5018b2a074c7d849066.png)
 
 这张热力图展示 Music、Yelp、Book 三个数据集上逐层逐头的融合系数 α*。阅读时先看颜色分布的稀疏性：系数并非均匀铺满所有头，而是集中在部分层与部分头上，说明“选择性注入”确实发生了；再横向比较三个数据集，可以看到高系数区域的位置随数据而移动，这解释了为什么一个全局系数难以同时适配三者。它支撑的主张是：融合粒度必须细到注意力头，且系数应由数据侧的推理统计量决定，而非固定超参。
 
@@ -45,28 +52,26 @@ REAM 的起点是任务向量。设基座为 θ_B，慢思考模型 θ_S（RecZe
 
 实验任务是 1–5 分评分预测，慢思考模型为 RecZero（生成三段结构化推理后输出评分），快思考模型为 TALLRec（全参数微调后直接评分）。对比基线覆盖 Average Merging、Task Arithmetic、DARE、DARE+TA、DARE+TIES、AIM+TA、ACM+TA、RAIN-Merging，以及慢思考模型 θ_S 本身。指标为 MAE、RMSE 与生成推理长度（token 数）。
 
-| 项目 | 设置 |
-| --- | --- |
-| 数据集 | Book、Music、Yelp |
-| 任务 | 评分预测（1–5 分） |
-| 慢思考模型 | RecZero，输出 user/item/match/rate 四段 |
-| 快思考模型 | TALLRec，全参数微调适配为直接评分 |
-| 基线 | Average Merging、Task Arithmetic、DARE、DARE+TA、DARE+TIES、AIM+TA、ACM+TA、RAIN-Merging、θ_S |
-| 指标 | MAE、RMSE、推理长度（token） |
-| 校准样本 | 500 条验证集上预测正确且格式良好的样本 |
-| 基线超参 | TA α=0.7；DARE p=0.3；DARE+TA p=0.3, α=0.7；DARE+TIES p=0.3, k_TIES=0.8, α=1.0；AIM+TA ω=0.4；ACM+TA t=0.7；RAIN 用 1000 样本、最后 27 层、ridge=10⁻⁴ |
+
+
+
+
+
+
+
+
+
 
 论文披露的逐项数值集中在 Book 与 Music 两个数据集上，下表只列证据中明确出现的数字。
 
-| 数据集 | 方法 | MAE | RMSE | 推理长度（token） |
-| --- | --- | --- | --- | --- |
-| Book | θ_S（慢思考） | 0.6650 | — | — |
-| Book | Task Arithmetic | 0.6742 | — | 253.13 |
-| Book | DARE+TA | 0.6835 | — | 252.81 |
-| Book | AIM+TA | 0.6805 | — | — |
-| Book | ACM+TA | 0.6932 | — | — |
-| Music | θ_S（慢思考） | 0.5433 | 0.8510 | — |
-| Music | AIM+TA | 0.5678 | 0.8227 | — |
+
+
+
+
+
+
+
+
 
 Book 上的结果最能说明通用融合的困境：Task Arithmetic 与 DARE+TA 把生成长度压到 253.13 与 252.81 token，但 MAE 从 θ_S 的 0.6650 分别恶化到 0.6742 与 0.6835；AIM+TA 与 ACM+TA 同样把 MAE 推到 0.6805 与 0.6932。也就是说，长度确实降下来了，但慢思考模型的预测行为没有被保住，压缩的收益建立在准确率损失之上。
 
@@ -89,8 +94,13 @@ REAM 的机制可以概括为一句话：把“压缩推理”从全局超参选
 ## References
 
 - Towards Efficient Reasoning in LLM-Based Recommender Systems via Model Merging. arXiv:2608.10447. [arXiv](https://arxiv.org/abs/2608.10447) · [代码](https://github.com/linhledieu/REAM)
+
 - Task Arithmetic in the Tangent Space: Improved Editing of Pre-Trained Models.（任务向量组合的提出）
+
 - RecZero: 通过强化学习涌现结构化推荐推理的慢思考推荐模型（本文慢思考锚点）。
+
 - TALLRec: 将大语言模型适配为推荐任务（本文快思考模型来源）。
+
 - ACM: 逐层系数分配的模型融合方法（本文主要对照之一）。
+
 - RAIN-Merging: 利用指令相关 token 的注意力变化选择融合系数（本文对照之一）。

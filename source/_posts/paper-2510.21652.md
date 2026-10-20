@@ -1,17 +1,24 @@
 ---
+
 title: "AstaBench：用可控文献环境与成本感知排行榜严格评测科研智能体"
-date: 2025-10-01
-year: 2025
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
-categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+date: 2026-10-19
+
+year: 2026
+
+venue_type: arXiv预印本
+
+venue_name: ""
+
+categories: [未分类]
+
+tags: [论文速读]
+
 slug: paper-2510.21652
-arxiv_id: "2510.21652"
-description: "AstaBench 以 2400+ 问题、11 个基准和可控文献检索环境，在控制工具与成本的前提下评测 57 个智能体，发现科研辅助仍远未解决。"
+
 ---
 
-> 论文：[arXiv 2510.21652](https://arxiv.org/abs/2510.21652) · 代码：[GitHub](https://github.com/UKGovernmentBEIS/inspect) · 代码：[GitHub](https://github.com/laude-institute/terminal-bench) · 代码：[GitHub](https://github.com/mlfoundations/evalchemy) · 代码：[GitHub](https://github.com/princeton-pli/hal-harness) · 代码：[GitHub](https://github.com/soheeyang/unified-prompt-selection) · PDF：[本地阅读](/papers/2510.21652.pdf)
+> 论文：[arXiv 2510.21652](https://arxiv.org/abs/2510.21652) · 代码：[GitHub](https://github.com/UKGovernmentBEIS/inspect) · 代码：[GitHub](https://github.com/laude-institute/terminal-bench) · 代码：[GitHub](https://github.com/mlfoundations/evalchemy) · 代码：[GitHub](https://github.com/princeton-pli/hal-harness) · 代码：[GitHub](https://github.com/soheeyang/unified-prompt-selection) · PDF：[本地阅读](https://app.notion.com/papers/2510.21652.pdf)
 
 AI 智能体被寄望于自动完成文献综述、复现实验、分析数据乃至提出新研究方向，但“哪个智能体真正更强”却难以回答。现有基准往往缺少可复现的工具环境，不控制推理成本与工具访问等混淆变量，任务接口也不统一，导致排行榜上的领先可能来自更贵模型或更全工具，而非核心智能体能力。
 
@@ -27,7 +34,7 @@ AstaBench 的方法由三层构成。第一层是评测原则：任务需覆盖�
 
 在任务组织上，11 个基准被归入四个类别。文献理解包括 PaperFindingBench、LitQA2-FullText-Search、ScholarQA-CS2、ArxivDIGESTables-Clean 等；编码与执行包括 SUPER-Expert、CORE-Bench-Hard、DS-1000；数据分析以 DiscoveryBench 为代表；端到端发现包括 E2E-Bench 与 E2E-Bench-Hard。智能体套件包含九类 Asta 专用智能体与多种通用基线，最终实验覆盖 22 个智能体类别、57 个具体智能体。
 
-![文献理解问答基准的分数—成本分析](/images/papers/2510.21652/d56e7480c924a302120c09584c6cbcc8c29c7ac9838e8ceb69979c8f7eddeffe.jpg)
+![文献理解问答基准的分数—成本分析](/images/20fe201b9df2ae8e2eb1f3bf47356ea1.png)
 
 这张图应沿横轴从低成本向高成本阅读，纵轴是基准得分，误差棒为 95% 置信区间，虚线连接帕累托前沿上的点。它支撑的核心主张是：在文献理解问答上，专用智能体与通用 ReAct 的差距并非单纯由成本决定；Asta Scholar QA 在 ScholarQA-CS2 上以约 0.126 美元的成本取得 87.7 分，而 ReAct 搭配 gpt-5 以约 0.373 美元取得 79.8 分，说明任务优化能带来成本与质量的双重优势，但这一优势在 LitQA2-FullText 上并不一致。
 
@@ -35,34 +42,32 @@ AstaBench 的方法由三层构成。第一层是评测原则：任务需覆盖�
 
 实验覆盖数月，报告准确率、成本与标准差。下表汇总数据集、模型、划分、基线与指标等设置信息。
 
-| 项目 | 内容 |
-|---|---|
-| 任务类别 | 文献理解、编码与执行、数据分析、端到端发现 |
-| 基准数量 | 11 个 |
-| 问题规模 | 2400+ |
-| 智能体类别 | 22 类 |
-| 具体智能体 | 57 个 |
-| 底层模型 | gpt-5、gpt-5-mini、o3、claude-sonnet-4、gemini-2.5-flash、llama-4-scout 等 |
-| 成本核算 | Inspect 记录用量，litellm 冻结价格快照折算美元 |
-| 指标 | 各基准得分、类别宏平均、成本（美元/问题）、95% 置信区间 |
-| 基线 | ReAct、Smolagents Coder、Asta 系列专用智能体、商业科研智能体 |
+
+
+
+
+
+
+
+
+
+
 
 主结果如下表所示，数值取自论文表 4 与表 11。
 
-| 智能体 | 模型 | 综合得分 | 综合成本 | 文献理解 | 编码与执行 | 数据分析 | 端到端发现 |
-|---|---|---|---|---|---|---|---|
-| Asta v0 | mixture | 53.0 ± 2.4 | 3.40 | 62.2 ± 2.0 | 47.6 ± 6.5 | 33.2 ± 5.1 | 68.8 ± 4.1 |
-| ReAct | gpt-5 | 44.0 ± 3.0 | 0.31 | 54.6 ± 2.2 | 55.0 ± 7.0 | 30.5 ± 4.8 | 36.1 ± 8.3 |
-| ReAct | claude-sonnet-4 | 40.1 ± 2.4 | 0.40 | 45.4 ± 2.3 | 46.2 ± 6.6 | 23.2 ± 4.1 | 45.7 ± 4.8 |
-| ReAct | o3 | 39.4 ± 2.6 | 0.16 | 46.8 ± 2.3 | 49.3 ± 6.3 | 33.7 ± 5.1 | 28.0 ± 6.3 |
-| Smolagents Coder | claude-sonnet-4 | 38.1 ± 2.3 | 1.02 | 42.7 ± 2.4 | 39.6 ± 5.8 | 28.8 ± 4.8 | 41.5 ± 4.9 |
-| Smolagents Coder | gpt-5 | 37.5 ± 2.5 | 0.13 | 46.0 ± 2.5 | 30.9 ± 4.2 | 26.7 ± 4.7 | 46.5 ± 7.2 |
-| ReAct | gpt-5-mini | 31.6 ± 2.7 | 0.04 | 36.5 ± 2.9 | 50.5 ± 7.1 | 26.9 ± 4.8 | 12.6 ± 5.6 |
-| Smolagents Coder | llama-4-scout | 11.1 ± 1.4 | 0.11 | 20.0 ± 2.2 | 3.6 ± 2.4 | 20.2 ± 4.5 | 0.5 ± 0.4 |
+
+
+
+
+
+
+
+
+
 
 最强相关基线是 ReAct 搭配 gpt-5，综合 44.0 分；类别层面呈现明显不一致：编码与执行上 ReAct 搭配 gpt-5 的 55.0 分高于 Asta v0 的 47.6 分；端到端发现上 Asta v0 的 68.8 分远高于 ReAct 搭配 gpt-5 的 36.1 分。这说明专用优化并非全面领先，而是以更高工程与推理成本换取特定类别优势。
 
-![端到端发现基准的分数—成本分析](/images/papers/2510.21652/f58ba4301a10798320cf700d000c1356314d661dd11c9e3d959f875fa449509d.jpg)
+![端到端发现基准的分数—成本分析](/images/46f045f0988886db031814416c3cd02b.png)
 
 这张图聚焦端到端发现，横轴为对数成本，纵轴为得分，虚线标出帕累托前沿。阅读时应关注高成本区间的 Asta Panda 与 Asta v0：Asta Panda 搭配 claude-sonnet-4 在 E2E-Bench 上得 70.5 分、成本约 10.643 美元，在 E2E-Bench-Hard 上得 68.2 分、成本约 14.487 美元；而 Smolagents Coder 搭配 gpt-5 仅用约 0.205 美元就在 E2E-Bench 上得 62.8 分，但在 E2E-Bench-Hard 上跌至 30.3 分。这支撑了“端到端发现的高分伴随极高成本，且难度提升后性能骤降”的判断。
 
@@ -79,7 +84,11 @@ AstaBench 的机制贡献在于把“可控环境、标准化接口、成本核�
 ## References
 
 - AstaBench: Rigorous Benchmarking of AI Agents with a Scientific Research Suite. [arXiv 2510.21652](https://arxiv.org/abs/2510.21652)
+
 - Inspect 评测框架：[GitHub](https://github.com/UKGovernmentBEIS/inspect)
+
 - Terminal-Bench：[GitHub](https://github.com/laude-institute/terminal-bench)
+
 - HAL 评测工具：[GitHub](https://github.com/princeton-pli/hal-harness)
+
 - Evalchemy：[GitHub](https://github.com/mlfoundations/evalchemy)

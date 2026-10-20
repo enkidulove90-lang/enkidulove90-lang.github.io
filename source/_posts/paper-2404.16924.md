@@ -1,17 +1,24 @@
 ---
+
 title: "生成式搜索与推荐：四阶段框架如何统一检索与推荐"
-date: 2024-04-01
-year: 2024
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
-categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+date: 2026-10-19
+
+year: 2026
+
+venue_type: arXiv预印本
+
+venue_name: ""
+
+categories: [未分类]
+
+tags: [论文速读]
+
 slug: paper-2404.16924
-arxiv_id: "2404.16924"
-description: "首篇从统一视角综述生成式搜索与推荐的论文，用查询/用户表述、标识符、训练、推理四阶段框架梳理现有工作，并指出码本标识符在语义性、区分性与可更新性上的潜力及百万级语料扩展的未解难题。"
+
 ---
 
-> 论文：[arXiv 2404.16924](https://arxiv.org/abs/2404.16924) · PDF：[本地阅读](/papers/2404.16924.pdf)
+> 论文：[arXiv 2404.16924](https://arxiv.org/abs/2404.16924) · PDF：[本地阅读](https://app.notion.com/papers/2404.16924.pdf)
 
 搜索与推荐是信息获取的两大基础设施：搜索让用户用显式查询主动检索文档，推荐则从用户历史行为中隐式推断兴趣、被动过滤物品。从技术视角看，两者可以统一为“匹配”问题——搜索匹配查询与文档，推荐匹配用户与物品。过去几十年，这两个领域经历了同步的范式迁移：从基于机器学习的“学习匹配”，到基于深度学习的“表示学习+匹配函数”，再到如今由生成式大语言模型驱动的生成式搜索与生成式推荐。
 
@@ -25,7 +32,7 @@ description: "首篇从统一视角综述生成式搜索与推荐的论文，用
 
 论文首先回顾了机器学习和深度学习时代的搜索与推荐范式，然后界定生成式范式的边界，并抽象出统一框架。图1直观对比了三种范式：机器学习范式用浅层模型计算匹配分数，深度学习范式用神经网络编码查询/用户与文档/物品再计算匹配，而生成式范式直接根据查询/用户表述生成文档/物品的标识符。
 
-![图1：三种搜索与推荐范式的对比](/images/papers/2404.16924/figure_001_paradigms.png)
+![图1：三种搜索与推荐范式的对比](/images/c22def42c13e5bc21b23132aad0041e1.png)
 
 阅读这张图时，从左到右依次看三个子图：左侧是机器学习范式，查询/用户与文档/物品经过浅层模型得到匹配分数；中间是深度学习范式，两侧输入先被编码为稠密表示，再通过匹配函数打分；右侧是生成式范式，查询/用户表述被送入生成模型，直接输出文档/物品的标识符。这张图支撑的核心主张是：前两种范式本质上是判别式的相似度计算，而生成式范式把匹配问题转化为生成问题，这是范式层面的根本转变。
 
@@ -35,7 +42,7 @@ description: "首篇从统一视角综述生成式搜索与推荐的论文，用
 
 图2以时间线形式呈现了生成式搜索的发展脉络，标注了首次引入新标识符类型或训练方案的代表性工作。从图中可以看到，GENRE最早采用自回归生成完成检索任务并引入约束束搜索，此后数值ID、N-gram、多视图、码本等标识符类型相继出现，2023年判别式训练被引入生成式搜索，随后又有工作进一步验证其有效性。这张图支撑的主张是：生成式搜索的演进主线之一就是标识符类型的不断丰富与训练策略的逐步完善。
 
-![图2：生成式搜索发展的重要里程碑](/images/papers/2404.16924/figure_002_timeline_search_v2.png)
+![图2：生成式搜索发展的重要里程碑](/images/48a0e52750a0ebddfed663f44d7c4430.png)
 
 在生成式推荐侧，物品标识符同样面临语义性与区分性的权衡。论文指出，好的物品标识符至少应满足两个标准：区分性，以强调从用户行为中学习到的显著物品特征；语义性，以利用预训练语言模型的先验知识，促进冷启动和跨域推荐的泛化。现有工作采用数值ID、标题、N-gram、码本等策略构造物品标识符，其中数值ID需要设计成可进一步分词的词元序列，以便用有限词元表示无限物品。
 
@@ -43,52 +50,50 @@ description: "首篇从统一视角综述生成式搜索与推荐的论文，用
 
 本文为综述论文，未开展原创实验，也未设置统一的对比基线和消融实验。因此，本节不呈现统一的性能数值对比，而是说明论文如何组织所综述方法的证据，以及这些证据能支撑什么、不能支撑什么。
 
-| 维度 | 说明 |
-|---|---|
-| 任务类型 | 文档级检索、段落级检索、对话式问答、多跳问答、跨语言检索 |
-| 代表性数据集 | NQ10K、NQ100K、NQ320K、TriviaQA、MSMARCO、KILT、BEIR、HotpotQA、TOPIOCQA、QRECC、ORQUAC、XOR QA 100k、TREC DL、NQ-inc、MSMARCO-inc、WebQuestions |
-| 数据重构 | 部分方法对数据集进行了重构，如NQ320K、TriviaQA子集、MSMARCO子集 |
-| 骨干模型 | BART-large、T5-base、T5-large、T5-XL、T5-XXL、GPT3等 |
-| 约束生成结构 | Trie、FM-index |
-| 对比方法 | 各方法自身采用的对比方法，主要包括BM25、双编码器等传统检索方法和其他生成式搜索方法 |
-| 评价指标 | 所综述方法通常采用Recall、MRR、nDCG等检索指标，但原文未给出统一计算口径 |
-| 训练/验证/测试划分 | 原文未披露统一划分 |
+
+
+
+
+
+
+
+
+
 
 表1汇总了代表性生成式搜索方法的标识符、骨干模型、约束生成结构和数据集。从表中可以观察到几个一致性特征：几乎所有方法都采用预训练语言模型作为骨干，且几乎都使用约束生成来保证有效标识符的输出；多视图标识符和N-gram标识符依赖FM-index，其余方法多使用Trie；数据集主要集中在文档级和段落级检索，部分方法因标识符类型限制而重构了数据集。
 
-| 方法 | 标识符 | 骨干模型 | 约束生成 | 数据集 |
-|---|---|---|---|---|
-| GENRE | 标题 | BART-large | Trie | KILT |
-| DSI | 数值ID | T5-base/large/XL/XXL | Trie | NQ10K、NQ100K、NQ320K |
-| SEAL | N-gram | BART-large | FM-index | KILT、NQ10K、NQ |
-| NCI | 数值ID | T5-small/base/large | Trie | NQ320K、TriviaQA子集 |
-| MINDER | 多视图 | BART-large | FM-index | NQ、TriviaQA、MSMARCO |
-| GENRET | 码本 | T5-base | Trie | NQ320K、MSMARCO、BEIR |
-| TOME | 标题类（URL） | T5-large/XL | Trie | NQ320K、MSMARCO |
-| LTRGR | 多视图 | BART-large | FM-index | NQ、TriviaQA、MSMARCO |
-| DGR | 多视图 | BART-large | FM-index | NQ、TriviaQA、MSMARCO、TREC DL |
-| DSI（scaling up） | 数值ID | T5-base/large/XL/XXL | Trie | NQ320K、TriviaQA子集、MSMARCO |
-| DSI-QG | 数值ID | T5-base/large | — | NQ320K、XOR QA 100k |
-| DSI++ | 数值ID | T5-base/large/XL | Trie | NQ-inc、MSMARCO-inc |
-| GCoQA | 标题 | T5-small/base/large/XL | Trie | TOPIOCQA、QRECC、ORQUAC |
-| GMR | 标题 | T5-base | Trie | HotpotQA |
-| CorpusBrain | 标题 | BART-large | Trie | KILT |
-| UGR | N-gram | BART-large | FM-index | KILT |
-| SE-DSI | 标题类（伪查询） | T5-base | Trie | NQ100K、MSMARCO |
-| GenRRL | 标题类（摘要） | T5-base | Trie | NQ320K、MSMARCO |
-| GLEN | 标题类（关键词） | T5-base | Trie | NQ320K、MSMARCO、BEIR |
-| Ultron | 标题类（URL） | T5-base | Trie | NQ320K、MSMARCO |
-| LLM-URL | 标题类（URL） | GPT3 | — | NQ、TriviaQA、WebQuestions |
-| ASI | 码本（自动搜索） | T5-like | — | MSMARCO（3.1M） |
-| RIPOR | 码本（残差量化） | T5-base | Trie | MSMARCO、TREC DL |
-| ListGR | 数值ID | T5-base | Trie | MSMARCO 100K、NQ320K |
-| MEVI | 码本 | T5-large | Trie | MSMARCO、NQ |
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 从证据强度看，论文汇总的结论是定性的而非定量的：DSI在NQ320K等数据集上验证了生成式检索的可行性；MINDER等多视图标识符方法在NQ、TriviaQA、MSMARCO上验证了有效性；DSI的扩展实验发现生成式搜索在小规模语料上可与先进双编码器竞争，但扩展到百万级段落仍是未解决的挑战。论文没有统一披露各方法的性能提升百分比，因此无法据此判断某一类标识符在绝对数值上领先多少。
 
 图3展示了六个代表性搜索与推荐数据集的统计信息，包括交互数量、标识符长度等，统计基于LLaMA2分词器，生成式推荐中的用户表述包含任务描述和用户历史交互的物品标题。这张图的作用是帮助读者理解不同数据集在规模与表述长度上的差异，从而解释为什么某些方法需要重构数据集、为什么百万级语料扩展困难。它并不提供方法间的性能对比。
 
-![图3：六个代表性数据集的统计信息](/images/papers/2404.16924/figure_004_dataset_statistics.png)
+![图3：六个代表性数据集的统计信息](/images/247f7c011c00c276f7338be4f397b4d6.png)
 
 需要明确的边界是：本文没有消融实验、没有效率对比、没有超参数实验，也没有统一的案例研究。论文对方法优劣的判断主要基于对现有工作的归纳与比较，而非受控实验。因此，文中关于码本“在语义性、区分性和可更新性上表现最佳”的结论，应理解为综述层面的定性评估，而非统一基准上的实证结论。
 
@@ -104,8 +109,12 @@ description: "首篇从统一视角综述生成式搜索与推荐的论文，用
 
 ## References
 
-- Yongqi Li, Xinyu Lin, Wenjie Wang, Fuli Feng, Liang Pang, Wenjie Li, Liqiang Nie, Xiangnan He, Tat-Seng Chua. *A Survey of Generative Search and Recommendation in the Era of Large Language Models*. arXiv:2404.16924, 2024. [arXiv](https://arxiv.org/abs/2404.16924) · [PDF](/papers/2404.16924.pdf)
+- Yongqi Li, Xinyu Lin, Wenjie Wang, Fuli Feng, Liang Pang, Wenjie Li, Liqiang Nie, Xiangnan He, Tat-Seng Chua. *A Survey of Generative Search and Recommendation in the Era of Large Language Models*. arXiv:2404.16924, 2024. [arXiv](https://arxiv.org/abs/2404.16924) · [PDF](https://app.notion.com/papers/2404.16924.pdf)
+
 - Cao et al. *Autoregressive Entity Retrieval* (GENRE). 2021.
+
 - Tay et al. *Transformer Memory as a Differentiable Search Index* (DSI). 2022.
+
 - Bevilacqua et al. *Autoregressive Search Engines: Generating Substrings as Document Identifiers* (SEAL). 2022.
+
 - Li et al. *Multi-view Identifiers for Generative Search* (MINDER). 2023.

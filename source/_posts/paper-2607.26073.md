@@ -1,17 +1,24 @@
 ---
+
 title: "Gwhere：用对比式语义ID与EAKTO把生成式下一POI推荐搬上高德首页"
-date: 2026-07-01
+
+date: 2026-10-19
+
 year: 2026
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
-categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+venue_type: arXiv预印本
+
+venue_name: ""
+
+categories: [未分类]
+
+tags: [论文速读]
+
 slug: paper-2607.26073
-arxiv_id: "2607.26073"
-description: "Gwhere 以对比残差量化学习多模态 POI 语义 ID，再经持续预训练、SFT 与曝光感知 KTO 对齐 LLM，在 AMAP 上 Acc@1 相对级联排序提升 14.8%，线上 P-CTR +5.83%、U-CTR +6.20%。"
+
 ---
 
-> 论文：[arXiv 2607.26073](https://arxiv.org/abs/2607.26073) · 代码：[GitHub](https://github.com/alibaba/SimCIT) · PDF：[本地阅读](/papers/2607.26073.pdf)
+> 论文：[arXiv 2607.26073](https://arxiv.org/abs/2607.26073) · 代码：[GitHub](https://github.com/alibaba/SimCIT) · PDF：[本地阅读](https://app.notion.com/papers/2607.26073.pdf)
 
 下一兴趣点（POI）推荐是位置服务的基础任务：给定用户的历史签到、当前位置与天气、时间等情境，预测他接下来会去哪里。传统工业系统走的是“多路召回—粗排—精排—认知重排”的级联路线，每一级只做局部优化，异构信号在层层漏斗中被反复压缩。生成式检索提供了另一条路径：把物品映射为紧凑的语义标识符（SID），让模型直接自回归“写出”下一个物品，从而把召回与排序统一到一个生成过程里。
 
@@ -25,7 +32,7 @@ Gwhere 是这条路径上少见的、真正跑进高德首页的端到端系统�
 
 Gwhere 把下一 POI 预测改写为自回归生成 SID 元组的问题。每个 POI 先被映射为长度为 L 的码字序列，用户历史签到序列随之变成 SID 序列；模型在给定历史、当前位置与情境的条件下逐位生成目标 SID，再通过预建的 SID-to-POI 查找表还原为可读地点。整条数据流分为离线训练与在线服务两段，下图给出了完整链路。
 
-![Gwhere 的离线训练与在线服务流程](/images/papers/2607.26073/9763bee4fc97cac195f66407d8b739af7a16c4d51cfa29828a61c11f9d9f64d4.jpg)
+![Gwhere 的离线训练与在线服务流程](/images/9951b90aee06213ea05514a5f1c91e8a.png)
 
 阅读这张图可以按上下两段走。上半段是离线训练的三步：POI 先被分词为 SID；基座 LLM 在收集到的语料上做持续预训练；随后再经微调与偏好对齐，使训练目标与推理提示的格式一致。下半段是在线服务：模型存放在模型引擎中，由数据服务引擎把实时情境——用户画像、最近签到、当前时间、位置与天气——拼成指令提示，模型以 SID 形式输出下一个 POI，再映射回可读地点返回移动端。这张图支撑的核心主张是：SID 是训练与服务共享的中间语言，离线阶段学到的分词空间直接决定了在线阶段生成与还原的可行性。
 
@@ -41,65 +48,60 @@ SFT 阶段用高质量交互数据与多级用户画像（静态画像、长期�
 
 实验覆盖三个公开数据集与一个高德工业数据集，任务统一为下一 POI 预测，指标以 Acc@1 为主。下表汇总数据规模、划分与实现条件。
 
-| 项目 | 设置 |
-| --- | --- |
-| 数据集 | Foursquare-NYC、Foursquare-TKY、Gowalla-CA、AMAP |
-| 预处理 | 移除交互少于 10 次的 POI 与签到少于 10 次的用户；按时间排序；80%/10%/10% 划分；测试集移除训练集未出现的用户与 POI |
-| 样本构造 | 每个用户最后一次访问为真值，之前访问为输入序列 |
-| AMAP 规模 | 1000 万用户、8310 万 POI、3.8 亿交互，平均序列长度 38 |
-| 分词器 | 文本 BERT 类编码器、图像 ViT、空间 GraphSAGE、协同 ALS；96 维隐向量、3 层码本、每层数十码字（公开集 48，AMAP 更大） |
-| 生成模块 | Qwen2.5 0.5B/1.5B/3B/7B；学习率 1e-5；20 步预热；200 块 H20；每卡批大小 16；梯度累积 8；序列长度 4096；输入最近 50 条签到 |
-| 基线 | 传统 PRME、PLSPL；Transformer STAN、GETNext；GCN STHGCN；时间感知 TPG、ROTAN；LLM4POI、GNPR-SID；AMAP 上为生产级联排序系统 |
-| 指标 | 离线 Acc@1；线上 P-CTR、U-CTR、SC-Rate、RE-Rate、AC-Rate、NF-Rate（相对生产基线的百分比） |
+
+
+
+
+
+
+
+
+
 
 公开集主结果如下。Gwhere 各规模版本全面超过所有基线，最强相关基线是同样使用 SID 与时间戳的 GNPR-SID（基座为 LLaMA-7B）。
 
-| 模型 | POI 表示 | 用户表示 | 时间 | NYC | TKY | CA |
-| --- | --- | --- | --- | --- | --- | --- |
-| PRME | RID | UID | × | 0.1159 | 0.1052 | 0.0521 |
-| PLSPL | RID | UID | × | 0.1917 | 0.1889 | 0.1072 |
-| STAN | RID | UID | × | 0.2231 | 0.1963 | 0.1104 |
-| GETNext | RID | UID | × | 0.2435 | 0.1829 | 0.1357 |
-| STHGCN | RID | UID | × | 0.2734 | 0.2950 | 0.1730 |
-| TPG | RID | UID | √ | 0.2555 | 0.1420 | 0.1749 |
-| ROTAN | RID | UID | √ | 0.3106 | 0.2458 | 0.2199 |
-| LLM4POI | RID | UID | √ | 0.3372 | 0.3035 | 0.2065 |
-| GNPR-SID | SID | UID | √ | 0.3618 | 0.3062 | 0.2403 |
-| Gwhere-0.5B | SID | UP | √ | 0.3705 | 0.3125 | 0.2555 |
-| Gwhere-1.5B | SID | UP | √ | 0.3727 | 0.3170 | 0.2585 |
-| Gwhere-3B | SID | UP | √ | 0.3872 | 0.3202 | 0.2611 |
-| Gwhere-7B | SID | UP | √ | 0.4027 | 0.3310 | 0.2721 |
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 三点值得注意。其一，最小的 Gwhere-0.5B 已在三个数据集上全部超过 GNPR-SID，说明收益并非只来自模型规模，SID 分词与用户画像输入（UP 替代 UID）本身就有贡献。其二，从 0.5B 到 7B 呈单调上升，7B 相对 GNPR-SID 分别提升 11.3%、8.1%、13.2%，规模与生成式范式是互补而非替代关系。其三，CA 数据集上所有方法绝对值都偏低，Gwhere-7B 的 0.2721 仍明显高于 GNPR-SID 的 0.2403，但该数据集稀疏度极高，结论应限定在相对排序而非绝对可用性上。
 
 AMAP 工业集上，Gwhere 各版本对生产级联排序基线的 Acc@1 如下，7B 相对提升 14.8%。
 
-| 模型 | Baseline | Gwhere-0.5B | Gwhere-1.5B | Gwhere-3B | Gwhere-7B |
-| --- | --- | --- | --- | --- | --- |
-| Acc@1 | 0.2675 | 0.2820 | 0.2862 | 0.2923 | 0.3071 |
+
+
 
 消融实验以 Gwhere-3B 在 AMAP 上进行，逐项移除模块后的 Acc@1 变化如下。
 
-| 消融设置 | Acc@1 |
-| --- | --- |
-| w/o SID（随机 ID） | 0.2455（↓16.01%） |
-| w/o ST（无时空描述） | 0.2785（↓4.72%） |
-| w/o SLD（无 SID-位置-描述语料） | 0.2822（↓3.46%） |
-| w/o CPT（无持续预训练） | 0.2632（↓9.96%） |
-| w/o SFT | 0.2725（↓6.77%） |
-| w/o RL | 0.2580（↓11.73%） |
-| Gwhere | 0.2923 |
+
+
+
+
+
+
+
+
 
 移除 SID 的跌幅最大（16.01%），移除 RL 次之（11.73%），持续预训练排第三（9.96%）。这说明分词空间与偏好对齐是两根最吃重的支柱，而 SID-位置-描述语料单独移除只带来 3.46% 的下降，语义对齐语料的作用更像是为后续阶段铺路，而非独立贡献。
 
 偏好对齐的对照实验固定分词器与模型结构，只替换对齐目标。
 
-| 变体 | Acc@1 |
-| --- | --- |
-| SFT-only | 0.2492 |
-| SFT + DPO | 0.2634 |
-| SFT + GRPO | 0.2759 |
-| SFT + EAKTO | 0.2820 |
+
+
+
+
+
 
 EAKTO 高于 GRPO 与 DPO，且相对 SFT-only 的提升幅度最大，验证了在标签不平衡下利用曝光未点击数据作为 E-Neg 信号的有效性。需要指出的是，这一比较只在 AMAP 单一数据集上报告，跨数据集的稳健性未在证据中给出。
 
@@ -107,10 +109,9 @@ EAKTO 高于 GRPO 与 DPO，且相对 SFT-only 的提升幅度最大，验证了
 
 线上部分是高德首页“猜你去哪”卡片，对照对象是同一入口的生产级联排序系统，两者共享流量分配、页面位置、请求上下文与指标定义。部署前在 50 QPS、2 块 H20 上做压测：级联排序的 p99 延迟稳定在约 20ms，Gwhere-7B 虽离线最优但成本过高，最终选择 Gwhere-0.5B，p99 约 30ms。一个月长期 A/B 结果如下，均为相对生产基线的百分比。
 
-| 变体 | P-CTR | U-CTR | SC-Rate | RE-Rate | AC-Rate | NF-Rate |
-| --- | --- | --- | --- | --- | --- | --- |
-| w/o EAKTO | +4.23% | +4.59% | +1.01% | +1.65% | +5.99% | -5.85% |
-| Gwhere | +5.83% | +6.20% | +2.18% | +2.60% | +9.67% | -11.11% |
+
+
+
 
 最直接的读法是：去掉 EAKTO 后，P-CTR 从 +5.83% 回落到 +4.23%，NF-Rate 的抑制从 -11.11% 收窄到 -5.85%，说明偏好对齐模块主要贡献在“少推错”而非“多推对”。同时也要看到代价与边界：线上部署的是 0.5B 小模型，离线最强的 7B 并未上线；p99 延迟约 30ms 仍高于级联排序的约 20ms；SC-Rate 与 RE-Rate 的增益只有个位数百分比，论文自己也指出这类参与度指标的改善往往需要更长周期才显现。
 
@@ -124,8 +125,12 @@ Gwhere 的机制可以概括为一条共享中间语言的流水线：对比残�
 
 ## References
 
-1. Penglong Zhai, Bowen Zheng, Jie Li, Yifang Yuan, Yue Liu, Sicong Wang, Mingyang Yin, Tingting Hu, Shuaijun Guo, Fanyi Di, Xin Li. Guess Where You Go: Generative Next Point-of-Interest Recommendation in Amap. RecSys '26. arXiv:2607.26073. https://arxiv.org/abs/2607.26073 · 代码：https://github.com/alibaba/SimCIT
-2. Yupeng Hou et al. GNPR-SID: 基于语义 ID 的生成式下一 POI 推荐（论文中的最强相关基线，结果引自原文）。
-3. Kawin Ethayarajh et al. Model Alignment as Prospect Theoretic Optimization (KTO). ICML 2024.
-4. Rafael Rafailov et al. Direct Preference Optimization. NeurIPS 2023.
-5. Qwen Team. Qwen2.5 Technical Report. arXiv:2412.15115.
+1. Penglong Zhai, Bowen Zheng, Jie Li, Yifang Yuan, Yue Liu, Sicong Wang, Mingyang Yin, Tingting Hu, Shuaijun Guo, Fanyi Di, Xin Li. Guess Where You Go: Generative Next Point-of-Interest Recommendation in Amap. RecSys '26. arXiv:2607.26073. [https://arxiv.org/abs/2607.26073](https://arxiv.org/abs/2607.26073) · 代码：[https://github.com/alibaba/SimCIT](https://github.com/alibaba/SimCIT)
+
+1. Yupeng Hou et al. GNPR-SID: 基于语义 ID 的生成式下一 POI 推荐（论文中的最强相关基线，结果引自原文）。
+
+1. Kawin Ethayarajh et al. Model Alignment as Prospect Theoretic Optimization (KTO). ICML 2024.
+
+1. Rafael Rafailov et al. Direct Preference Optimization. NeurIPS 2023.
+
+1. Qwen Team. Qwen2.5 Technical Report. arXiv:2412.15115.

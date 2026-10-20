@@ -1,17 +1,24 @@
 ---
+
 title: "Meta-Modal Agent：把缺失模态当作路由信号，重排冷启动候选池"
-date: 2026-05-01
+
+date: 2026-10-19
+
 year: 2026
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
-categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+venue_type: arXiv预印本
+
+venue_name: ""
+
+categories: [未分类]
+
+tags: [论文速读]
+
 slug: paper-2605.25007
-arxiv_id: "2605.25007"
-description: "MMA 将冷启动推荐中的模态缺失重构为顺序证据路由问题，用 PPO 训练 LLM 智能体在工具返回 Null 时切换证据源；在 OOMA 设置下 NDCG@10 平均提升 4.0%，固定池全目录重排序平均相对提升 12.7%。"
+
 ---
 
-> 论文：[arXiv 2605.25007](https://arxiv.org/abs/2605.25007) · PDF：[本地阅读](/papers/2605.25007.pdf)
+> 论文：[arXiv 2605.25007](https://arxiv.org/abs/2605.25007) · PDF：[本地阅读](https://app.notion.com/papers/2605.25007.pdf)
 
 多模态推荐系统依赖文本、图像和交互图三类证据，但在冷启动场景中，这些证据恰恰最不完整：新用户没有行为历史，新商品可能只有图片没有描述，隐私约束下用户属性还可能被主动屏蔽。已有方法大多把缺失模态当作“待恢复的信号”，通过插补、特征传播或生成式重建来补全表示。当存活模态本身信息很弱时，这种重建可能注入没有依据的证据，反而污染排序。
 
@@ -27,23 +34,23 @@ Meta-Modal Agent（MMA）换了一个角度：不恢复缺失模态，而是让�
 
 MMA 的整体数据流可以概括为四步：接收共享候选池、调用证据工具、把 Null 写入交互历史、输出候选分数并与第一阶段分数融合。图 1 给出了这一流程的全局视图。
 
-![图 1：MMA 总览](/images/papers/2605.25007/769bea42d48c848a7e8c729c6803e77bccad124df56307ec6eaf6a8e6ce27f42.jpg)
+![图 1：MMA 总览](/images/e6519db3f82631e6c9e5e2a80723d5ed.png)
 
 阅读这张图时，可以先看左侧的候选池入口：每个 episode 固定一个大小为 B 的候选集，目标商品被插入其中，其余位置由存活模态对应的硬负样本填充——文本可用时用 BM25，仅图像时用 CLIP 最近邻，仅行为时用 ANN 图检索。中间是证据路由层，智能体在文本、图像、图三类工具之间选择，工具返回 Null 时该结果进入交互历史而非被静默丢弃。右侧是终端评分动作，输出候选 ID 到分数的映射，再与第一阶段检索分数按验证集选定的权重融合。这张图支撑的核心主张是：缺失模态不是特征层面的噪声，而是动作层面的观测，路由策略本身构成重排序能力的一部分。
 
 ### 1.1 Episode 接口与候选池
 
-每个 episode 的候选池 $C_e$ 大小固定为 B，智能体看到的是匿名化商品 ID、第一阶段排名，以及仅从当前可观测来源派生的摘要。文本可用时暴露标题、类目和描述片段；仅图像时暴露冻结 CLIP 标签摘要；仅行为时暴露图邻居摘要。隐藏目标商品 $i^*$ 只用于评估器计算奖励和指标，从不展示给智能体。模态可用性用二值掩码 $m \in \{0,1\}^{|\mathcal{M}|}$ 表示，覆盖文本、图像、行为三个维度，掩码在一个 episode 内固定、跨 episode 变化，且不直接告知智能体——智能体只能通过调用工具并观察是否返回 Null 来发现缺失。
+每个 episode 的候选池 C_e 大小固定为 B，智能体看到的是匿名化商品 ID、第一阶段排名，以及仅从当前可观测来源派生的摘要。文本可用时暴露标题、类目和描述片段；仅图像时暴露冻结 CLIP 标签摘要；仅行为时暴露图邻居摘要。隐藏目标商品 i^* 只用于评估器计算奖励和指标，从不展示给智能体。模态可用性用二值掩码 m \in \{0,1\}^{|\mathcal{M}|} 表示，覆盖文本、图像、行为三个维度，掩码在一个 episode 内固定、跨 episode 变化，且不直接告知智能体——智能体只能通过调用工具并观察是否返回 Null 来发现缺失。
 
 ### 1.2 证据路由智能体
 
-episode 被建模为 POMDP $\langle S, \mathcal{A}, \mathcal{P}, \Omega, O, \mathcal{R}, \gamma \rangle$。潜在状态包含用户偏好分布和固定掩码，环境在 episode 内静态，因此所有适应都来自交互历史 $H_t = (z_1,a_1,o_1,\ldots,z_t,a_t,o_t)$ 的更新，其中 $z_t$ 是推理轨迹，$a_t$ 是结构化工具动作，$o_t$ 是返回观测。策略先产生推理轨迹，再产生单行 JSON 动作；动作空间是工具名与 JSON 参数串的笛卡尔积，非法 JSON 或未知工具名会触发无效动作惩罚。
+episode 被建模为 POMDP \langle S, \mathcal{A}, \mathcal{P}, \Omega, O, \mathcal{R}, \gamma \rangle。潜在状态包含用户偏好分布和固定掩码，环境在 episode 内静态，因此所有适应都来自交互历史 H_t = (z_1,a_1,o_1,\ldots,z_t,a_t,o_t) 的更新，其中 z_t 是推理轨迹，a_t 是结构化工具动作，o_t 是返回观测。策略先产生推理轨迹，再产生单行 JSON 动作；动作空间是工具名与 JSON 参数串的笛卡尔积，非法 JSON 或未知工具名会触发无效动作惩罚。
 
 三个自动化工具分别是：`Analyze_Text` 返回规范化标题、类目和截断描述，文本缺失时返回 Null；`Analyze_Image` 运行冻结 CLIP-ViT-L/14 编码器返回 top-5 零样本语义标签，图像缺失时返回 Null；`Retrieve_Graph` 在预计算的商品-商品协同图上做 ANN 搜索返回共同购买邻居标题，行为缺失时返回 Null。第四个工具 `Ask_User` 仅用于 MMA-Interactive，它把存活模态证据转成自然语言澄清，属于理想化上界而非部署主张。
 
 ### 1.3 候选评分与融合
 
-终端动作 `Score_Candidates` 输出候选 ID 到相关性分数的 JSON 映射，而不是单商品推荐或检索动作。MMA 分数在候选池内做 min–max 归一化后与归一化的第一阶段分数融合：$\hat{s}_i = \alpha s_i^{(0)} + (1-\alpha) s_i^{\mathrm{MMA}}$，融合权重 $\alpha$ 由验证集网格搜索选定后固定用于测试。终端 JSON 中遗漏的候选保留第一阶段分数和相对顺序；JSON 格式错误则触发无效动作惩罚，该 episode 回退到第一阶段排序。
+终端动作 `Score_Candidates` 输出候选 ID 到相关性分数的 JSON 映射，而不是单商品推荐或检索动作。MMA 分数在候选池内做 min–max 归一化后与归一化的第一阶段分数融合：\hat{s}_i = \alpha s_i^{(0)} + (1-\alpha) s_i^{\mathrm{MMA}}，融合权重 \alpha 由验证集网格搜索选定后固定用于测试。终端 JSON 中遗漏的候选保留第一阶段分数和相对顺序；JSON 格式错误则触发无效动作惩罚，该 episode 回退到第一阶段排序。
 
 ### 1.4 平衡缺失任务训练
 
@@ -53,44 +60,41 @@ episode 被建模为 POMDP $\langle S, \mathcal{A}, \mathcal{P}, \Omega, O, \mat
 
 实验围绕四个问题组织：无 oracle 的 OOMA 稳健性、逐模态 OOMA 分解、固定池全目录重排序、以及确定性路由机制对照。数据集为 Amazon-Baby、Amazon-Sports 和 Yelp 2022 版，按时间划分：最早 80% 交互训练，接下来 10% 验证，最近 10% 测试。
 
-| 项目 | 设置 |
-|---|---|
-| 数据集 | Amazon-Baby、Amazon-Sports、Yelp (2022) |
-| 划分 | 时间划分：80% 训练 / 10% 验证 / 10% 测试 |
-| 候选池 | 目标正样本 + B−1 个存活模态硬负样本 |
-| 基线 | LightGCN、SASRec、MMGCN、LRMM、DGMRec、GRE-MC、MACL、ReAct、AgentCF、MMA-SFT、MMA-Pooled、RuleRouter-Fuse |
-| 指标 | HR@10、NDCG@10、Recall@100 |
-| 基础模型 | Llama-3-8B-Instruct，8-bit 量化，LoRA (r=16, α=32) |
-| 训练 | PPO，lr 1e-5，batch 64，clip ε=0.2，GAE λ=0.95，500 次迭代 |
-| 推理预算 | 8 轮，2048 token 上下文，评估温度 0.0 |
-| 硬件 | 单张 NVIDIA A100 |
+
+
+
+
+
+
+
+
+
+
 
 ### 2.1 无 oracle 的 OOMA 主结果
 
 主结果比较 MMA-Auto 与强静态补全基线。MMA-Auto 禁用 `Ask_User`，因此增益只能来自自动化路由、候选评分和与第一阶段分数的融合。
 
-| 数据集 | DGMRec | GRE-MC | MMA-Auto | 相对增益 |
-|---|---|---|---|---|
-| Baby | 0.1848±.0088 | 0.1800±.0096 | 0.1912±.0116 | 3.5% |
-| Sports | 0.1664±.0080 | 0.1600±.0096 | 0.1730±.0104 | 4.0% |
-| Yelp | 0.1424±.0072 | 0.1344±.0096 | 0.1492±.0096 | 4.8% |
-| 平均 | 0.1645 | 0.1581 | 0.1711 | 4.0% |
+
+
+
+
+
 
 DGMRec 在三个数据集上都是更强的静态基线，MMA-Auto 相对它的平均 NDCG@10 提升为 4.0%。绝对增益不大，但方向一致：Baby、Sports、Yelp 分别提升 0.0064、0.0066、0.0068。三个数据集证据结构不同——Amazon 有结构化文本和商品图，Yelp 更依赖评论文本和场所照片——这种跨域一致性支持“学习到的证据路由带来稳健重排序增益”这一较窄的部署主张。需要强调的是，目标正样本池中的负样本来自存活模态的硬检索，任务不是找出明显相关商品，而是在缺失条件下重排看似合理的候选，因此增益应被读作对存活证据的更好利用，而非全目录检索能力的证明。
 
 ### 2.2 逐模态 OOMA 分解
 
-| 数据集 | 方法 | 仅文本 | 仅图像 | 仅行为 | 平均 OOMA |
-|---|---|---|---|---|---|
-| Baby | DGMRec | 0.2016±.0092 | 0.1620±.0080 | 0.1908±.0088 | 0.1848±.0088 |
-| Baby | GRE-MC | 0.1940±.0096 | 0.1580±.0084 | 0.1880±.0092 | 0.1800±.0096 |
-| Baby | MMA-Auto | 0.2084±.0112 | 0.1668±.0104 | 0.1984±.0108 | 0.1912±.0116 |
-| Sports | DGMRec | 0.1820±.0088 | 0.1440±.0076 | 0.1732±.0084 | 0.1664±.0080 |
-| Sports | GRE-MC | 0.1748±.0092 | 0.1384±.0080 | 0.1668±.0088 | 0.1600±.0096 |
-| Sports | MMA-Auto | 0.1888±.0104 | 0.1522±.0096 | 0.1780±.0100 | 0.1730±.0104 |
-| Yelp | DGMRec | 0.1560±.0080 | 0.1240±.0068 | 0.1472±.0076 | 0.1424±.0072 |
-| Yelp | GRE-MC | 0.1480±.0088 | 0.1160±.0072 | 0.1392±.0080 | 0.1344±.0096 |
-| Yelp | MMA-Auto | 0.1628±.0096 | 0.1320±.0088 | 0.1528±.0092 | 0.1492±.0096 |
+
+
+
+
+
+
+
+
+
+
 
 MMA-Auto 在全部 9 个数据集-模态组合上都优于 DGMRec 和 GRE-MC 中较强的一个。仅文本 episode 的绝对 NDCG 最高，因为标题、类目和描述直接暴露语义相关性；仅行为 episode 的绝对分数接近仅文本，尤其在 Amazon 上，因为图邻居摘要常携带强协同信号，但相对增益小于图像场景。9 个组合全部提升，比任何单一组合的幅度更能说明路由机制在变化的缺失模式下都有效。
 
@@ -98,16 +102,15 @@ MMA-Auto 在全部 9 个数据集-模态组合上都优于 DGMRec 和 GRE-MC 中
 
 目标正样本协议通过构造插入目标商品，可能高估重排序难度控制。固定池全目录重排序用真实第一阶段检索器产生候选池，再让 MMA-Auto 重排同一池子。
 
-| 数据集 | 方法 | Recall@100 | HR@10 | NDCG@10 |
-|---|---|---|---|---|
-| Baby | Static | 0.5420 | 0.0460 | 0.0212 |
-| Baby | MMA-Auto | 0.5420 | 0.0512 | 0.0238 |
-| Sports | Static | 0.4980 | 0.0384 | 0.0180 |
-| Sports | MMA-Auto | 0.4980 | 0.0426 | 0.0204 |
-| Yelp | Static | 0.5612 | 0.0310 | 0.0142 |
-| Yelp | MMA-Auto | 0.5612 | 0.0344 | 0.0160 |
-| 平均 | Static | 0.5337 | 0.0385 | 0.0178 |
-| 平均 | MMA-Auto | 0.5337 | 0.0427 | 0.0201 |
+
+
+
+
+
+
+
+
+
 
 Recall@100 按构造完全相同，因此表格隔离的是固定检索池内部的排序质量。平均 NDCG@10 从 0.0178 升到 0.0201，平均 HR@10 从 0.0385 升到 0.0427，平均每数据集相对 NDCG@10 增益为 12.7%。绝对 NDCG 远低于目标正样本设置，因为第一阶段检索器必须先在全目录中召回目标商品，MMA 才能重排它——这正是第三阶段打分器的预期行为：它能改善已有候选的顺序，但无法找回第一阶段漏掉的商品。这一检查把主张限制在固定池重排序范围内，而不是端到端检索提升。
 
@@ -117,14 +120,13 @@ Recall@100 按构造完全相同，因此表格隔离的是固定检索池内部
 
 机制对照使用 RuleRouter-Fuse：它拥有与 MMA-Auto 相同的候选池、自动化工具、轮次预算和验证集选定的融合规则，但用固定路由顺序和确定性证据打分器替代 LLM 推理与策略学习。
 
-| 数据集/指标 | DGMRec | RuleRouter-Fuse | MMA-Auto | MMA 差值 |
-|---|---|---|---|---|
-| Baby | 0.1848 | 0.1765 | 0.1912 | +0.0147 |
-| Sports | 0.1664 | 0.1592 | 0.1730 | +0.0138 |
-| Yelp | 0.1424 | 0.1378 | 0.1492 | +0.0114 |
-| 平均 | 0.1645 | 0.1578 | 0.1711 | +0.0133 |
-| 平均失败调用率 | - | 65.8% | 47.0% | -18.8 pp |
-| 平均轮次 | - | 3.8 | 2.5 | -1.3 |
+
+
+
+
+
+
+
 
 MMA-Auto 在三个数据集上都优于 RuleRouter-Fuse，平均 NDCG@10 从 0.1578 升到 0.1711，相对增益 8.4%；RuleRouter-Fuse 在每个数据集上都低于 DGMRec，说明固定路由在 OOMA 下较脆弱。诊断指标解释了原因：确定性路由失败调用率更高（65.8% 对 47.0%），每 episode 需要更多轮次（3.8 对 2.5）。固定顺序在存活模态偏离其偏好路径时会浪费调用，遇到 Null 后也缺乏判断“是否还值得再查候选级证据”的能力；MMA-Auto 则根据累积历史条件化后续动作，把失败调用变成切换工具或提前终止的证据。
 
@@ -148,8 +150,12 @@ MMA 的机制核心是把缺失模态从表示学习问题改写为顺序证据�
 
 ## References
 
-- Jinze Wang, Yangchen Zeng, Tiehua Zhang, Lu Zhang, Yuze Liu, Zhishu Shen, Jiong Jin, Zhu Sun. Meta-Modal Agent: Sequential Evidence Routing for Missing-Modality Candidate Reranking. arXiv:2605.25007. https://arxiv.org/abs/2605.25007
+- Jinze Wang, Yangchen Zeng, Tiehua Zhang, Lu Zhang, Yuze Liu, Zhishu Shen, Jiong Jin, Zhu Sun. Meta-Modal Agent: Sequential Evidence Routing for Missing-Modality Candidate Reranking. arXiv:2605.25007. [https://arxiv.org/abs/2605.25007](https://arxiv.org/abs/2605.25007)
+
 - Jiwan Kim et al. Disentangling and Generating Modalities for Recommendation in Missing Modality Scenarios. SIGIR 2025.
+
 - Yuan Li et al. Robust Multimodal Recommendation via Graph Retrieval-Enhanced Modality Completion. arXiv:2605.00670, 2026.
+
 - Yujia Qin et al. ToolLLM: Facilitating Large Language Models to Master 16000+ Real-World APIs. ICLR 2024.
+
 - Shunyu Yao et al. ReAct: Synergizing Reasoning and Acting in Language Models. ICLR 2023.

@@ -1,17 +1,24 @@
 ---
+
 title: "GLASS：用SID-Tier与语义硬搜索把长期兴趣注入生成式推荐"
-date: 2026-02-01
+
+date: 2026-10-19
+
 year: 2026
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
-categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+venue_type: arXiv预印本
+
+venue_name: ""
+
+categories: [未分类]
+
+tags: [论文速读]
+
 slug: paper-2602.05663
-arxiv_id: "2602.05663"
-description: "GLASS按SID前缀与后缀的不同需求，分别用SID-Tier兴趣直方图和语义硬搜索注入长期行为，在Taobao-MM上R@1相对最强基线提升21.57%，并在短视频平台两周A/B测试中取得召回率绝对提升3个百分点。"
+
 ---
 
-> 论文：[arXiv 2602.05663](https://arxiv.org/abs/2602.05663) · PDF：[本地阅读](/papers/2602.05663.pdf)
+> 论文：[arXiv 2602.05663](https://arxiv.org/abs/2602.05663) · PDF：[本地阅读](https://app.notion.com/papers/2602.05663.pdf)
 
 生成式推荐（GR）把推荐重新表述为在层级语义ID（SID）上的自回归生成任务，借助Transformer的序列建模能力直接捕捉用户—物品关联。然而注意力机制的二次复杂度使标准GR模型通常只能处理较短的交互序列，用户长期历史中蕴含的丰富信号难以进入解码过程。工业界常用的两阶段范式（如SIM）通过先检索后注意力的方式压缩长序列，但这类方法主要面向排序阶段，推理时目标物品已知；在检索阶段，目标物品未知，查询本身缺失，直接迁移到GR并不自然。
 
@@ -25,7 +32,7 @@ description: "GLASS按SID前缀与后缀的不同需求，分别用SID-Tier兴�
 
 GLASS采用编码器—解码器架构。编码器处理短期序列与SID-Tier生成的长期兴趣向量；解码器在自回归生成每个SID token时，先由SID-Tier增强sid1预测，再以生成的sid1为键执行语义硬搜索检索长期历史，通过双交叉注意力与自适应门控融合短期和长期信号，最终以负对数似然损失端到端训练。
 
-![GLASS整体框架](/images/papers/2602.05663/e5a32d2e4fd2de8aa1d8610dacc94fded27cfe77a11012eb29fb1037dd04d49f.jpg)
+![GLASS整体框架](/images/c9762f2b51bcf8e9ecda437930fb625d.png)
 
 读这张图可以按(a)(b)(c)三个区域展开。(a)是整体数据流：左侧编码器接收短期物品序列和SID-Tier产出的兴趣向量，右侧解码器在每一步生成时同时接入编码器输出与语义搜索检索到的长期序列，两路信号通过双交叉注意力汇合。(b)放大SID-Tier：长期历史先按第一层码字聚类，再与码字原型做相似度分桶，拼成兴趣直方图后经MLP投影为统一兴趣向量，作为编码器的全局先验，专门服务于sid1的预测。(c)放大语义硬搜索：已生成的sid1作为硬搜索键，从长期历史中筛出同属该语义簇的物品子序列，经门控与短期视图融合，用于生成sid2、sid3；右下角的稀疏感知增强则说明当检索子序列过短时，通过纳入语义邻居或调整码本密度来补足上下文。三块区域合起来支撑论文的核心主张：前缀与后缀需要不同形态的长期信号，且这种注入必须发生在解码过程中而非仅作为静态输入。
 
@@ -41,27 +48,25 @@ SID-Tier的关键设计是原型对齐与兴趣直方图。由于离散码字与
 
 实验任务为长序列检索式下一物品预测。两个公开数据集均从排序任务改造而来，只保留正交互：TAOBAO-MM保留点击交互，采样物品并过滤出现少于5次的物品；KuaiRec选取观看比超过100%的样本。短期序列取最近50个交互，更早的交互构成长期历史。
 
-| 项目 | TAOBAO-MM | KuaiRec |
-|---|---|---|
-| 用户数 | 189,423 | 3,790 |
-| 物品数 | 10,000 | 10,728 |
-| 训练样本 | 265,301 | 30,320 |
-| 验证样本 | 31,205 | 3,790 |
-| 测试样本 | 31,206 | 3,790 |
-| 平均历史序列长度 | 987 | 884 |
+
+
+
+
+
+
+
 
 实现上，SID模型与ID模型共享嵌入维度96、dropout 0.1、AdamW学习率1e-4、短期序列长度50、早停patience 50、8个注意力头、key/value维度32。SID模型使用码本[64,128,128]、SID-Tier MLP维度256、4个编码器/解码器块；ID模型使用原子物品ID、20个负样本、2个编码器/解码器块。评价指标为Recall@K（K=1,3,5,10,20）与NDCG@K（K=3,5,10,20）。基线分两组：ID-based包括Caser、HGN、GRU4Rec、SASRec、Bert4Rec、S3-Rec、HSTU；SID-based包括Tiger与DualGR。
 
 主结果如下表所示，GLASS在两个数据集的所有指标上均优于基线。
 
-| 数据集 | 模型 | R@1 | R@5 | R@10 | R@20 | N@3 | N@10 | N@20 |
-|---|---|---|---|---|---|---|---|---|
-| Taobao-MM | Tiger | 0.0280 | 0.0756 | 0.1076 | 0.1498 | 0.0448 | 0.0627 | 0.0733 |
-| Taobao-MM | DualGR | 0.0306 | 0.0781 | 0.1126 | 0.1487 | 0.0438 | 0.0653 | 0.0738 |
-| Taobao-MM | GLASS | 0.0372 | 0.0934 | 0.1284 | 0.1723 | 0.0582 | 0.0782 | 0.0893 |
-| KuaiRec | Tiger | 0.0406 | 0.0859 | 0.1202 | 0.1530 | 0.0574 | 0.0751 | 0.0834 |
-| KuaiRec | DualGR | 0.0445 | 0.0932 | 0.1292 | 0.1678 | 0.0632 | 0.0821 | 0.0908 |
-| KuaiRec | GLASS | 0.0467 | 0.0971 | 0.1345 | 0.1742 | 0.0659 | 0.0855 | 0.0946 |
+
+
+
+
+
+
+
 
 在Taobao-MM上，相对最强基线DualGR，R@1提升21.57%（0.0372对0.0306），N@3提升29.91%（0.0582对0.0448），R@5提升19.59%，R@10提升14.03%，R@20提升15.02%，N@5提升15.74%，N@10提升19.75%，N@20提升21.00%。在KuaiRec上，R@1提升4.94%（0.0467对0.0445），N@3提升4.27%（0.0659对0.0632），各指标提升幅度在3.81%到4.94%之间。两个数据集的提升幅度差异明显，论文归因于多模态特征质量：Taobao-MM使用监督对比学习得到的高质量多模态特征，语义对齐更好；KuaiRec的多模态信息来自简单文本编码，表示质量较低，因而增益受限。这一解释也提示GLASS的收益依赖SID的语义质量，是方法的一个隐含边界。
 
@@ -84,6 +89,9 @@ GLASS的机制可以概括为按SID层级分工注入长期兴趣：前缀阶段
 ## References
 
 - Coarse-to-Fine Long-term Interest Modeling for Generative Recommendation. Shiteng Cao, Junda She, Bin Zeng, Ji Liu, Chengcheng Guo, Kuo Cai, Qiang Luo, Ruiming Tang, Han Li, Kun Gai, Zhiheng Li, Cheng Yang. RecSys '26. [arXiv 2602.05663](https://arxiv.org/abs/2602.05663) · [DOI](https://doi.org/10.1145/3773078.3831769)
+
 - Tiger: Learning to Recommend with Semantic IDs. [arXiv 2305.05065](https://arxiv.org/abs/2305.05065)
+
 - DualGR: Generative Recommendation with Long Sequence Modeling. [arXiv 2502.18965](https://arxiv.org/abs/2502.18965)
+
 - SIM: Search-based Interest Model for Long-term User Behavior Modeling. [DOI](https://doi.org/10.1145/3534678.3539121)

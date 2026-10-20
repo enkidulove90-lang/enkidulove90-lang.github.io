@@ -1,17 +1,24 @@
 ---
+
 title: "从特征到智能体：FM4RecSys 三范式综述如何重新划分推荐系统"
-date: 2025-04-01
-year: 2025
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
-categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+date: 2026-10-19
+
+year: 2026
+
+venue_type: arXiv预印本
+
+venue_name: ""
+
+categories: [未分类]
+
+tags: [论文速读]
+
 slug: paper-2504.16420
-arxiv_id: "2504.16420"
-description: "该综述以特征增强、生成式与智能体三大范式组织 150 余篇文献，指出 FM 在冷启动与跨域场景优势明显，但标准 Top-N 任务中纯 ID 模型仍具竞争力。"
+
 ---
 
-> 论文：[arXiv 2504.16420](https://arxiv.org/abs/2504.16420) · 代码：[GitHub](https://github.com/huggingface/smolagents) · 代码：[GitHub](https://github.com/microsoft/autogen) · PDF：[本地阅读](/papers/2504.16420.pdf)
+> 论文：[arXiv 2504.16420](https://arxiv.org/abs/2504.16420) · 代码：[GitHub](https://github.com/huggingface/smolagents) · 代码：[GitHub](https://github.com/microsoft/autogen) · PDF：[本地阅读](https://app.notion.com/papers/2504.16420.pdf)
 
 推荐系统长期依赖用户-物品交互矩阵与任务专用的小模型，在数据稀疏、冷启动和跨域迁移上反复碰壁。基础模型（Foundation Model, FM）的兴起——从 BERT、GPT 到 CLIP、LLaMA——为推荐系统提供了一条新路径：用大规模预训练获得的语义理解与多模态推理能力，弥补协同过滤在交互信号不足时的盲区。然而，FM 究竟以什么角色进入推荐流水线，学界并没有统一说法：有人把它当特征提取器，有人让它直接生成推荐结果，还有人把它包装成能规划、能调用工具的推荐智能体。
 
@@ -25,11 +32,11 @@ description: "该综述以特征增强、生成式与智能体三大范式组织
 
 综述的方法论核心是“按 FM 在推荐流水线中的角色”划分范式，而不是按模型架构或训练目标划分。这一视角把 FM 从被动特征提供者到主动决策者的连续谱系切分为三段，并在每一段内部梳理代表性工作与技术路线。
 
-![图 1：三种 FM 驱动的推荐系统范式对比](/images/papers/2504.16420/figure_001_framework.png)
+![图 1：三种 FM 驱动的推荐系统范式对比](/images/289620571b5c02c6f1d6228d64aadf88.png)
 
 图 1 是理解全文的入口。它横向对比了特征增强、生成式和智能体三种范式：左侧的特征增强范式把 FM 放在推荐模型之前，FM 输出嵌入或语义 token，后续仍由传统推荐模型完成排序；中间的生成式范式让 FM 直接产出推荐结果或相关文本，推荐逻辑内化在生成过程里；右侧的智能体范式则把 FM 置于交互循环的中心，通过记忆、规划与工具调用动态调整推荐策略。阅读这张图时，可以先看箭头方向——FM 是从“辅助模块”逐步移动到“决策主体”，再对照每一栏下方列出的典型任务，就能快速定位一篇新论文在坐标系中的位置。
 
-![图 2：FM4RecSys 分类总览](/images/papers/2504.16420/figure_002_survey_overview_fig.png)
+![图 2：FM4RecSys 分类总览](/images/13f358b84eec01f2c1d7579f9d178ec2.png)
 
 图 2 展开的是综述的完整分类骨架。左侧从推荐数据出发，区分传统交互数据与文本、视觉、音频、视频等多模态数据；中部是表示学习层，涵盖 ID 表示、多模态表示、图表示与混合表示；右侧进入集成范式与下游任务，最终汇聚到开放挑战。这张图支撑的主张是：范式的选择不是孤立的，它受数据形态和表示方式约束——例如 ID 表示主要服务于特征增强范式，而图表示更适合生成式与智能体框架。读者可以把它当作全文的目录图，按箭头顺序追踪某一类数据如何流经表示层进入具体范式。
 
@@ -41,24 +48,22 @@ description: "该综述以特征增强、生成式与智能体三大范式组织
 
 ## 二、实验：综述证据与范式权衡
 
-本文是综述，没有统一的实验设置。它所引用的论文覆盖 Amazon Reviews、MovieLens、Yelp、Steam、Goodreads、Last.fm 等数据集，任务包括 Top-N 推荐、序列推荐、零样本/少样本推荐、对话推荐与内容生成，数据规模从数千到数百万用户/物品不等，预处理与划分方式因原文而异。基线涵盖传统协同过滤（MF）、深度模型（NCF、SASRec）以及不同 FM 集成方式的变体。评价指标以 Recall@K、NDCG@K、Hit Rate@K、Precision@K、MRR 等排序指标为主，生成任务另用 BLEU、ROUGE 等。实现环境未统一披露，引用工作多在 PyTorch 或 TensorFlow 下使用 V100、A100 训练，模型版本包括 GPT-3、LLaMA、BERT、CLIP 等。
+本文是综述，没有统一的实验设置。它所引用的论文覆盖 Amazon Reviews、MovieLens、Yelp、Steam、Goodreads、[Last.fm](http://last.fm/) 等数据集，任务包括 Top-N 推荐、序列推荐、零样本/少样本推荐、对话推荐与内容生成，数据规模从数千到数百万用户/物品不等，预处理与划分方式因原文而异。基线涵盖传统协同过滤（MF）、深度模型（NCF、SASRec）以及不同 FM 集成方式的变体。评价指标以 Recall@K、NDCG@K、Hit Rate@K、Precision@K、MRR 等排序指标为主，生成任务另用 BLEU、ROUGE 等。实现环境未统一披露，引用工作多在 PyTorch 或 TensorFlow 下使用 V100、A100 训练，模型版本包括 GPT-3、LLaMA、BERT、CLIP 等。
 
-| 维度 | 综述覆盖情况 |
-|---|---|
-| 数据集 | Amazon Reviews、MovieLens、Yelp、Steam、Goodreads、Last.fm 等，规模数千至数百万 |
-| 任务 | Top-N、序列、零样本/少样本、对话推荐、内容生成 |
-| 基线 | MF、NCF、SASRec 及特征增强/生成式/智能体变体 |
-| 指标 | Recall@K、NDCG@K、Hit Rate@K、Precision@K、MRR；生成任务用 BLEU、ROUGE |
-| 实现条件 | 未统一披露；引用工作多用 PyTorch/TensorFlow，V100/A100 |
+
+
+
+
+
+
 
 综述汇总的实证发现可以按任务归纳如下。需要强调的是，这些数字来自不同原文、不同数据划分，不能直接横向比较，只能作为趋势性证据。
 
-| 任务场景 | 综述报告的趋势 | 最强相关基线/对照 |
-|---|---|---|
-| 零样本推荐 | 基于 LLM 的方法在 Hit Rate 上相比传统方法提升 10–30% | 传统推荐方法 |
-| 序列推荐 | 融合 FM 表示的方法在 NDCG@10 上比 SASRec 等基线提升 5–15% | SASRec |
-| 对话推荐 | 基于 GPT 的智能体在用户满意度评分上比基于模板的系统提升超过 20% | 模板式对话系统 |
-| 标准 Top-N 推荐 | 纯 ID 模型充分训练后仍具竞争力，FM 优势集中在冷启动、跨域与可解释性 | 纯 ID 模型 |
+
+
+
+
+
 
 从这张表可以读出三层信息。第一，FM 的增益在交互信号稀缺的场景中最显著：零样本推荐的 10–30% Hit Rate 提升和对话推荐超过 20% 的满意度提升，都发生在传统模型难以获得足够监督信号的环节。第二，序列推荐中 5–15% 的 NDCG@10 提升说明，即使有交互历史，FM 表示仍能补充语义信息，但增益幅度明显小于零样本场景，暗示当协同信号充足时 FM 的边际价值递减。第三，标准 Top-N 任务中纯 ID 模型仍具竞争力，这是全文最重要的反例：它提醒读者，FM 不是普适的精度提升器，范式选择必须匹配任务的数据条件。
 
@@ -77,8 +82,13 @@ description: "该综述以特征增强、生成式与智能体三大范式组织
 ## References
 
 - Chengkai Huang, Hongtao Huang, Tong Yu, Kaige Xie, Junda Wu, Shuai Zhang, Julian McAuley, Dietmar Jannach, Lina Yao. A Survey of Foundation Model-Powered Recommender Systems: From Feature-Based, Generative to Agentic Paradigms. arXiv:2504.16420, 2025. [arXiv](https://arxiv.org/abs/2504.16420)
+
 - TIGER: Recommender Systems with Generative Retrieval. 见综述第 5.1 节引用。
+
 - RLMRec: Representation Learning with Large Language Models for Recommendation. 见综述第 5.1 节引用。
+
 - ReAct: Synergizing Reasoning and Acting in Language Models. 见综述第 3.3 节引用。
+
 - AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation. [GitHub](https://github.com/microsoft/autogen)
+
 - smolagents: 轻量级智能体框架. [GitHub](https://github.com/huggingface/smolagents)

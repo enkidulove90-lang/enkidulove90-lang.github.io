@@ -1,17 +1,24 @@
 ---
+
 title: "SPAR：用五个智能体与单层引用链重构学术检索，F1 最高提升 56.92%"
-date: 2025-07-01
-year: 2025
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
-categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+date: 2026-10-19
+
+year: 2026
+
+venue_type: arXiv预印本
+
+venue_name: ""
+
+categories: [未分类]
+
+tags: [论文速读]
+
 slug: paper-2507.15245
-arxiv_id: "2507.15245"
-description: "SPAR 以无需训练的多智能体框架整合查询理解、多源检索、单层 RefChain 引用扩展、查询演化与重排序，在 AutoScholar 和自建 SPARBench 上分别将 F1 提升至 0.3843 和 0.3015，同时保持精度与召回的平衡。"
+
 ---
 
-> 论文：[arXiv 2507.15245](https://arxiv.org/abs/2507.15245) · 代码：[GitHub](https://github.com/xiaofengShi/SPAR) · PDF：[本地阅读](/papers/2507.15245.pdf)
+> 论文：[arXiv 2507.15245](https://arxiv.org/abs/2507.15245) · 代码：[GitHub](https://github.com/xiaofengShi/SPAR) · PDF：[本地阅读](https://app.notion.com/papers/2507.15245.pdf)
 
 学术文献的爆炸式增长让“找到真正相关的论文”变得越来越困难。传统搜索引擎擅长关键词匹配，却难以应对多意图、跨子领域、需要追踪引用关系的复杂查询。例如，“展示跨多个领域提升机器学习模型泛化能力的前沿技术进展”这样的问题，既隐含对时效性的要求，又需要理解“泛化”在机器学习语境下的含义，还要覆盖多个子方向。现有系统要么返回过于宽泛的结果，要么无法捕捉查询的完整语义范围，用户不得不花费大量时间手动筛选。
 
@@ -29,7 +36,7 @@ SPAR 的整体数据流可以概括为“理解—检索—扩展—演化—重
 
 RefChain 扩展是 SPAR 区别于普通多源检索的关键。对于 Related Pool 中的每篇论文 ri，检索智能体通过解析 PDF 或利用结构化元数据提取其参考文献列表，再用同一个判断智能体对这些被引论文评分，高相关性论文并入 Related Pool。扩展后的池中选取 K 篇最相关论文作为当前查询列表的最终结果，存入 Paper Cache P={p1, p2, …, pK}。一个关键设计决策是：RefChain 只扩展单层，即不递归扩展参考文献的参考文献。作者给出两点理由：更深的引用链容易引入边缘话题，降低精度；每增加一层都会显著增加检索与评估成本。与 PaSa 用强化学习决定扩展深度不同，SPAR 采用确定性的固定深度策略保证可靠性，并通过迭代查询演化在受控范围内探索新方向。
 
-![图 1：RefChain 的架构](/images/papers/2507.15245/figure_001_refchain.png)
+![图 1：RefChain 的架构](/images/ea1a73b0c7c8d093659f09253a03a000.png)
 
 这张图展示了 RefChain 的基本工作方式：从初始查询命中的论文出发，沿着参考文献列表向外扩展一层，被引论文再经过相关性判断决定是否纳入候选池。阅读时注意箭头方向——扩展是单向、单层的，不会从被引论文继续向外递归。这支撑了论文的核心主张：引用链扩展能在不引入过多噪声的前提下提升召回，而单层限制是精度与效率之间的折中。
 
@@ -37,7 +44,7 @@ RefChain 扩展是 SPAR 区别于普通多源检索的关键。对于 Related Po
 
 最后，重排序智能体对候选列表重新排序。除了原始相关性分数，它还整合两个额外信号：出版权威性（基于会议/期刊声望和作者声誉等元数据）和时间相关性（文档是否满足查询中的显式时间约束，或是否属于最新发表）。最终输出一个兼顾相关性、时效性和权威性的有序论文列表。
 
-![图 2：SPAR 的整体概览](/images/papers/2507.15245/figure_002_overview.png)
+![图 2：SPAR 的整体概览](/images/3fc028decca4c4c9adbbac7f47ca1778.png)
 
 这张总览图把五个智能体串成一条完整管线：左侧是查询理解与细化，中间是检索智能体与判断智能体构成的迭代循环，RefChain 扩展和查询演化分别从引用和语义两个方向拓宽搜索空间，右侧是重排序输出。读图时可以沿着数据流从左上到右下追踪：每个智能体的输出如何成为下一个智能体的输入，以及 Paper Cache 和查询列表如何在循环中更新。它支撑的主张是：模块化分工让每个阶段可以独立替换或优化，而无需训练整个系统。
 
@@ -45,63 +52,58 @@ RefChain 扩展是 SPAR 区别于普通多源检索的关键。对于 Related Po
 
 实验在两个基准上进行：AutoScholar 是 PaSa 论文中提出的合成基准，基于 2023—2024 年 AI 会议论文构建，用 GPT-4o 生成查询并配对相关文档，但仅 100 对查询—文档经过人工审核；SPARBench 是本文构建的基准，包含 50 个查询（35 个计算机科学、15 个生物医学），每个查询独立提交到 arXiv、PubMed、OpenAlex 和 Semantic Scholar，初始候选集 198K 篇文档，经 Qwen2.5-7B-Instruct 粗筛至 3K、Qwen2.5-72B-Instruct 精筛至 2K，最后由研究生级标注员人工审核，保留约 560 篇相关文档（平均每查询 12 篇）。
 
-| 项目 | 设置 |
-|---|---|
-| 评测基准 | AutoScholar（合成，AI 领域）、SPARBench（真实查询，CS+生物医学） |
-| 基线 | Google、Google+GPT-4o、Google Scholar、ChatGPT Search、Google-arXiv、Google-arXiv+LLM、OpenAlex+LLM、Semantic Scholar+LLM、PubMed+LLM、PaSa、PaperFinder |
-| 指标 | 文档级 Precision、Recall、F1 |
-| 实现条件 | 所有“+LLM”变体使用 Qwen3-32B 做关键词提取、相关性估计或查询改写；“+GPT”变体使用 GPT-4o 改写查询 |
-| 检索方式 | 每个系统在其原生搜索源上运行，而非共享语料库，以端到端评估完整检索管线 |
+
+
+
+
+
+
 
 主结果如下表所示。在 AutoScholar 上，SPAR 取得最高 F1 0.3843 和最高精度 0.3612，召回率 0.4105 保持竞争力。最强相关基线 PaSa 的 F1 为 0.2449，召回率高达 0.7931 但精度仅 0.1448；PaperFinder 召回率 0.8333 为全场最高，但精度仅 0.0261，导致 F1 只有 0.0506。SPAR 相对 PaSa 的 F1 提升为 56.92%。在 SPARBench 上，SPAR 是唯一在所有指标上表现均衡的方法：F1 0.3015、召回 0.3103、精度 0.2932；最强基线 GA+LLM 的 F1 为 0.1923，PaSa 为 0.1041，PaperFinder 为 0.0418。
 
-| 方法 | AutoScholar F1 | AutoScholar Recall | AutoScholar Precision | SPARBench F1 | SPARBench Recall | SPARBench Precision |
-|---|---|---|---|---|---|---|
-| G | – | 0.2015 | – | – | 0.000 | – |
-| G+GPT | – | 0.2683 | – | 0.0092 | 0.0082 | 0.0106 |
-| GS | – | 0.1130 | – | 0.0043 | 0.0038 | 0.0050 |
-| CS | 0.0869 | 0.3046 | 0.0507 | 0.0045 | 0.0038 | 0.0055 |
-| GA | 0.0400 | 0.1571 | 0.0229 | 0.2451 | 0.2800 | 0.2180 |
-| GA+LLM | 0.0556 | 0.1692 | 0.0333 | 0.1923 | 0.1613 | 0.2382 |
-| PM+LLM | – | 0.000 | – | – | 0.000 | – |
-| OA+LLM | 0.0045 | 0.1083 | 0.0023 | 0.0242 | 0.0988 | 0.0138 |
-| 2S+LLM | 0.0044 | 0.0833 | 0.0023 | 0.0135 | 0.0449 | 0.0080 |
-| PaSa | 0.2449 | 0.7931 | 0.1448 | 0.1041 | 0.1009 | 0.1076 |
-| PaperFinder | 0.0506 | 0.8333 | 0.0261 | 0.0418 | 0.1474 | 0.0244 |
-| SPAR | 0.3843 | 0.4105 | 0.3612 | 0.3015 | 0.3103 | 0.2932 |
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 消融实验分别考察了四个模块。查询解释（QInterp）在 SPARBench 上将精度从 0.21 提升至 0.34，F1 从 0.21 升至 0.22，但召回率从 0.21 降至 0.16；在 AutoScholar 上 F1 从 0.18 升至 0.19，精度从 0.14 升至 0.16，召回率从 0.25 微降至 0.24。这说明查询解释偏向精度导向，更严格的意图解读会牺牲部分覆盖。
 
-| 基准 | QInterp | F1 | Recall | Precision |
-|---|---|---|---|---|
-| AutoScholar | w | 0.19 | 0.24 | 0.16 |
-| AutoScholar | w/o | 0.18 | 0.25 | 0.14 |
-| SPARBench | w | 0.22 | 0.16 | 0.34 |
-| SPARBench | w/o | 0.21 | 0.21 | 0.21 |
+
+
+
+
+
 
 RefChain 的影响体现在召回与精度的权衡上。在 AutoScholar 上，RefChain 使相似度过滤后的召回率从 0.41 升至 0.44，原始召回率从 0.58 升至 0.77，平均检索文档数从 306.9 增至 569.1；但精度从 0.29 降至 0.19。在 SPARBench 上，召回率从 0.13 升至 0.15，原始召回率从 0.26 升至 0.31，检索量从 367.8 增至 504.9，精度从 0.22 降至 0.16。作者据此指出，RefChain 最适合召回关键型场景（如学术综合的 RAG），而精度优先的系统可以选择关闭它以减少噪声。
 
 查询演化在两个基准上都提升了 F1。AutoScholar 上 F1 从 0.33 升至 0.34，精度从 0.27 升至 0.29，召回率从 0.43 降至 0.41；SPARBench 上 F1 从 0.24 升至 0.26，精度从 0.25 升至 0.27，召回率保持 0.24。整体上，查询演化把检索推向更高精度，代价是 AutoScholar 上召回率的轻微下降。
 
-| 基准 | Evolution | F1 | Recall | Precision |
-|---|---|---|---|---|
-| AutoScholar | w | 0.34 | 0.41 | 0.29 |
-| AutoScholar | w/o | 0.33 | 0.43 | 0.27 |
-| SPARBench | w | 0.26 | 0.24 | 0.27 |
-| SPARBench | w/o | 0.24 | 0.24 | 0.25 |
+
+
+
+
+
 
 重排序模块对 top-10 文档重新排序以优化 Recall@5。在 AutoScholar 上，Recall@5 从 0.3146 升至 0.4015，相对提升 27.6%；在 SPARBench 上从 0.1588 升至 0.1662，相对提升 4.7%。AutoScholar 上更明显的增益说明，重排序对查询结构较简单的数据集尤其有效。
 
-| 基准 | Reranking | Recall@5 |
-|---|---|---|
-| AutoScholar | w/o | 0.3146 |
-| AutoScholar | w | 0.4015 |
-| SPARBench | w/o | 0.1588 |
-| SPARBench | w | 0.1662 |
+
+
+
+
+
 
 在相关性评估的模型与提示词选择上，作者比较了 brief 和 complex 两种提示风格在七个语言模型上的表现。AutoScholar 上 Qwen3-32B 配 brief 提示取得最高 F1（0.38）；SPARBench 上 LLaMA3.3-70B 配 brief 提示表现最好（F1 0.30）。综合两个数据集，最终选择 Qwen3-32B（brief）作为默认配置。这一结果也提示，更大的模型并不必然带来更好的相关性判断，提示词设计同样关键。
 
-![图 3：SPARBench 构建管线各过滤阶段的文档量](/images/papers/2507.15245/figure_005_sparbench_data_flow.png)
+![图 3：SPARBench 构建管线各过滤阶段的文档量](/images/c39676039bd7ed5ae4c7b49e9d9fa24b.png)
 
 这张图呈现了 SPARBench 从原始检索结果到最终相关文档集的逐级收缩过程。读图时从左到右看每个过滤阶段的文档数量变化：初始候选集约 198K，经 Qwen2.5-7B-Instruct 粗筛降至 3K，再经 Qwen2.5-72B-Instruct 精筛降至 2K，最后由专家人工审核保留约 560 篇。它支撑的主张是：多阶段“LLM 粗筛+精筛+专家验证”的标注流程能够在控制人工成本的同时保证标签质量，这也是 SPARBench 区别于仅 100 对人工审核的 AutoScholar 的关键。
 
@@ -118,6 +120,9 @@ SPAR 的核心机制是把学术检索拆解为五个无需训练的智能体：
 ## References
 
 - Xiaofeng Shi, Yuduo Li, Qian Kou, Longbin Yu, Jinxin Xie, Hua Zhou. SPAR: Scholar Paper Retrieval with LLM-based Agents for Enhanced Academic Search. arXiv:2507.15245. [https://arxiv.org/abs/2507.15245](https://arxiv.org/abs/2507.15245) · 代码：[https://github.com/xiaofengShi/SPAR](https://github.com/xiaofengShi/SPAR)
+
 - He et al. PaSa: An LLM Agent for Comprehensive Academic Paper Search. 2025.（AutoScholar 基准与强化学习引用链扩展基线）
+
 - Allen Institute for AI. PaperFinder. [https://paperfinder.allen.ai/chat](https://paperfinder.allen.ai/chat)（2025 年 7 月 9 日访问）
+
 - Yang et al. Qwen2.5 与 Qwen3 技术报告. 2024/2025.（SPARBench 过滤与相关性评估所用模型）

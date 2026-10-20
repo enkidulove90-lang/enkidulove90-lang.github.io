@@ -1,14 +1,21 @@
 ---
+
 title: "LLM 表征拼进多模态推荐为什么掉点：RecGOAT 的双粒度对齐"
-date: 2026-01-31
+
+date: 2026-10-19
+
 year: 2026
+
 venue_type: arXiv预印本
-venue_name: arXiv
-updated: 2026-05-25
-categories: [推荐系统, 多模态推荐]
-tags: [论文速读, 多模态推荐]
+
+venue_name: ""
+
+categories: [未分类]
+
+tags: [论文速读]
+
 slug: recgoat-dual-semantic-alignment
-description: "直接用 LLM 表征替换多模态特征，在 Baby 上反而掉 12%。RecGOAT 把这件事当成对齐问题：实例级用对比学习、分布级用最优传输，并给出融合必然优于单模态的理论界。"
+
 ---
 
 > 论文：[arXiv 2602.00682](https://arxiv.org/abs/2602.00682) · 代码：[GitHub](https://github.com/6lyc/RecGOAT-LLM4Rec)
@@ -19,7 +26,7 @@ description: "直接用 LLM 表征替换多模态特征，在 Baby 上反而掉 
 
 论文先在 Baby 数据集上做了一组对照，比较"LM 表征对齐前 / 对齐后"对推荐效果的影响（Figure 1）：
 
-![LM 表征对齐前后的推荐效果对比](/images/recgoat-motivation.jpg)
+![LM 表征对齐前后的推荐效果对比](/images/a4c516571c63a215be38854b08e83ebe.png)
 
 *这张图是全文的动机来源。左图（未对齐）里，随着 LM 表征在最终表示中的比重上升，推荐指标不升反降——也就是"模型懂的东西更多了，推荐反而更差"。论文把原因归结为 semantic heterogeneity：LLM 的文本/图像嵌入是围绕"语言语义"组织的，而 ID 嵌入是围绕"共现统计"组织的，两者直接拼接时，模型拿到的是两组互不兼容的坐标系。右图（对齐后）曲线整体上移、单调性也恢复了。*
 
@@ -29,9 +36,9 @@ description: "直接用 LLM 表征替换多模态特征，在 Baby 上反而掉 
 
 针对这个问题，RecGOAT 提出"双粒度对齐"：实例级对齐（跨模态对比学习）+ 分布级对齐（最优自适应传输），并把它嵌进一个多模态图推荐骨架里。
 
-![RecGOAT 整体框架](/images/recgoat-framework.jpg)
+![RecGOAT 整体框架](/images/cbae74791fc91c54d5bec9f147a6e016.png)
 
-*这张框架图自上而下分四段，正好对应论文的四个模块。①**LM 增强模态抽取**：文本描述交给 Qwen-Embedding、图像交给 LLaVA，另外用一段"用户偏好推理"提示词让 LLM 从交互历史里推断偏好；②**结构关系学习**：不是只建一张用户-物品交互图，而是并行建 item-item 文本图、item-item 图像图、user-item 交互图、user-user 文本图，用注意力揉合多跳协同信号；③**双粒度对齐**（全文核心）：左半边是实例级对齐（CMCL 约束），右半边是分布级对齐（OAT 约束）；④**融合与推荐**：把对齐后的模态表征与 ID 表征加权拼成统一的物品/用户表示，只用一个 BPR 损失收口。*
+*这张框架图自上而下分四段，正好对应论文的四个模块。①LM 增强模态抽取：文本描述交给 Qwen-Embedding、图像交给 LLaVA，另外用一段"用户偏好推理"提示词让 LLM 从交互历史里推断偏好；②结构关系学习：不是只建一张用户-物品交互图，而是并行建 item-item 文本图、item-item 图像图、user-item 交互图、user-user 文本图，用注意力揉合多跳协同信号；③双粒度对齐（全文核心）：左半边是实例级对齐（CMCL 约束），右半边是分布级对齐（OAT 约束）；④融合与推荐：把对齐后的模态表征与 ID 表征加权拼成统一的物品/用户表示，只用一个 BPR 损失收口。*
 
 值得注意图里"没有"的东西：没有一堆支路损失。对比损失和传输损失都作用在最终统一表示上，而不是各自独立优化某个子模块——这个设计选择在后面的消融里被证明是关键的。
 
@@ -39,7 +46,7 @@ description: "直接用 LLM 表征替换多模态特征，在 Baby 上反而掉 
 
 细粒度对齐靠跨模态对比学习。核心是 InfoNCE：同一物品在不同模态下的表示互为正样本，batch 内其他物品的表示充当负样本。
 
-```text
+```plain text
 L_i^(m_a, m_p) = - log  exp(sim(z_i^m_a, z_i^m_p) / τ)
                        ──────────────────────────────────────
                        Σ_{j∈B} exp(sim(z_i^m_a, z_j^m_p) / τ)
@@ -47,7 +54,7 @@ L_i^(m_a, m_p) = - log  exp(sim(z_i^m_a, z_i^m_p) / τ)
 
 其中 `sim(·,·)` 是余弦相似度，`τ` 是温度系数，`B` 是当前 batch 内提供负样本的物品集合。总损失对三个模态的所有有序模态对求平均：
 
-```text
+```plain text
 L_CMCL = (1/|B|) Σ_i Σ_{(m_a,m_p) ∈ MP} L_i^(m_a, m_p)
 ```
 
@@ -59,7 +66,7 @@ L_CMCL = (1/|B|) Σ_i Σ_{(m_a,m_p) ∈ MP} L_i^(m_a, m_p)
 
 工程上这里做了一个很重要的简化：**不做节点级的 OT 匹配**（那是 O(n²) 的代价，工业规模下不可行），而是只对齐分布，计算量依赖特征维度 `d`。线上落地时用的是二阶矩闭式，只要均值和协方差：
 
-```text
+```plain text
 W_2^2(P^mm, Q^id) = || μ_mm - μ_id ||² + B(Σ_mm, Σ_id)²
 ```
 
@@ -73,34 +80,34 @@ W_2^2(P^mm, Q^id) = || μ_mm - μ_id ||² + B(Σ_mm, Σ_id)²
 
 三个 Amazon 数据集（8:1:1 划分 / 5-core）：
 
-| 数据集 | 用户数 | 物品数 | 交互数 | 稀疏度 |
-|---|---|---|---|---|
-| Baby | 19,445 | 7,050 | 160,792 | 99.88% |
-| Sports | 35,598 | 18,357 | 296,337 | 99.95% |
-| Electronics | 192,403 | 63,001 | 1,689,188 | 99.99% |
+
+
+
+
 
 指标为 Recall@10 / NDCG@10，取 10 次运行平均。论文报告的三条结论：
 
 1. 多模态方法（FindRec、FREEDOM）整体优于纯 ID 方法（LightGCN），说明多模态信息确实在缓解交互稀疏；
-2. RecGOAT 明显超过 LLM 增强类基线（Electronics 上 R@10 为 **0.0468 vs 0.0419**）；
-3. RecGOAT 优于 IRLLRec（用对比学习 + **KL** 做对齐），这被论文当作"Wasserstein 优于 KL"的直接证据。
+
+1. RecGOAT 明显超过 LLM 增强类基线（Electronics 上 R@10 为 **0.0468 vs 0.0419**）；
+
+1. RecGOAT 优于 IRLLRec（用对比学习 + **KL** 做对齐），这被论文当作"Wasserstein 优于 KL"的直接证据。
 
 **消融实验是这篇最值得看的部分**（Baby 数据集）：
 
-| 变体 | R@10 | N@10 |
-|---|---|---|
-| LightGCN（仅 ID） | 0.0479 | 0.0257 |
-| 朴素拼接 LLM 模态 | 0.0472 | 0.0244 |
-| 朴素相加 LLM 模态 | **0.0422** | **0.0217** |
-| 只加 CMCL（实例级） | 0.0601 | 0.0330 |
-| 只加 OAT（分布级） | 0.0623 | 0.0346 |
-| RecGOAT（两层都加） | **0.0671** | **0.0369** |
+
+
+
+
+
+
+
 
 这张表的前两行是关键负结果：**直接拼接几乎没收益，朴素相加甚至比只用 ID 掉了约 12%（0.0479 → 0.0422）**——这就是引言里那个"加了 LLM 反而更差"的量化版本。而单独加任一层对齐都能把指标从 0.047 抬到 0.060 以上，两层叠加再涨一截。
 
 论文还专门检验了"对齐一致性"：把最终表示里两个模态的权重系数（`γ_t`、`γ_v`）在 0–0.8 之间扫一遍，性能曲面很平（数值集中在 0.0645–0.0665 这一窄带内），说明对齐之后不同模态的表征已经"可比"，怎么加权都不容易崩。
 
-![不同模态权重下的一致性热力图](/images/recgoat-consistency.jpg)
+![不同模态权重下的一致性热力图](/images/07067439fbc80050b13953c0623aeee0.png)
 
 *这张热力图是"对齐一致性"的证据：横轴和纵轴分别是文本模态与视觉模态的权重系数（各 0–0.8），格子里的数字是推荐指标。如果两个模态的表示不可比，权重一变性能就会剧烈波动；实测整片区域的数值只在一个很窄的区间内浮动，说明对齐之后两者的坐标系已经被拉到同一尺度上，融合权重不再是"需要精调的敏感超参"。*
 
@@ -108,10 +115,9 @@ W_2^2(P^mm, Q^id) = || μ_mm - μ_id ||² + B(Σ_mm, Σ_id)²
 
 **效率**（Baby 数据集，与三个基线对比，单位为秒）：
 
-| 模型 | LightGCN | FindRec | IRLLRec | RecGOAT |
-|---|---|---|---|---|
-| 训练（每 epoch） | 1.33 | 2.95 | 3.41 | 3.12 |
-| 推理（每个评测集） | 0.98 | 1.23 | 2.03 | 1.37 |
+
+
+
 
 注意 RecGOAT 的推理时间（1.37）比 IRLLRec（2.03）低，训练也略低——这正是"只对齐分布、不做节点级 OT 匹配"带来的收益。
 
@@ -122,7 +128,9 @@ RecGOAT 的价值不在"又一个多模态推荐模型"，而在它把"LLM 表�
 ## References
 
 - 论文：RecGOAT: Graph Optimal Adaptive Transport for LLM-Enhanced Multimodal Recommendation with Dual Semantic Alignment（arXiv:2602.00682，2026，Under Review）
-- 代码：https://github.com/6lyc/RecGOAT-LLM4Rec
-- 相关工作：LightGCN（SIGIR'20）、FREEDOM（MM'23）、DiffMM（MM'24）、FindRec（KDD'25）、TALLRec（RecSys'23）、A-LLMRec（KDD'24）、IRLLRec（SIGIR'25）
-- 基础组件：Qwen-Embedding（文本编码）、LLaVA（视觉编码）、InfoNCE 对比损失、Wasserstein-2 / Bures 距离
 
+- 代码：[https://github.com/6lyc/RecGOAT-LLM4Rec](https://github.com/6lyc/RecGOAT-LLM4Rec)
+
+- 相关工作：LightGCN（SIGIR'20）、FREEDOM（MM'23）、DiffMM（MM'24）、FindRec（KDD'25）、TALLRec（RecSys'23）、A-LLMRec（KDD'24）、IRLLRec（SIGIR'25）
+
+- 基础组件：Qwen-Embedding（文本编码）、LLaVA（视觉编码）、InfoNCE 对比损失、Wasserstein-2 / Bures 距离

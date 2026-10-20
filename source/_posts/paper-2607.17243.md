@@ -1,17 +1,24 @@
 ---
+
 title: "LenGuard-GPC：用引导提示一致性奖励与分阶段长度守卫重塑空间推理RL"
-date: 2026-07-01
+
+date: 2026-10-19
+
 year: 2026
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
-categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+venue_type: arXiv预印本
+
+venue_name: ""
+
+categories: [未分类]
+
+tags: [论文速读]
+
 slug: paper-2607.17243
-arxiv_id: "2607.17243"
-description: "针对多视图空间推理中GRPO结果奖励稀疏与token-sum KL奖励偏短的问题，LenGuard-GPC以标准/引导提示的token级KL作为密集奖励，并加入分阶段长度奖励，在六个基准上平均准确率较vanilla GRPO提升2.0个百分点且缩短响应长度。"
+
 ---
 
-> 论文：[arXiv 2607.17243](https://arxiv.org/abs/2607.17243) · 代码：[GitHub](https://github.com/taoxj2001/LenGuard-GPC) · PDF：[本地阅读](/papers/2607.17243.pdf)
+> 论文：[arXiv 2607.17243](https://arxiv.org/abs/2607.17243) · 代码：[GitHub](https://github.com/taoxj2001/LenGuard-GPC) · PDF：[本地阅读](https://app.notion.com/papers/2607.17243.pdf)
 
 多视图空间推理要求视觉语言模型在几张不同视角的图像之间对齐物体、比较证据，再回答关于空间关系的问题。这与单图视觉问答不同：模型必须先判断“这张图里的沙发”和“那张图里的沙发”是同一个物体，才能回答谁离窗户更近。然而，当模型被要求逐步推理时，它往往逐张描述所见内容，推理链越写越长，却始终没有显式解决跨视图对应关系；更长的轨迹还可能累积错误，让早期误读难以纠正。
 
@@ -25,7 +32,7 @@ description: "针对多视图空间推理中GRPO结果奖励稀疏与token-sum K
 
 LenGuard-GPC 的奖励由三部分组成：任务奖励、引导提示一致性奖励和分阶段长度奖励。任务奖励是答案准确率与格式奖励的加权和；一致性奖励衡量同一条采样轨迹在标准提示与引导提示下 token 级预测分布的差异；长度奖励则按轨迹长度分段给出。三者加权后进入 GRPO 的组内归一化，得到相对优势。
 
-![LenGuard-GPC 整体流程：在分阶段区间内平衡负 KL 一致性奖励与长度奖励](/images/papers/2607.17243/428faa2d9215b9e54e6deef28047a0031030884be8972e2a1a4c842a698ab400.jpg)
+![LenGuard-GPC 整体流程：在分阶段区间内平衡负 KL 一致性奖励与长度奖励](/images/c546cc4ab41cdfee25e31aec5cec61a4.png)
 
 读这张图时，先看左侧的采样与双提示分支：模型只从标准提示生成一条轨迹，引导提示不参与生成，只在固定轨迹上并行计算每个 token 的预测分布。中间部分把两条分布逐 token 比较并累加为 KL 分数，再取负作为一致性奖励。右侧是分阶段长度奖励的折线：长度未到 l1 时不加奖励，在 [l1, l2] 区间内奖励从 r1 升到 r2，之后保持恒定直到 l3。图想支撑的主张是，当平均每 token KL 较高时，负 KL 一致性奖励占主导，推动推理更简洁；当平均每 token KL 较低时，长度奖励相对更强，防止模型坍缩成过短且内容贫乏的推理链。
 
@@ -37,42 +44,39 @@ LenGuard-GPC 的奖励由三部分组成：任务奖励、引导提示一致性�
 
 实验以 Qwen3-VL-8B-Instruct 为基座，对比 vanilla GRPO、闭源模型 Gemini-2.5-Pro 与 GPT-5、多个开源通用模型、空间智能模型以及随机选择基线。评价指标为准确率（%），并在 MMSI-Bench 上给出细粒度子类别结果。训练数据规模、预处理方式、训练/验证/测试划分以及硬件与超参数在原文中未披露，因此下表只列证据中明确出现的设置。
 
-| 项目 | 内容 |
-|---|---|
-| 基座模型 | Qwen3-VL-8B-Instruct |
-| 训练框架 | GRPO |
-| 训练数据 | 多视图空间推理领域数据；MindCube 仅用于评估，不使用其训练集 |
-| 评估基准 | MMSI-Bench、MindCube、ViewSpatial、3DSR、BLINK、CV-Bench |
-| 主要指标 | 准确率（%），MMSI-Bench 另含细粒度子类别准确率 |
-| 对比基线 | RandomChoice、Gemini-2.5-Pro、GPT-5、InternVL3-2B/8B、Qwen2.5-VL-3B/7B-Instruct、Qwen3-VL-2B/8B-Instruct、SpatialLadder-3B、Spatial-MLLM-4B、SpaceR-7B、ViLaSR-7B、Cambrian-S-3B/7B、vanilla GRPO |
-| 消融设置 | 去掉分阶段长度奖励的变体 |
-| 训练开销 | 引导提示分布经 teacher forcing 并行计算，整体训练时间约增加 1.6 倍 |
+
+
+
+
+
+
+
+
+
 
 主结果方面，LenGuard-GPC 在六个基准上的平均准确率为 57.3%，vanilla GRPO 为 55.3%，基座模型为 51.4%。也就是说，相比最强相关基线 vanilla GRPO 提升 2.0 个百分点，相比基座提升 5.9 个百分点。分基准看，MMSI-Bench 从 32.2% 提升到 36.1%，MindCube 从 44.7% 提升到 48.4%，ViewSpatial 从 44.4% 提升到 46.9%。域外基准上提升幅度较小但方向一致：3DSR 从 59.4% 到 60.1%，BLINK 从 65.7% 到 66.8%，CV-Bench 从 85.2% 到 85.5%。
 
-| 基准 | 基座 Qwen3-VL-8B-Instruct | vanilla GRPO | LenGuard-GPC |
-|---|---|---|---|
-| MMSI-Bench | 31.1 | 32.2 | 36.1 |
-| MindCube | — | 44.7 | 48.4 |
-| ViewSpatial | — | 44.4 | 46.9 |
-| 3DSR | — | 59.4 | 60.1 |
-| BLINK | — | 65.7 | 66.8 |
-| CV-Bench | — | 85.2 | 85.5 |
-| 平均 | 51.4 | 55.3 | 57.3 |
+
+
+
+
+
+
+
+
 
 细粒度结果进一步显示提升集中在跨视图位置推理。在 MMSI-Bench 上，相比 vanilla GRPO，Cam.-Obj. 提升 13.9 个百分点，Cam.-Reg. 提升 12.0 个百分点，Obj.-Reg. 提升 7.1 个百分点，Obj.-Obj. 提升 5.3 个百分点。与此同时，Attribute Appr. 和 Motion Obj. 出现下降，说明基于外观的属性和物体运动推理仍是难点。这一分布与“一致性奖励主要强化跨视图空间关系”的解释一致，但也提示方法并非在所有子类上单调改进。
 
-![MMSI 与 ViewSpatial 上的平均生成 token 开销对比](/images/papers/2607.17243/624c4c350639b99f6b444069d9f992c15ae7170265a2f9360b2bbdc72d239c78.jpg)
+![MMSI 与 ViewSpatial 上的平均生成 token 开销对比](/images/c9a9e047b7af4b1d8d052b013a67bfe2.png)
 
 这张图用于支撑“更短但更准”的主张。横轴是两个基准，纵轴是平均生成 token 数；对比 vanilla GRPO 与 LenGuard-GPC 的柱高可以看到，LenGuard-GPC 在保持更高准确率的同时生成了更短的推理轨迹。阅读时应注意，长度下降本身不是目的，论文强调的是在分阶段长度守卫下避免短答案坍缩，因此这张图需要与准确率表一起看，而不是单独作为效率结论。
 
 消融实验在 MMSI-Bench 上隔离分阶段长度奖励的作用。去掉该奖励后，整体准确率从 36.1% 降至 33.5%，低于 vanilla GRPO 的 32.2% 之上但明显低于完整方法。细粒度上，去掉长度奖励的变体在 Cam.-Obj. 上为 46.5%，低于完整方法的 48.8%；Cam.-Reg. 为 47.0%，低于 55.4%；Obj.-Reg. 为 32.9%，低于 40.0%。这说明分阶段长度奖励并非可有可无的装饰，它与一致性奖励共同决定了跨视图关系推理的收益。
 
-| MMSI-Bench 设置 | 整体准确率 | Cam.-Obj. | Cam.-Reg. | Obj.-Reg. |
-|---|---|---|---|---|
-| vanilla GRPO | 32.2 | 34.9 | 43.4 | 32.9 |
-| 去掉分阶段长度奖励 | 33.5 | 46.5 | 47.0 | 32.9 |
-| 完整方法 | 36.1 | 48.8 | 55.4 | 40.0 |
+
+
+
+
 
 需要指出实验边界：论文未披露训练数据规模、划分方式与关键超参数，因此无法判断收益对数据配比的敏感程度；域外基准上的提升幅度较小，说明方法主要作用于训练分布内的多视图空间推理，而非普遍提升所有视觉推理能力；细粒度结果中 Attribute Appr. 与 Motion Obj. 的下降也表明奖励设计存在子类偏差。
 
@@ -85,6 +89,9 @@ LenGuard-GPC 的机制可以概括为两点：用标准提示与引导提示下 
 ## References
 
 - Xingjian Tao, Yiwei Wang, Yujun Cai, Jing Tang. LenGuard-GPC: Length Guarding with Guided-Prompt Consistency for Spatial Reasoning Reinforcement Learning. arXiv:2607.17243. [arXiv](https://arxiv.org/abs/2607.17243) · [代码](https://github.com/taoxj2001/LenGuard-GPC)
+
 - Hübotter et al. Self On-Policy Distillation. 2026.（引导提示设计的灵感来源）
+
 - Yang et al. MMSI-Bench: 多视图多图像空间智能基准. 2025e.
+
 - Li et al. ViewSpatial: 视角依赖的空间定位与跨视图参考系基准. 2025a.

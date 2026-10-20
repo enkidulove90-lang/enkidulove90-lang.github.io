@@ -1,17 +1,24 @@
 ---
+
 title: "Interact-RAG：把检索黑盒拆成可操纵的交互原语"
-date: 2025-10-01
-year: 2025
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
-categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+date: 2026-10-19
+
+year: 2026
+
+venue_type: arXiv预印本
+
+venue_name: ""
+
+categories: [未分类]
+
+tags: [论文速读]
+
 slug: paper-2510.27566
-arxiv_id: "2510.27566"
-description: "Interact-RAG 让 LLM 智能体通过多面检索、锚定匹配与上下文塑造直接操纵检索过程，在六个基准上以 Qwen3-8B 取得平均 EM 52.8，相对最强基线 Search-R1 提升 22.5%。"
+
 ---
 
-> 论文：[arXiv 2510.27566](https://arxiv.org/abs/2510.27566) · PDF：[本地阅读](/papers/2510.27566.pdf)
+> 论文：[arXiv 2510.27566](https://arxiv.org/abs/2510.27566) · PDF：[本地阅读](https://app.notion.com/papers/2510.27566.pdf)
 
 检索增强生成（RAG）已经成为给大模型补充外部知识的标准手段，但当前主流的智能体式 RAG 有一个共同的盲点：检索本身仍然是一个黑盒。智能体只能发出查询、被动接收若干文本块，无法查看检索器内部状态，也无法对召回结果做细粒度干预。当证据表述与查询措辞不一致，或检索器被语义相近的干扰实体带偏时，智能体唯一能做的只是反复改写查询，陷入低效的试错循环。
 
@@ -25,7 +32,7 @@ Interact-RAG 的出发点正是拆掉这个黑盒。它把检索过程重新设�
 
 Interact-RAG 的方法由三层构成：底层的语料交互引擎定义动作空间，中间层的推理增强工作流负责编排与数据合成，顶层的 SFT+RL 两阶段训练把工作流的能力内化进单一模型。
 
-![Interact-RAG 与传统 RAG 的流程对比](/images/papers/2510.27566/figure_001_intro.png)
+![Interact-RAG 与传统 RAG 的流程对比](/images/138fe733c1336552eb162906617db1a9.png)
 
 这张图对比了两条信息寻求路径。左侧传统 RAG 的轨迹是查询与结果的反复循环，智能体在措辞层面打转；右侧 Interact-RAG 的轨迹中，智能体在每一步可以调用不同类别的交互动作，直接改变检索的行为和上下文构成。阅读时先看两侧动作序列的差异，再看动作如何作用于语料：这正是全文的核心主张——把控制点从“查询文本”下移到“检索过程本身”。
 
@@ -41,52 +48,49 @@ Interact-RAG 的方法由三层构成：底层的语料交互引擎定义动作�
 
 实验在六个标准 RAG 基准上进行：单跳的 NQ、PopQA，多跳的 HotpotQA、2Wiki、MuSiQue、Bamboogle，另在非维基领域的 MultiHop-RAG 上补充评估。检索语料为 2018 年维基百科转储，检索器统一使用 e5-base-v2，取 top 3 文本块；训练数据来自 NQ、HotpotQA、MuSiQue 的训练划分，评估覆盖全部六个测试集，因此包含分布外泛化。
 
-| 项目 | 设置 |
-|---|---|
-| 训练数据 | NQ、HotpotQA、MuSiQue 训练划分合并 |
-| SFT 轨迹 | Qwen-Plus 合成 4.8K 条 |
-| RL 数据 | 7.1K 问答对（正文）／9K 过滤后 7.4K（附录） |
-| 默认骨干 | Qwen3-8B；另报 Qwen2.5-7B |
-| 检索器 | e5-base-v2，top 3 chunks |
-| 语料 | 2018 Wikipedia dump，约 28 万文本块 |
-| 评估指标 | EM、F1 |
-| 基线 | Direct、Std-RAG、IR-CoT、MA-RAG、Search-O1、Search-R1、R-Search、S-DeepSearcher |
-| 硬件 | 8×NVIDIA A100 80GB |
+
+
+
+
+
+
+
+
+
+
 
 主结果如下表（EM/F1，Qwen3-8B 骨干；带 † 的基线使用其官方 7B 模型）：
 
-| 方法 | HotpotQA | 2Wiki | Musique | Bamboogle | NQ | PopQA | 平均 |
-|---|---|---|---|---|---|---|---|
-| Direct | 23.6/33.0 | 26.4/32.5 | 5.9/13.3 | 33.2/49.1 | 19.8/30.4 | 20.5/25.0 | 21.6/30.6 |
-| Std-RAG | 37.6/50.6 | 35.9/41.2 | 13.7/21.0 | 26.8/35.0 | 37.1/47.8 | 37.3/44.6 | 31.4/40.0 |
-| IR-CoT | 30.8/43.3 | 33.6/42.6 | 12.9/20.3 | 22.8/32.6 | 33.0/43.9 | 31.7/38.1 | 27.5/36.8 |
-| MA-RAG | 39.3/51.7 | 45.5/53.1 | 18.0/25.1 | 35.6/49.3 | 34.6/46.2 | 40.2/45.8 | 35.5/45.2 |
-| Search-O1 | 23.1/30.2 | 28.0/34.6 | 10.1/13.8 | 31.2/39.7 | 33.1/41.9 | 33.1/38.4 | 26.4/33.1 |
-| Search-R1† | 45.2/60.1 | 50.9/58.2 | 25.5/34.1 | 42.2/55.6 | 45.3/54.7 | 49.3/53.6 | 43.1/52.7 |
-| R-Search† | 38.2/51.0 | 58.8/64.4 | 19.4/28.0 | 36.0/52.1 | 36.8/46.5 | 42.8/46.2 | 38.7/48.0 |
-| S-DeepSearcher† | 40.2/53.6 | 54.0/61.8 | 18.6/25.8 | 46.2/57.4 | 37.0/46.6 | 40.6/46.1 | 39.4/48.5 |
-| Interact-RAG | 51.6/66.7 | 69.6/76.4 | 34.8/43.9 | 54.0/65.5 | 50.9/60.7 | 56.0/60.2 | 52.8/62.2 |
+
+
+
+
+
+
+
+
+
+
 
 最强的相关基线是 Search-R1，平均 EM 43.1；Interact-RAG 平均 EM 52.8，绝对高出 9.7 分，对应论文报告的 22.5% 相对提升。提升的分布并不均匀：多跳任务上幅度更大，MuSiQue 从 25.5 升到 34.8，2Wiki 从 50.9 升到 69.6；单跳任务上 NQ 从 45.3 升到 50.9，PopQA 从 49.3 升到 56.0。一个需要如实指出的例外是：在 Qwen2.5-7B 骨干下，Search-R1 在 NQ 上为 45.3，高于 Interact-RAG-7B 的 43.7，论文将其归因于 Search-R1 使用了 170K 训练数据而本文仅用 12K。7B 版本的平均 EM 为 47.5，相对提升 10.1%，低于 8B 版本的幅度。
 
 消融实验在 2Wiki、Musique、PopQA 三个数据集上报告 EM：
 
-| 变体 | 2Wiki | Musique | PopQA |
-|---|---|---|---|
-| Interact-RAG | 69.6 | 34.8 | 56.0 |
-| w/o Interaction | 63.4 (-8.9%) | 30.1 (-10.9%) | 50.2 (-10.4%) |
-| w/o SFT | 59.0 (-15.2%) | 26.4 (-21.9%) | 52.2 (-6.8%) |
-| w/o RL | 65.2 (-6.3%) | 28.1 (-16.9%) | 45.6 (-18.6%) |
+
+
+
+
+
 
 去掉交互范式（退回黑盒语义检索）造成 8.9% 到 10.9% 的下降，说明动作空间本身是主要增益来源。去掉 SFT 在 Musique 上损失最大（-21.9%），去掉 RL 则在 PopQA 上损失最大（-18.6%），两者作用并不对称：SFT 建立规划、推理与迭代交互的基本机制，RL 进一步优化策略。细粒度消融显示，单独移除多面检索、锚定匹配或上下文塑造都会带来下降，但都不如整体移除交互严重；且各原语的贡献随数据形态变化，多面检索与锚定匹配对 2Wiki 更重要，上下文塑造对干扰项多的 Musique 更有价值。
 
 无需训练的场景下，Interact-RAG-Workflow 在 2Wiki 上 EM 为 60.1、Musique 24.1、PopQA 43.6，均高于 MA-RAG 的 45.5、18.0、40.2；去掉交互或去掉工作流都会回落，说明零样本收益同时来自动作空间与编排结构。
 
-![检索迭代次数与准确率的对比](/images/papers/2510.27566/figure_003_compare_iter.png)
+![检索迭代次数与准确率的对比](/images/45cfdf9344cbb70e2c992619bd5b7305.png)
 
 这张图回答的是“细粒度控制是否只是用更多轮次换准确率”。横轴是动作迭代次数，纵轴是准确率，Interact-RAG 与仅保留查询动作的 Ours-Search、以及 Search-R1 对比。读图时关注每个方法所在的位置：Interact-RAG 以最少的动作迭代取得最高的 EM，在 2Wiki 和 Musique 这类复杂多跳数据上差距尤其明显。它支撑的主张是，交互原语让智能体少走试错弯路，而不是靠堆检索轮次取胜。
 
-![不同训练阶段的动作调用情况](/images/papers/2510.27566/figure_005_training-stage.png)
+![不同训练阶段的动作调用情况](/images/865c2a85386fdcdf913d0e439e435c62.png)
 
 这张图统计了 MuSiQue 上不同训练阶段各类动作的调用频率。从左到右依次是未训练、SFT 后、RL 后三个阶段：未训练时平均仅 1.82 轮，交互动作调用很少；SFT 后轮次升至 3.61，说明模型学会了基本交互模式；RL 后轮次下降但 EM 显著提升，同时实体匹配的调用频率明显上升，文档塑形类动作减少。这组变化支撑的论点是：RL 让策略从“多动手”转向“动对手”，检索精度提高后就不再需要频繁做噪声过滤。
 
@@ -103,8 +107,13 @@ Interact-RAG 的机制可以概括为一句话：把检索接口从单一查询�
 ## References
 
 - Interact-RAG: Reason and Interact with the Corpus, Beyond Black-Box Retrieval. Yulong Hui, Chao Chen, Zhihang Fu, Yihao Liu, Jieping Ye, Huanchen Zhang. arXiv:2510.27566. [https://arxiv.org/abs/2510.27566](https://arxiv.org/abs/2510.27566)
+
 - Lewis et al. Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks. 2020.
+
 - Trivedi et al. Interleaving Retrieval with Chain-of-Thought Reasoning (IR-CoT). 2023.
+
 - Jin et al. Search-R1: Training LLMs to Reason and Leverage Search Engines with Reinforcement Learning. 2025. arXiv:2503.09516
+
 - Nguyen et al. MA-RAG: Multi-Agent Retrieval-Augmented Generation. 2025.
+
 - Shao et al. DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models (GRPO). 2024. arXiv:2402.03300

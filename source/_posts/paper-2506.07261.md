@@ -1,17 +1,24 @@
 ---
+
 title: "RADAR：用离线异步预排序把召回率翻倍，突破在线检索瓶颈"
-date: 2025-06-01
-year: 2025
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
-categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+date: 2026-10-19
+
+year: 2026
+
+venue_type: arXiv预印本
+
+venue_name: ""
+
+categories: [未分类]
+
+tags: [论文速读]
+
 slug: paper-2506.07261
-arxiv_id: "2506.07261"
-description: "RADAR 将生产级排序模型搬到离线，对 50 倍候选集预排序并缓存 Top-200，在线绕过预排序直接注入最终排序，离线 Recall@200 从 8.1% 升至 16.5%，在线 A/B 提升 +0.8% 参与度与 +6% 独特内容消费。"
+
 ---
 
-> 论文：[arXiv 2506.07261](https://arxiv.org/abs/2506.07261) · PDF：[本地阅读](/papers/2506.07261.pdf)
+> 论文：[arXiv 2506.07261](https://arxiv.org/abs/2506.07261) · PDF：[本地阅读](https://app.notion.com/papers/2506.07261.pdf)
 
 现代大规模推荐系统普遍采用“检索—预排序—排序”三级漏斗，在延迟与算力约束下平衡效果与成本。检索阶段必须满足最紧的延迟预算，因此只能依赖轻量级双塔模型或 KNN 索引，这导致大量高参与度物品无法进入后续排序。论文在离线模拟中观察到，标准用户到物品与物品到物品检索方法的 Recall@200 仅为个位数，形成明显的召回瓶颈。
 
@@ -27,7 +34,7 @@ RADAR（Recall Augmentation through Deferred Asynchronous Retrieval）的核心�
 
 RADAR 的端到端架构如图 2 所示，分为离线管道与在线路径两条并行链路。
 
-![RADAR 端到端系统架构](/images/papers/2506.07261/p2_caption_2.png)
+![RADAR 端到端系统架构](/images/0ac1ac266e75b71bc1cf8cd0d937bd2c.png)
 
 阅读这张架构图时，可以先看右侧的在线路径：用户请求到达后，系统并行查询标准在线检索源（双塔 DNN、Content-KNN、Item-CF、规则源）和 RADAR 键值存储。标准源候选经过预排序，而 RADAR 候选因已在离线阶段被完整排序模型打过分，直接跳过预排序。两路候选合并去重后，统一送入最终在线排序模型进行重排与选择。再看左侧的离线管道：调度器根据用户活跃度触发任务，对目标用户用高效检索方法获取约 50 倍于在线输出规模的候选集，再用与在线最终排序完全相同的复杂排序模型打分，将 Top-200 及分数写入低延迟键值存储。这张图支撑的核心主张是：RADAR 将“重排序”从在线延迟预算中剥离，使高质量模型能够作用于大得多的候选池，同时在线路径的额外开销仅是一次键值查询与合并。
 
@@ -39,42 +46,39 @@ RADAR 的端到端架构如图 2 所示，分为离线管道与在线路径两�
 
 离线实验在 Meta 视频平台的大规模用户交互数据集上进行，以用户参与作为 ground truth，评价指标为 Recall@200。基线包括双塔 DNN、Item-KNN 和 Content-KNN。实验条件与关键参数在原文中未完整披露。
 
-| 项目 | 设置 |
-| --- | --- |
-| 数据集 | Meta 视频平台大规模用户交互数据 |
-| 任务 | 检索召回评估，用户参与作为 ground truth |
-| 基线 | DNN 双塔、Item-KNN、Content-KNN |
-| 指标 | Recall@200 |
-| 实现环境与关键参数 | 原文未披露 |
+
+
+
+
+
+
 
 主结果如表 1 所示。RADAR 的 Recall@200 达到 16.5%，约为最强基线 DNN（8.1%）的两倍，Item-KNN 为 7.2%，Content-KNN 为 5.1%。论文还指出，RADAR 浮现的许多物品具有小众吸引力，是简单相似度方法未能捕捉的。
 
-![离线 Recall@200 对比](/images/papers/2506.07261/p3_caption_3.png)
+![离线 Recall@200 对比](/images/7427f667e713e193d7a724df15ade6de.png)
 
 这张对比图按检索源列出 Recall@200。阅读顺序上，先看 DNN 与 Item-KNN 两条基线，它们代表在线检索的典型水平；再看 Content-KNN，它仅依赖内容嵌入余弦相似度，召回最低；最后看 RADAR，其柱高约为 DNN 的两倍。该图支撑的主张是：在相同评价口径下，RADAR 的召回增益并非来自单一基线选择，而是相对于三类主流检索方法的一致提升。
 
 图 1 进一步展示了 Recall@K 随候选检索规模 K 的变化趋势，来自双塔 DNN 模型。该图说明在线检索的召回随 K 增长而上升，但在实际在线约束下 K 被限制在千级，因此 Recall@200 停留在个位数。这为 RADAR 的动机提供了直接证据：扩大候选池并配合更强排序模型，是突破召回瓶颈的可行路径。
 
-![Recall@K 随候选检索规模的变化](/images/papers/2506.07261/p1_caption_1.png)
+![Recall@K 随候选检索规模的变化](/images/fed222f7dc1493c4fbe226b2b4072ae3.png)
 
 阅读这张曲线图时，横轴是候选检索数量 K，纵轴是 Recall@K。曲线整体随 K 增大而上升，但在线系统只能承受有限的 K，因此实际工作点位于曲线较低的位置。该图支撑的主张是：在线检索的召回上限受延迟预算约束，单纯调整在线检索参数难以达到 RADAR 通过离线扩展所获得的召回水平。
 
 消融实验回答了增益来源问题。表 2 将检索规模扩展（50 倍候选池）与模型复杂度扩展（使用完整排序模型而非轻量预排序模型）分开考察。同时启用两者时 Recall@200 为 16.5%；仅扩展检索规模为 12.5%；仅扩展模型复杂度为 12.1%；两者都不扩展为 10.2%。这表明两种扩展各自带来提升，且存在协同效应，同时使用时增益超过单独使用之和的简单叠加。
 
-| 模型扩展 | 检索扩展 | Recall@200 |
-| --- | --- | --- |
-| 是 | 是 | 16.5% |
-| 否 | 是 | 12.5% |
-| 是 | 否 | 12.1% |
-| 否 | 否 | 10.2% |
+
+
+
+
+
 
 用户分群分析将用户按前 30 天交互日志分为高度活跃、中度活跃和休眠三类，并与最强在线基线 DNN 对比。中度活跃用户提升最大，RADAR 为 17.3%，DNN 为 7.9%，论文解释其使用频率与 RADAR 刷新节奏同步。高度活跃用户提升次之，RADAR 为 16.2%，DNN 为 8.2%，但其短期兴趣变化快于 RADAR 重新生成的速度，缓存列表被快速耗尽。休眠用户没有提升，RADAR 为 6.5%，DNN 为 6.9%，因为 RADAR 无法推断其兴趣且缓存列表变得陈旧，而在线 DNN 仍能浮现及时的热门内容。
 
-| 用户分群 | Recall@200（RADAR） | Recall@200（DNN） |
-| --- | --- | --- |
-| 高度活跃 | 16.2% | 8.2% |
-| 中度活跃 | 17.3% | 7.9% |
-| 休眠 | 6.5% | 6.9% |
+
+
+
+
 
 在线部署进行了为期两周的 A/B 测试。对照组保持标准多级漏斗，实验组将预计算的 Top-200 RADAR 候选直接注入最终排序，绕过在线预排序。一个关键运营障碍是候选重叠：早期实验显示许多 RADAR 物品已被在线检索到，限制了增量价值。团队因此重调在线检索生成器，使其强调会话内即时意图和新上传物品，让 RADAR 专注于长期稳定兴趣与常青内容。经过多轮调优后，RADAR 贡献约 60% 的独特候选。在此配置下，实验组在顶线用户参与度指标上获得 +0.8% 的提升（统计显著且与长期留存相关），独特物品消费增长 +6%，同时延迟与系统稳定性保持不变。
 
@@ -88,7 +92,10 @@ RADAR 的机制可以概括为“离线重排、在线注入”：利用非高�
 
 ## References
 
-- Jaspal, A., Dang, Q., & Ramineni, A. RADAR: Recall Augmentation through Deferred Asynchronous Retrieval. arXiv:2506.07261. https://arxiv.org/abs/2506.07261
-- Covington, P., Adams, J., & Sargin, E. (2016). Deep Neural Networks for YouTube Recommendations. RecSys '16. https://doi.org/10.1145/2959100.2959190
-- Cai, V., et al. (2023). TwERC: High-Performance Ensembled Candidate Generation for Ads Recommendation at Twitter. AdKDD '23. https://doi.org/10.48550/arXiv.2302.13915
-- Yi, X., et al. (2023). Online Matching: A Real-time Bandit System for Large-scale Recommendations. RecSys '23. https://doi.org/10.1145/3604915.3608792
+- Jaspal, A., Dang, Q., & Ramineni, A. RADAR: Recall Augmentation through Deferred Asynchronous Retrieval. arXiv:2506.07261. [https://arxiv.org/abs/2506.07261](https://arxiv.org/abs/2506.07261)
+
+- Covington, P., Adams, J., & Sargin, E. (2016). Deep Neural Networks for YouTube Recommendations. RecSys '16. [https://doi.org/10.1145/2959100.2959190](https://doi.org/10.1145/2959100.2959190)
+
+- Cai, V., et al. (2023). TwERC: High-Performance Ensembled Candidate Generation for Ads Recommendation at Twitter. AdKDD '23. [https://doi.org/10.48550/arXiv.2302.13915](https://doi.org/10.48550/arXiv.2302.13915)
+
+- Yi, X., et al. (2023). Online Matching: A Real-time Bandit System for Large-scale Recommendations. RecSys '23. [https://doi.org/10.1145/3604915.3608792](https://doi.org/10.1145/3604915.3608792)
