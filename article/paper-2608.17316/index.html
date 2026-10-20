@@ -1,0 +1,250 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>FLEXRec：用逐层出口融合为紧凑 LLM 推荐器补容量 | Enkidu's RecSys Frontier</title><meta name="author" content="Enkidu"><meta name="copyright" content="Enkidu"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="论文：arXiv 2608.17316 · 代码：GitHub · PDF：本地阅读  基于大语言模型的推荐系统（LLM-RS）在文本上下文建模与用户偏好学习之间形成了互惠关系，但主流方案往往依赖 7B 甚至 13B 级别的骨干，计算上难以持续扩展。一个直接的替代思路是换用 3B 以下的紧凑 LLM，然而模型容量下降会直接削弱语义理解能力，使推荐器难以捕捉细粒度的用户行为模式。为了弥补这一差距，">
+<meta property="og:type" content="article">
+<meta property="og:title" content="FLEXRec：用逐层出口融合为紧凑 LLM 推荐器补容量">
+<meta property="og:url" content="https://enkidulove90-lang.github.io/article/paper-2608.17316/index.html">
+<meta property="og:site_name" content="Enkidu&#39;s RecSys Frontier">
+<meta property="og:description" content="论文：arXiv 2608.17316 · 代码：GitHub · PDF：本地阅读  基于大语言模型的推荐系统（LLM-RS）在文本上下文建模与用户偏好学习之间形成了互惠关系，但主流方案往往依赖 7B 甚至 13B 级别的骨干，计算上难以持续扩展。一个直接的替代思路是换用 3B 以下的紧凑 LLM，然而模型容量下降会直接削弱语义理解能力，使推荐器难以捕捉细粒度的用户行为模式。为了弥补这一差距，">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://picsum.photos/seed/recsys-frontier-20/1200/630.webp">
+<meta property="article:published_time" content="2026-10-18T16:00:00.000Z">
+<meta property="article:modified_time" content="2026-10-20T09:17:18.721Z">
+<meta property="article:author" content="Enkidu">
+<meta property="article:tag" content="论文速读">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://picsum.photos/seed/recsys-frontier-20/1200/630.webp"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "FLEXRec：用逐层出口融合为紧凑 LLM 推荐器补容量",
+  "url": "https://enkidulove90-lang.github.io/article/paper-2608.17316/",
+  "image": "https://picsum.photos/seed/recsys-frontier-20/1200/630.webp",
+  "datePublished": "2026-10-18T16:00:00.000Z",
+  "dateModified": "2026-10-20T09:17:18.721Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "Enkidu",
+      "url": "https://enkidulove90-lang.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://enkidulove90-lang.github.io/article/paper-2608.17316/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":false,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'FLEXRec：用逐层出口融合为紧凑 LLM 推荐器补容量',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><link rel="stylesheet" href="/css/left-nav.css"><link rel="stylesheet" href="/css/pages.css"><link rel="stylesheet" href="/css/share.css"><link rel="stylesheet" href="/css/filter.css"><link rel="stylesheet" href="/css/paper-intake.css"><meta name="generator" content="Hexo 7.3.0"></head><body><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">94</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">1</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/categories/%E6%8E%A8%E8%8D%90%E7%B3%BB%E7%BB%9F/"><i class="fa-fw fas fa-chart-line"></i><span> 推荐技术报告</span></a></div><div class="menus_item"><a class="site-page" href="/categories/AI/"><i class="fa-fw fas fa-robot"></i><span> AI 技术报告</span></a></div><div class="menus_item"><a class="site-page" href="/tags/%E8%AE%BA%E6%96%87%E9%80%9F%E8%AF%BB/"><i class="fa-fw fas fa-newspaper"></i><span> 论文速递</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 文章分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 文章标签</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 历史归档</span></a></div><div class="menus_item"><a class="site-page" href="/legacy/"><i class="fa-fw fas fa-clock-rotate-left"></i><span> 旧站存档</span></a></div><div class="menus_item"><a class="site-page" href="/map/"><i class="fa-fw fas fa-map-location-dot"></i><span> 论文足迹</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://picsum.photos/seed/recsys-frontier-20/1200/630.webp);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Enkidu's RecSys Frontier</span></a><a class="nav-page-title" href="/"><span class="site-name">FLEXRec：用逐层出口融合为紧凑 LLM 推荐器补容量</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/categories/%E6%8E%A8%E8%8D%90%E7%B3%BB%E7%BB%9F/"><i class="fa-fw fas fa-chart-line"></i><span> 推荐技术报告</span></a></div><div class="menus_item"><a class="site-page" href="/categories/AI/"><i class="fa-fw fas fa-robot"></i><span> AI 技术报告</span></a></div><div class="menus_item"><a class="site-page" href="/tags/%E8%AE%BA%E6%96%87%E9%80%9F%E8%AF%BB/"><i class="fa-fw fas fa-newspaper"></i><span> 论文速递</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 文章分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 文章标签</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 历史归档</span></a></div><div class="menus_item"><a class="site-page" href="/legacy/"><i class="fa-fw fas fa-clock-rotate-left"></i><span> 旧站存档</span></a></div><div class="menus_item"><a class="site-page" href="/map/"><i class="fa-fw fas fa-map-location-dot"></i><span> 论文足迹</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">FLEXRec：用逐层出口融合为紧凑 LLM 推荐器补容量</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-10-18T16:00:00.000Z" title="发表于 2026-10-19 00:00:00">2026-10-19</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-20T09:17:18.721Z" title="更新于 2026-10-20 17:17:18">2026-10-20</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E6%9C%AA%E5%88%86%E7%B1%BB/">未分类</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">4.4k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>14分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><blockquote>
+<p>论文：<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2608.17316">arXiv 2608.17316</a> · 代码：<a target="_blank" rel="noopener" href="https://github.com/xurong-liang/FLEXRec">GitHub</a> · PDF：<a target="_blank" rel="noopener" href="https://app.notion.com/papers/2608.17316.pdf">本地阅读</a></p>
+</blockquote>
+<p>基于大语言模型的推荐系统（LLM-RS）在文本上下文建模与用户偏好学习之间形成了互惠关系，但主流方案往往依赖 7B 甚至 13B 级别的骨干，计算上难以持续扩展。一个直接的替代思路是换用 3B 以下的紧凑 LLM，然而模型容量下降会直接削弱语义理解能力，使推荐器难以捕捉细粒度的用户行为模式。为了弥补这一差距，已有工作要么引入思维链等复杂推理步骤，要么依赖更大的教师模型做知识蒸馏；前者显著拉长推理延迟，后者需要昂贵的离线训练与教师托管，两者都难以支撑真实系统所要求的全语料 Top-N 排序。</p>
+<p>判别式 LLM 推荐范式提供了另一条路径：把用户和物品投影到 LLM 语义空间，仅用嵌入相似度完成排序，从而完全绕开自回归解码。E4SRec 是这一范式的代表框架，它从交互记录中抽取用户偏好嵌入并计算用户—物品亲和度。但判别式范式在紧凑骨干下暴露了两个结构性限制：其一，按缩放律，上下文嵌入质量随参数量缩小而退化；其二，无论用户序列简单还是复杂，所有输入都经过完全相同的网络路径，缺乏结构上的自适应性。</p>
+<p>FLEXRec 的出发点正是这两个限制的交汇处。它保留判别式范式的高吞吐优势，但打破“只取最后一层输出”的静态单出口设计：在 LLM 的每个 transformer 层后插入预测头，把每一层都视为一个独立的出口，再将各出口产生的评分分布融合起来。这一设计的依据是不同网络深度编码了不同粒度的语义模式——浅层偏向局部、短期的物品转移，深层偏向抽象、长期的用户意图，二者恰好对应序列推荐需要同时建模的两类信号。</p>
+<p>仅有融合还不够。如果对所有用户都固定融合全部出口，计算开销和冗余信号都会上升；如果固定融合 k 个出口，又会对简单序列造成浪费、对复杂序列形成人为限制。FLEXRec 因此引入自适应连续路由器（AC-Router），以第一层响应 token 嵌入为条件，同时决定激活哪些出口以及激活多少个出口，并用一种新的 target-k hinge loss 把激活数量软性约束在 [1, k] 区间内。</p>
+<p>部署层面，FLEXRec 采用三阶段训练：先训练 LLM 推荐骨干，再独立预热中间出口，最后冻结骨干与全部出口、只训练路由器的投影矩阵。由于最后阶段极轻量，同一套冻结骨干可以共享给多个不同 target-k 的路由器，分别适配不同设备的算力与精度要求。这一训练顺序也保证了路由器的梯度只反映融合策略本身，而不受出口评分分布漂移的干扰。</p>
+<h2 id="一、方法：逐层出口、连续路由与三阶段训练"><a href="#一、方法：逐层出口、连续路由与三阶段训练" class="headerlink" title="一、方法：逐层出口、连续路由与三阶段训练"></a>一、方法：逐层出口、连续路由与三阶段训练</h2><h3 id="1-从单出口到多层出口"><a href="#1-从单出口到多层出口" class="headerlink" title="1. 从单出口到多层出口"></a>1. 从单出口到多层出口</h3><p>FLEXRec 沿用 E4SRec 的判别式基座。首先预训练一个 ID 类序列模型 SASRec，得到物品协同嵌入，再经单层 MLP 投影到 LLM 隐藏维度，与任务指令嵌入、响应 token 嵌入拼接后送入 LLM。原版 E4SRec 只取最后一层的响应 token 表示，经单层 MLP 预测头输出全物品亲和度分数，再经 Softmax 得到评分分布。</p>
+<p>FLEXRec 在第 l 层后立即插入预测头 h_l，对每一层都计算 Softmax(h_l(e^l))，其中 e^l 是该层输出序列中响应 token 对应的行向量。这样得到一组出口 H &#x3D; {h_1, …, h_L}，它们构成后续自适应路由与融合的候选池。</p>
+<p><img src="/images/bffdd8ddaab09611ac1c5ef00a1fd715.png" alt="FLEXRec 框架与三阶段训练总览"></p>
+<p>读这张框架图时，可以沿三条横向带从上往下看：最上方是 Stage 1，只训练物品 ID 投影、LoRA 组件与最终出口，损失为推荐交叉熵；中间是 Stage 2，骨干被冻结，中间出口逐个学习把本层表示映射为有效的物品排序分布；最下方是 Stage 3，骨干与所有出口都不再更新，唯一可训练的是 AC-Router 的投影矩阵。图中绿色实线箭头表示路由器为当前序列实际分配的激活权重，虚线箭头表示未被选中的出口，它们不参与最终融合分布 O^fused。这张图支撑的核心主张是：融合发生在评分分布层面而非隐藏表示层面，且路由决策与出口训练在时间上被解耦。</p>
+<h3 id="2-AC-Router：连续-ReLU-路由与条件偏移"><a href="#2-AC-Router：连续-ReLU-路由与条件偏移" class="headerlink" title="2. AC-Router：连续 ReLU 路由与条件偏移"></a>2. AC-Router：连续 ReLU 路由与条件偏移</h3><p>AC-Router 取第一层后的响应 token 嵌入 e^1，经可学习矩阵 W_z 映射为 L 维路由 logits z。传统 MoE 常用的 Top-k 路由要求每个输入恰好融合 k 个专家，既对简单序列造成多余计算，又对复杂序列限制了组合多样性，且其不可微性会干扰端到端训练。FLEXRec 改用向量级 ReLU 生成稀疏权重：w &#x3D; ReLU(z)。Top-k 只允许 C(L,k) 种出口组合，而 ReLU 把组合空间扩展到 2^L − 1，使路由器能同时控制出口的身份与数量。</p>
+<p>ReLU 带来的风险是 logits 全部为负时权重整体塌缩、没有任何出口被选中。为此，模型在激活前施加条件偏移：先计算 s &#x3D; min(max(z) − ε, 0)，再用 stop-gradient 把 s 从 z 中减去，保证最大 logit 至少保留 ε 的幅度。随后对权重做归一化得到门控 g_l，若 g_l &#x3D; 0 则该出口对当前序列禁用。激活出口集合 A &#x3D; {l | g_l &gt; 0}，模型只向前传播到最深的激活层 l_max，其后所有层与出口被跳过。最终融合分布是激活出口评分分布按门控权重的加权和。</p>
+<h3 id="3-三个路由损失：基数、均衡与数值稳定"><a href="#3-三个路由损失：基数、均衡与数值稳定" class="headerlink" title="3. 三个路由损失：基数、均衡与数值稳定"></a>3. 三个路由损失：基数、均衡与数值稳定</h3><p>target-k hinge loss 是 AC-Router 区别于传统 MoE 路由的关键。它不硬性规定激活数量等于 k，而是用 Sigmoid 代理估计激活数 C，再施加不对称双侧铰链：当 C &gt; k 时第一项产生梯度压低 logits 幅度，当 C <code>&lt;</code> 1 时第二项以系数 γ 惩罚路由失败。与依赖单纯形投影和额外 MLP 预测阈值边界的连续路由方法相比，这一损失完全通过梯度塑形实现基数调节，不增加任何参数开销。</p>
+<p>负载均衡损失针对路由器塌缩问题。由于 AC-Router 产生的是连续权重而非离散排序，FLEXRec 用 Softmax 代理构造连续版本：先对每个样本的路由 logits 做 Softmax 并在 batch 内平均，再最小化该代理分布的平方和，从而鼓励各出口被均衡使用。Softmax 的归一化同时堵住了一个优化漏洞——网络无法通过把所有独立 logits 压成负数来平凡地最小化惩罚。</p>
+<p>Z-loss 在连续路由架构中承担的作用比在离散 MoE 中更关键。混合精度训练下路由 logits 容易发散到极端量级，而 target-k hinge 依赖 Sigmoid 代理，极端 logits 会导致梯度消失，使基数惩罚失效。FLEXRec 直接对原始路由 logits 施加简化的 L2 惩罚，把激活前表示约束在零附近，既保持数值稳定，也保住基数估计器所需的陡峭梯度。</p>
+<h3 id="4-三阶段训练"><a href="#4-三阶段训练" class="headerlink" title="4. 三阶段训练"></a>4. 三阶段训练</h3><p>Stage 1 执行标准 E4SRec 微调，只训练物品 ID 投影层、LoRA 组件与最终出口 h_L，使用交叉熵损失。Stage 2 冻结投影层、LoRA 与最终出口，实例化除最后一层外的全部中间出口，逐层前向并以所有中间出口的平均交叉熵为损失，迫使每个出口独立学会把本层上下文嵌入映射为有效的物品排序分布。Stage 3 冻结全部骨干参数、投影层与所有出口，唯一可训练的是 W_z，优化目标为推荐损失（此时评分分布换为融合分布）与三个路由损失的加权和。由于出口此时已是合格的排序器，路由器的梯度纯粹反映融合策略，且这一阶段计算轻量，天然支持“一套骨干、多个 target-k 路由器”的部署方式。</p>
+<h2 id="二、实验：三个数据集上的精度与效率"><a href="#二、实验：三个数据集上的精度与效率" class="headerlink" title="二、实验：三个数据集上的精度与效率"></a>二、实验：三个数据集上的精度与效率</h2><h3 id="1-数据、基线、指标与实现条件"><a href="#1-数据、基线、指标与实现条件" class="headerlink" title="1. 数据、基线、指标与实现条件"></a>1. 数据、基线、指标与实现条件</h3><h3 id="2-主结果：紧凑骨干下的精度与延迟"><a href="#2-主结果：紧凑骨干下的精度与延迟" class="headerlink" title="2. 主结果：紧凑骨干下的精度与延迟"></a>2. 主结果：紧凑骨干下的精度与延迟</h3><p>注：延迟列按 Toys &#x2F; Beauty &#x2F; Yelp 顺序给出；表中只列出与路由机制直接相关的对照，完整基线见论文表 II。</p>
+<p>从主结果看，FLEXRec 在两种紧凑骨干、三个数据集上均取得 N@10 与 N@20 的最优值。与最强的连续路由基线 LD-MoLE 相比，Qwen 骨干下 Toys N@10 从 0.0516 升至 0.0521，Beauty 从 0.0438 升至 0.0451，Yelp 从 0.0184 升至 0.0207；Llama 骨干下 Toys 从 0.0512 升至 0.0524，Beauty 从 0.0488 升至 0.0498，Yelp 从 0.0182 升至 0.0188。提升幅度不大但方向一致，说明增益来自融合策略而非某个数据集的特例。</p>
+<p>与更大骨干的 Skyline 相比，FLEXRec 在 Beauty 的两种骨干下均超过 Skyline（Qwen：0.0451 对 0.0435；Llama：0.0498 对 0.0471），在 Yelp 的 Qwen 骨干下也以 0.0207 对 0.0199 领先；但在 Toys 上两种骨干都仍低于 Skyline，Llama 骨干下的 Yelp 也以 0.0188 对 0.0206 落后。这说明逐层融合能部分补偿容量，但并未在所有场景中消除参数规模差距。</p>
+<p>MoE 替代方案的对比揭示了一个边界：SparseToken 与 DynamicMoE 在 Toys 和 Beauty 上普遍优于 E4SRec，但在更稀疏的 Yelp 上失效，Qwen 骨干下 SparseToken 的 N@10 为 0.0180、DynamicMoE 为 0.0191，均未明显超过 E4SRec 的 0.0188；Llama 骨干下两者分别为 0.0181 与 0.0167。FLEXRec 在同样稀疏的 Yelp 上仍保持 0.0207（Qwen）与 0.0188（Llama），说明连续路由加基数约束对稀疏数据更稳健。</p>
+<p>效率方面，FLEXRec 相对 E4SRec 的额外延迟在 1ms 以内：Qwen 骨干下 Toys 为 7.53 对 6.89、Beauty 为 7.10 对 7.00、Yelp 为 7.49 对 6.98；Llama 骨干下分别为 7.43 对 6.48、8.12 对 6.57、7.31 对 6.78。作为对照，生成式方法 SETRec 的延迟在百毫秒量级（Qwen 骨干下 Toys 130.94、Beauty 141.49、Yelp 139.81），SPRec 更高。这一差距来自判别式范式单次前向即可完成全语料排序，而生成式方法必须自回归解码。</p>
+<h3 id="3-融合是否优于最佳单出口"><a href="#3-融合是否优于最佳单出口" class="headerlink" title="3. 融合是否优于最佳单出口"></a>3. 融合是否优于最佳单出口</h3><p><img src="/images/5252012fa593ed0de166274b7ef40ea2.png" alt="Toys 数据集上 Qwen 骨干的各独立出口 NDCG@20 分布"></p>
+<p>这张箱线图把每个独立出口的 NDCG@20 分布画在一起，红色虚线标出 FLEXRec 的实际取值。阅读时先看箱体的离散程度：各出口之间存在明显性能差异，说明不同深度确实捕捉到不同质量的排序信号；再看红色虚线的位置——它位于分布的上方而非箱体内部，表明自适应融合的收益不是简单挑一个最好的出口就能复现。这正是论文主张“融合而非选择”的直接证据。</p>
+<p><img src="/images/1bf3a2ca860a3b899676396fe95b997a.png" alt="Toys 数据集上 Llama 骨干的各独立出口 NDCG@20 分布"></p>
+<p>换到 Llama 骨干后，出口分布的形态发生变化，但红色虚线仍高于各独立出口的集中区域。两张图并置的意义在于：融合优势不依赖特定骨干的层间表示结构，而是在两种紧凑模型上都成立。论文进一步指出，FLEXRec 的自适应融合在所有评估设置中均优于表现最好的单个出口。</p>
+<h3 id="4-消融：三个路由损失都不可省"><a href="#4-消融：三个路由损失都不可省" class="headerlink" title="4. 消融：三个路由损失都不可省"></a>4. 消融：三个路由损失都不可省</h3><p>默认设置在所有数据集与两种骨干上均为最高。去掉负载均衡损失的影响最大：Qwen 骨干下 Toys N@10 从 0.0521 降到 0.0476，Yelp 从 0.0207 降到 0.0177；Llama 骨干下 Toys 从 0.0524 降到 0.0486，Yelp 从 0.0188 降到 0.0170。去掉 Z-loss 在 Qwen 骨干的 Toys 上造成相近幅度的下降（0.0521 到 0.0471），说明数值稳定项并非可有可无的装饰。去掉 hinge 损失的降幅相对温和，但论文的出口使用统计显示，缺少它会导致路由严重不稳定——在 Qwen 骨干的 Beauty 上最大激活出口数一度升至 16，而默认配置把极端激活压回目标容量附近。换言之，hinge 损失的主要贡献是控制稀疏性与稳定性，精度下降只是其副作用之一。</p>
+<h3 id="5-超参数敏感性"><a href="#5-超参数敏感性" class="headerlink" title="5. 超参数敏感性"></a>5. 超参数敏感性</h3><p>论文在给定范围内扫描了四个超参数。负载均衡权重 α 的最优值随数据集与骨干变化：Qwen 骨干下 Yelp 在 α&#x3D;0.05 达到峰值，而 Toys 在同一取值出现明显回落；Llama 骨干下 α&#x3D;0.05 则是 Toys 的最优值。target-k hinge 权重 λ 整体偏好 1，超过该点后出现边际下降，在 Qwen 的 Toys 与 Llama 的 Yelp 上尤为明显。Z-loss 权重 β&#x3D;1e-3 在所有场景下达到最优或接近最优，其稳定作用在 Llama 骨干的 Beauty 上最突出：β&#x3D;1e-4 时性能骤降，提高到 1e-3 后立即恢复并达到峰值。目标出口数 k 在 {1,2,3,4,5} 中扫描，k&#x3D;3 在全部数据集与两种骨干上一致最优，说明融合约三个出口能在语义丰富度与冗余噪声之间取得平衡。</p>
+<h3 id="6-路由案例分析"><a href="#6-路由案例分析" class="headerlink" title="6. 路由案例分析"></a>6. 路由案例分析</h3><p>按序列长度把用户分成五组后统计平均激活出口数，可以看到骨干选择对路由行为影响很大：Llama 骨干下 FLEXRec 平均激活约 3 个出口，Qwen 骨干下约 2 个。这与 k&#x3D;3 的最优设置一致，也说明路由器确实在按输入调整计算深度，而不是退化为固定融合。</p>
+<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>FLEXRec 的机制可以概括为三层：在架构上把 LLM 的每个 transformer 层变成独立出口，将评分分布而非隐藏表示作为融合对象；在路由上用连续 ReLU 加条件偏移生成稀疏门控，让每个序列自行决定激活哪些出口、激活多少个；在优化上用 target-k hinge、负载均衡与 Z-loss 三个损失分别控制基数、塌缩与数值稳定，并通过三阶段训练把出口预热与路由学习解耦。</p>
+<p>实验证据支持这一设计：在 Qwen 3 1.7B 与 Llama 3.2 3B 两种紧凑骨干、三个真实数据集上，FLEXRec 在 N@10 与 N@20 上均取得紧凑骨干方法中的最优值，融合结果一致优于最佳单出口，额外推理延迟控制在 1ms 以内；消融显示三个路由损失缺一不可，其中负载均衡与 Z-loss 的移除带来的精度下降最为明显。</p>
+<p>边界同样清楚。FLEXRec 在 Toys 上未能超过更大骨干的 Skyline，Llama 骨干下的 Yelp 也仍落后于 8B Skyline，说明逐层融合是部分补偿而非等价替代参数规模。超参数 α 的最优值随数据集与骨干漂移，意味着实际部署需要重新调参；target-k hinge 的收益主要体现在路由稳定性而非直接精度，评估时若只看 NDCG 容易低估它的作用。此外，实验集中在三个公开基准与两种紧凑骨干上，结论向其他模态或更大规模工业场景的迁移仍需验证。</p>
+<p>一个可迁移的设计启示是：当模型容量受限时，不必只在“换更大模型”和“加更多推理步骤”之间二选一，可以把模型内部已有的中间计算显式地组织成候选专家池，再用轻量、可微、带基数约束的路由器按输入复杂度调度。这一思路对需要在延迟预算内做全库排序的推荐 Agent 尤其直接——它把计算深度的分配从训练前的静态选择，变成了推理时的逐样本决策。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>Xurong Liang, Tong Chen, Quoc Viet Hung Nguyen, Jianxin Li, Xiangliang Zhang, Hongzhi Yin. <em>Empowering Compact LLMs with Fusion of Layer-wise Exits for Recommendation.</em> arXiv:2608.17316. <a target="_blank" rel="noopener" href="https://arxiv.org/abs/2608.17316">arXiv</a> · <a target="_blank" rel="noopener" href="https://github.com/xurong-liang/FLEXRec">代码</a></p>
+</li>
+<li><p>Xinyu Lin et al. <em>E4SRec: An Elegant Effective Efficient Extensible Solution of Large Language Models for Sequential Recommendation.</em> 判别式 LLM 推荐基座，FLEXRec 的单出口对照。</p>
+</li>
+<li><p>Jiaju Chen et al. <em>LLM-SRec: Bridging Language Models and Sequential Recommendation via Knowledge Distillation.</em> 知识蒸馏路线的代表基线。</p>
+</li>
+<li><p>Noam Shazeer et al. <em>Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-Experts Layer.</em> MoE 路由的经典起点，AC-Router 的连续路由思想来源之一。</p>
+</li>
+<li><p>Wang-Cheng Kang, Julian McAuley. <em>Self-Attentive Sequential Recommendation (SASRec).</em> 物品 ID 嵌入的预训练来源与传统序列基线。</p>
+</li>
+</ul>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://enkidulove90-lang.github.io">Enkidu</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://enkidulove90-lang.github.io/article/paper-2608.17316/">https://enkidulove90-lang.github.io/article/paper-2608.17316/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://enkidulove90-lang.github.io" target="_blank">Enkidu's RecSys Frontier</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E8%AE%BA%E6%96%87%E9%80%9F%E8%AF%BB/">论文速读</a></div><div class="post-share"><div class="addtoany"><div class="a2a_kit a2a_kit_size_32 a2a_default_style"><a class="a2a_button_copy_link"></a><a class="a2a_button_wechat"></a><a class="a2a_button_qq"></a><a class="a2a_button_sina_weibo"></a><a class="a2a_button_email"></a><a class="a2a_button_facebook"></a><a class="a2a_button_x"></a><a class="a2a_button_telegram"></a><a class="a2a_button_facebook_messenger"></a><a class="a2a_button_line"></a><a class="a2a_button_reddit"></a><a class="a2a_button_whatsapp"></a><a class="a2a_button_linkedin"></a><a class="a2a_dd" target="_blank" rel="noopener" href="https://www.addtoany.com/share"></a></div></div><script async="async" src="https://static.addtoany.com/menu/page.js"></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/article/paper-2608.24053/" title="WeMM-Embedding：微信多模态嵌入的两阶段训练与语义ID重采样"><img class="cover" src="https://picsum.photos/seed/recsys-frontier-24/1200/630.webp" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">WeMM-Embedding：微信多模态嵌入的两阶段训练与语义ID重采样</div></div><div class="info-2"><div class="info-item-1"> 论文：arXiv 2608.24053 · 代码：GitHub · PDF：本地阅读  多模态嵌入模型正在成为检索、推荐、分类和智能体系统的底层组件，它把文本、图像、视频和交错文档映射到同一个稠密向量空间。早期CLIP式双塔结构依赖模态专属编码器，难以自然处理“图文交错文档”或“视频加字幕”这类联合输入；基于MLLM的嵌入方案则借助原生多模态骨干，把任意交错序列编码为统一表示，逐渐成为主流范式。 WeMM-Embedding是腾讯微信视觉团队在这一范式下给出的工程化答案：一个覆盖2B、4B、9B三种规模的通用多模态嵌入模型家族，基于Qwen3.5原生多模态骨干构建。它的定位不是单点刷榜，而是同时追求公开基准的领先性、小参数模型的效率，以及微信推荐与搜索场景中的大规模可部署性。论文报告了MMEB-v2&#x2F;v3、12个跨模态检索基准和26任务内部基准上的结果，并披露了14个在线A&#x2F;B测试的一致提升。 这篇报告真正值得细读的地方，是它如何处理“覆盖广度”与“匹配精度”之间的矛盾。数亿级异构pair能带来广泛的多模态覆盖，但语义分布严重偏斜，高频模式被反复曝光；精选数...</div></div></div></a><a class="pagination-related" href="/article/paper-2608.10447/" title="REAM：按注意力头分配融合系数，把慢思考推荐模型的推理压短 24.3%"><img class="cover" src="https://picsum.photos/seed/recsys-frontier-07/1200/630.webp" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">REAM：按注意力头分配融合系数，把慢思考推荐模型的推理压短 24.3%</div></div><div class="info-2"><div class="info-item-1"> 论文：arXiv 2608.10447 · 代码：GitHub · PDF：本地阅读  基于大语言模型的推荐系统正在从“直接打分”走向“先推理再打分”。快思考模型把用户历史与物品描述直接映射为一个评分，推理成本低；慢思考模型则先写出结构化的推理轨迹——分析用户偏好、分析物品特征、判断用户与物品是否匹配——最后才给出评分。后者在偏好信号稀疏或隐式时往往更准，但代价是推理轨迹冗长：无论输入难易，模型都倾向于把三段分析写满，延迟与算力随之上升，而准确率并不总是同步提高。 压缩这类推理轨迹已有两条路线，但都不够理想。基于训练的方法（蒸馏、长度惩罚微调、带长度奖励的强化学习、token 剪枝）能缩短输出，却需要额外的数据构造与目标模型优化；推理时方法（token 预算、链式草稿、认知式草图）无需重训，但效果随输入和任务难度波动。模型融合提供了第三条路：在共享参数空间里把两个模型的行为组合起来，无需训练。推荐场景恰好是它的天然试验台——快、慢思考推荐器共享同一个“预测偏好”目标，差别只在生成多少推理。 问题在于，通用融合方法对“压缩多少”几乎没有控制力。任务向量合并通常用一个全局系数，AC...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/article/llmars-agentic-recsys-perspective/" title="从被动到主动：多模态大模型时代的智能体推荐（视角论文）"><img class="cover" src="https://picsum.photos/seed/recsys-frontier-03/1200/630.webp" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-19</div><div class="info-item-2">从被动到主动：多模态大模型时代的智能体推荐（视角论文）</div></div><div class="info-2"><div class="info-item-1"> 论文：arXiv 2503.16734  这是一篇视角论文（perspective）而非方法论文：它系统梳理了”多模态大模型时代的智能体推荐系统”（LLM-based Agentic RS，LLM-ARS）——智能体能力（规划、记忆、多模态推理）能给推荐带来什么，以及卡在哪里。 从被动响应到主动服务：推荐的四个层次 这张图给出领域演进的宏观背景：把已有工作按”单智能体 &#x2F; 多智能体”分类后统计，可以看到基于 LLM 的智能体研究在近年快速上升。论文用它说明 LLM-ARS 不是凭空提出的概念，而是”LLM 智能体能力成熟”这条曲线延伸到推荐领域的结果。 论文提出的核心分类是一张”推荐系统四个层次”表： 关键判断是：层次 2 → 3 的变化不是精度问题，而是交互范式问题——从”被动响应用户请求”变成”主动感知环境并采取行动”，这带来用户界面层面的变化（被动推荐 → 主动推荐）。  这张图区分了智能体在推荐系统里扮演的两种角色：(i) 智能体模拟用户行为（用户模拟器，用于策略评估与数据增广）；(ii) 智能体充当推荐器&#x2F;助手（直接做决策与解释）。这个区分很实用—...</div></div></div></a><a class="pagination-related" href="/article/fitmm-frequency-aware-multimodal/" title="FITMM：自适应频率感知多模态推荐"><img class="cover" src="https://picsum.photos/seed/recsys-frontier-07/1200/630.webp" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-19</div><div class="info-item-2">FITMM：自适应频率感知多模态推荐</div></div><div class="info-2"><div class="info-item-1"> 论文：arXiv 2601.22498 · 代码：GitHub  arXiv: 2601.22498 | 会议: ACM MM 2025 | GitHub: https://github.com/llm-ml/FITMM 创新评级: ⭐⭐⭐⭐⭐ — 频域多模态开创性工作 主要贡献将多模态推荐从空间域推向频域。理论证明高斯信息瓶颈(GIB)目标在正交变换下可按频带解耦，为”先分离再融合”范式提供理论保证。 创新点 频域信息论基础: GIB在正交变换下频带解耦的理论证明  SVD频带分解: K个正交频带(低&#x3D;稳定语义&#x2F;中&#x3D;跨模态互补&#x2F;高&#x3D;个性化+噪声)  任务自适应频率门控: 可学习G_k,冷启动物品加重低频  频域IB正则化: Wiener式收缩关闭弱&#x2F;噪频带  跨模态频谱一致性损失   方法论七步架构: 编码→GCN→SVD分解→频带内拼接→门控→IB正则→一致性损失。骨干: LightGCN Benchmark 与数据集基线方法MMIL, AlignRec, SMORE, LATTICE, MMSSL | 骨干: L...</div></div></div></a><a class="pagination-related" href="/article/paper-2608.02441/" title="ACWORLD：用VCP把智能体商业决策变成可审计、可重放的执行轨迹"><img class="cover" src="https://picsum.photos/seed/recsys-frontier-06/1200/630.webp" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-19</div><div class="info-item-2">ACWORLD：用VCP把智能体商业决策变成可审计、可重放的执行轨迹</div></div><div class="info-2"><div class="info-item-1"> 论文：arXiv 2608.02441 · 代码：GitHub · PDF：本地阅读  当人们用自然语言描述购物或销售目标，并把执行交给智能体时，商业交互就进入了“vibe commerce”的范畴。与vibe coding不同，商业场景天然是多对多的：一个Buyer背后是一位有私人预算的消费者，一个Merchant背后是一位有私人底价的卖家，双方在共享市场中交互，却不应看到对方的私有约束。现有协议如ACP、UCP、AP2提供了发现、购买协调或支付授权的结构化接口，但它们主要服务于已部署方之间的协调，并不提供受控的策略评测；购物与市场基准则通常固定对手或网站，难以把共享状态的变化归因到某一方的决策。 ACWORLD的定位正是填补这一空隙：它不是一个生产级支付系统，而是一个研究环境，让独立控制的Buyer与Merchant策略在同一持久化市场中交互，同时保留各自的身份、私有mandate与权限。论文的核心主张是“可审计、可验证”——这里的可验证有明确边界，指在声明的ACWORLD契约下状态可重建、可重打分，而非证明转移语义或生产安全性。 研究矛盾集中在评估层面。最终World状态...</div></div></div></a><a class="pagination-related" href="/article/paper-2605.14306/" title="PaSaMaster：用递归自进化检索把文献发现的幻觉率压到零"><img class="cover" src="https://picsum.photos/seed/recsys-frontier-04/1200/630.webp" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-19</div><div class="info-item-2">PaSaMaster：用递归自进化检索把文献发现的幻觉率压到零</div></div><div class="info-2"><div class="info-item-1"> 论文：arXiv 2605.14306 · 代码：GitHub · PDF：本地阅读  科学文献检索长期被一个结构性矛盾卡住：能保证来源真实的系统（关键词检索、语义检索）往往把复杂的研究意图压缩成几个词，而能理解复杂意图的生成式大模型又容易凭空编造论文。PaSaMaster 的出发点正是这个矛盾——它不试图在“理解”和“真实”之间折中，而是把文献发现重新定义为“意图—论文相关性排序”问题：所有候选论文必须来自经过验证的语料库，每一个相关性判断都必须有原文证据支撑。 这篇论文的定位不是又一个检索工具，而是提出了一条新的范式线索。作者把文献检索系统划分为五个层级：词法检索、语义检索、生成式 LLM、固定流水线智能体检索，以及他们主张的第四级“递归自进化智能体检索”。前四级的共同缺陷是意图解释在检索开始时就被固定，后续步骤只是执行；PaSaMaster 则让排序后的证据反过来更新系统对意图的理解，形成多轮迭代。 研究矛盾可以概括为“意图压缩”与“源幻觉”的此消彼长。关键词系统把“2023 至 2025 年发表在 Nature Medicine 上的联邦学习医学影像研究”压成几个关键词...</div></div></div></a><a class="pagination-related" href="/article/matrag-multi-agent-transparent-rag/" title="把「可解释」做成可测量的模块：MATRAG 的多智能体透明推荐"><img class="cover" src="https://picsum.photos/seed/recsys-frontier-19/1200/630.webp" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-19</div><div class="info-item-2">把「可解释」做成可测量的模块：MATRAG 的多智能体透明推荐</div></div><div class="info-2"><div class="info-item-1"> 论文：arXiv 2604.20848  基于 LLM 的推荐系统一直被三件事拖着：决策不透明（给出了推荐却说不清为什么）、事实幻觉（预训练知识里没有的物品属性会被编出来）、多主体利益难协调（用户、物品、平台、以及越来越多参与进来的自治智能体，各自诉求不同）。MATRAG 把这三件事放在同一个框架里处理：多智能体分工 + 知识图谱子图检索 + 可量化的透明度打分。  一、框架：四个专职智能体 + 一个编排者 如上图，MATRAG 由四个专职智能体加一个中央编排者（Orchestrator）组成。每个智能体都是 LLM 实例，配上各自角色的指令与工具： 编排者这一步是”元决策”：它先分析请求类型，再把子任务分派下去，最后综合各方输出。这也是论文与既有单智能体方案（InteRecAgent、RecMind）的主要分野——协作而非单点工具调用。 知识图谱检索知识图谱在 MATRAG 里承担”事实底座”的角色。物品通过实体匹配挂到外部 KG 上（Amazon Electronics 从商品元数据构图，MovieLens-1M 通过实体匹配挂到 Freebase，Yelp 用商户属性构图...</div></div></div></a><a class="pagination-related" href="/article/paper-2507.15245/" title="SPAR：用五个智能体与单层引用链重构学术检索，F1 最高提升 56.92%"><img class="cover" src="https://picsum.photos/seed/recsys-frontier-19/1200/630.webp" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-19</div><div class="info-item-2">SPAR：用五个智能体与单层引用链重构学术检索，F1 最高提升 56.92%</div></div><div class="info-2"><div class="info-item-1"> 论文：arXiv 2507.15245 · 代码：GitHub · PDF：本地阅读  学术文献的爆炸式增长让“找到真正相关的论文”变得越来越困难。传统搜索引擎擅长关键词匹配，却难以应对多意图、跨子领域、需要追踪引用关系的复杂查询。例如，“展示跨多个领域提升机器学习模型泛化能力的前沿技术进展”这样的问题，既隐含对时效性的要求，又需要理解“泛化”在机器学习语境下的含义，还要覆盖多个子方向。现有系统要么返回过于宽泛的结果，要么无法捕捉查询的完整语义范围，用户不得不花费大量时间手动筛选。 大语言模型（LLM）的进展为信息检索带来了查询改写、文档检索与排序的新可能，但学术研究远不止于匹配文档：研究者常常沿着引用网络递归探索，从一篇论文追踪到它的参考文献，再从中发现新的线索。这种引用驱动的探索行为，恰恰是当前基于 LLM 的检索系统所忽视的。PaSa 是这一方向上的一次重要尝试，它用强化学习训练 LLM 智能体来控制引用链扩展，但受限于训练资源依赖、单一数据源设计和粗粒度的查询理解，跨领域泛化能力有限。 SPAR 正是在这一矛盾中提出的：它把学术检索建模为递归的、引用驱动的过程，称为 R...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">Enkidu</div><div class="author-info-description">推荐系统论文速递 / 技术报告 / 实践笔记</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">94</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">1</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/xxxxxx"><i class="fab fa-github"></i><span>Follow Me</span></a></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">推荐系统内容分享库 · 内容源自 Notion，每 30 分钟自动同步</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E6%96%B9%E6%B3%95%EF%BC%9A%E9%80%90%E5%B1%82%E5%87%BA%E5%8F%A3%E3%80%81%E8%BF%9E%E7%BB%AD%E8%B7%AF%E7%94%B1%E4%B8%8E%E4%B8%89%E9%98%B6%E6%AE%B5%E8%AE%AD%E7%BB%83"><span class="toc-number">1.</span> <span class="toc-text">一、方法：逐层出口、连续路由与三阶段训练</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E4%BB%8E%E5%8D%95%E5%87%BA%E5%8F%A3%E5%88%B0%E5%A4%9A%E5%B1%82%E5%87%BA%E5%8F%A3"><span class="toc-number">1.1.</span> <span class="toc-text">1. 从单出口到多层出口</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-AC-Router%EF%BC%9A%E8%BF%9E%E7%BB%AD-ReLU-%E8%B7%AF%E7%94%B1%E4%B8%8E%E6%9D%A1%E4%BB%B6%E5%81%8F%E7%A7%BB"><span class="toc-number">1.2.</span> <span class="toc-text">2. AC-Router：连续 ReLU 路由与条件偏移</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E4%B8%89%E4%B8%AA%E8%B7%AF%E7%94%B1%E6%8D%9F%E5%A4%B1%EF%BC%9A%E5%9F%BA%E6%95%B0%E3%80%81%E5%9D%87%E8%A1%A1%E4%B8%8E%E6%95%B0%E5%80%BC%E7%A8%B3%E5%AE%9A"><span class="toc-number">1.3.</span> <span class="toc-text">3. 三个路由损失：基数、均衡与数值稳定</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-%E4%B8%89%E9%98%B6%E6%AE%B5%E8%AE%AD%E7%BB%83"><span class="toc-number">1.4.</span> <span class="toc-text">4. 三阶段训练</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E5%AE%9E%E9%AA%8C%EF%BC%9A%E4%B8%89%E4%B8%AA%E6%95%B0%E6%8D%AE%E9%9B%86%E4%B8%8A%E7%9A%84%E7%B2%BE%E5%BA%A6%E4%B8%8E%E6%95%88%E7%8E%87"><span class="toc-number">2.</span> <span class="toc-text">二、实验：三个数据集上的精度与效率</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E6%95%B0%E6%8D%AE%E3%80%81%E5%9F%BA%E7%BA%BF%E3%80%81%E6%8C%87%E6%A0%87%E4%B8%8E%E5%AE%9E%E7%8E%B0%E6%9D%A1%E4%BB%B6"><span class="toc-number">2.1.</span> <span class="toc-text">1. 数据、基线、指标与实现条件</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E4%B8%BB%E7%BB%93%E6%9E%9C%EF%BC%9A%E7%B4%A7%E5%87%91%E9%AA%A8%E5%B9%B2%E4%B8%8B%E7%9A%84%E7%B2%BE%E5%BA%A6%E4%B8%8E%E5%BB%B6%E8%BF%9F"><span class="toc-number">2.2.</span> <span class="toc-text">2. 主结果：紧凑骨干下的精度与延迟</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E8%9E%8D%E5%90%88%E6%98%AF%E5%90%A6%E4%BC%98%E4%BA%8E%E6%9C%80%E4%BD%B3%E5%8D%95%E5%87%BA%E5%8F%A3"><span class="toc-number">2.3.</span> <span class="toc-text">3. 融合是否优于最佳单出口</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-%E6%B6%88%E8%9E%8D%EF%BC%9A%E4%B8%89%E4%B8%AA%E8%B7%AF%E7%94%B1%E6%8D%9F%E5%A4%B1%E9%83%BD%E4%B8%8D%E5%8F%AF%E7%9C%81"><span class="toc-number">2.4.</span> <span class="toc-text">4. 消融：三个路由损失都不可省</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-%E8%B6%85%E5%8F%82%E6%95%B0%E6%95%8F%E6%84%9F%E6%80%A7"><span class="toc-number">2.5.</span> <span class="toc-text">5. 超参数敏感性</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-%E8%B7%AF%E7%94%B1%E6%A1%88%E4%BE%8B%E5%88%86%E6%9E%90"><span class="toc-number">2.6.</span> <span class="toc-text">6. 路由案例分析</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E6%80%BB%E7%BB%93"><span class="toc-number">3.</span> <span class="toc-text">三、总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#References"><span class="toc-number">4.</span> <span class="toc-text">References</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/article/paper-2509.06002/" title="离线指标之外：真实工业推荐系统究竟在优化什么"><img src="https://picsum.photos/seed/recsys-frontier-07/1200/630.webp" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="离线指标之外：真实工业推荐系统究竟在优化什么"/></a><div class="content"><a class="title" href="/article/paper-2509.06002/" title="离线指标之外：真实工业推荐系统究竟在优化什么">离线指标之外：真实工业推荐系统究竟在优化什么</a><time datetime="2026-10-19T16:00:00.000Z" title="发表于 2026-10-20 00:00:00">2026-10-20</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/article/adaptive-kg-retriever/" title="自适应知识图谱检索器"><img src="https://picsum.photos/seed/recsys-frontier-23/1200/630.webp" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="自适应知识图谱检索器"/></a><div class="content"><a class="title" href="/article/adaptive-kg-retriever/" title="自适应知识图谱检索器">自适应知识图谱检索器</a><time datetime="2026-10-18T16:00:00.000Z" title="发表于 2026-10-19 00:00:00">2026-10-19</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/article/agentic-recsys-autonomy-roadmap/" title="从排序器到目标追求者：智能体推荐系统的自主性分级"><img src="https://picsum.photos/seed/recsys-frontier-07/1200/630.webp" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="从排序器到目标追求者：智能体推荐系统的自主性分级"/></a><div class="content"><a class="title" href="/article/agentic-recsys-autonomy-roadmap/" title="从排序器到目标追求者：智能体推荐系统的自主性分级">从排序器到目标追求者：智能体推荐系统的自主性分级</a><time datetime="2026-10-18T16:00:00.000Z" title="发表于 2026-10-19 00:00:00">2026-10-19</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/article/ammrm-noise-filtering-adaptive-fusion/" title="噪声过滤 + 度数敏感剪边：AMMRM 处理多模态噪声与热门偏置"><img src="https://picsum.photos/seed/recsys-frontier-17/1200/630.webp" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="噪声过滤 + 度数敏感剪边：AMMRM 处理多模态噪声与热门偏置"/></a><div class="content"><a class="title" href="/article/ammrm-noise-filtering-adaptive-fusion/" title="噪声过滤 + 度数敏感剪边：AMMRM 处理多模态噪声与热门偏置">噪声过滤 + 度数敏感剪边：AMMRM 处理多模态噪声与热门偏置</a><time datetime="2026-10-18T16:00:00.000Z" title="发表于 2026-10-19 00:00:00">2026-10-19</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/article/cairec-calibrated-modality-imputation/" title="模态缺失时补出来的特征为什么不能用：CaIRec 的两阶段校准"><img src="https://picsum.photos/seed/recsys-frontier-09/1200/630.webp" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="模态缺失时补出来的特征为什么不能用：CaIRec 的两阶段校准"/></a><div class="content"><a class="title" href="/article/cairec-calibrated-modality-imputation/" title="模态缺失时补出来的特征为什么不能用：CaIRec 的两阶段校准">模态缺失时补出来的特征为什么不能用：CaIRec 的两阶段校准</a><time datetime="2026-10-18T16:00:00.000Z" title="发表于 2026-10-19 00:00:00">2026-10-19</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/article/cammsr-category-guided-moe-seqrec/" title="专家该建模模态组合而不是单个模态：CAMMSR 的品类引导 MoE"><img src="https://picsum.photos/seed/recsys-frontier-23/1200/630.webp" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="专家该建模模态组合而不是单个模态：CAMMSR 的品类引导 MoE"/></a><div class="content"><a class="title" href="/article/cammsr-category-guided-moe-seqrec/" title="专家该建模模态组合而不是单个模态：CAMMSR 的品类引导 MoE">专家该建模模态组合而不是单个模态：CAMMSR 的品类引导 MoE</a><time datetime="2026-10-18T16:00:00.000Z" title="发表于 2026-10-19 00:00:00">2026-10-19</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2025 - 2026 By Enkidu</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"></div><script defer src="/js/multidim-filter.js"></script><script defer src="/js/paper-intake.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="搜索文章" type="text"/></div><hr/><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div></body></html>
