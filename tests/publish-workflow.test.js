@@ -13,6 +13,7 @@ test('publish workflow reports repository-dispatch completion to the intake gate
   assert.match(yaml, /github\.event\.client_payload\.job_id/);
   assert.match(yaml, /\/v1\/publications\/callback/);
   assert.match(yaml, /\\"ok\\":\$OK/);
+  assert.match(yaml, /PAPER_INTAKE_API_BASE:\s*\$\{\{\s*secrets\.PAPER_INTAKE_API_BASE\s*\}\}/);
 });
 
 test('publish callback runs even after a failed deployment and retries transient delivery errors', () => {
