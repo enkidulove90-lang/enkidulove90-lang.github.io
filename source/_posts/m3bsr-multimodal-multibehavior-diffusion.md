@@ -4,6 +4,9 @@ date: 2025-08-07
 year: 2025
 venue_type: 会议
 venue_name: SIGIR 2025
+location_type: Affiliation
+affil_city: [Beijing]
+affiliation_name: "Takway.AI"
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐, 序列推荐, 扩散模型]
 slug: m3bsr-multimodal-multibehavior-diffusion

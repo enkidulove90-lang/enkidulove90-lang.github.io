@@ -1,0 +1,298 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const test = require('node:test');
+
+const {
+  buildMapPayload
+} = require('../scripts/map_data');
+
+function date(value) {
+  return { format(pattern) { return pattern === 'YYYY' ? value.slice(0, 4) : value; } };
+}
+
+test('map payload joins posts to valid places and sorts papers newest first', () => {
+  const posts = [
+    { title: 'Older', path: 'article/older/', date: date('2025-01-01'), venue_type: '会议', venue_name: 'RecSys', venue_city: 'Bari' },
+    { title: 'Newest', path: 'article/newest/', date: date('2026-09-01'), venue_type: '会议', venue_name: 'SIGIR', venue_city: 'Padua' },
+    { title: 'Missing city', path: 'article/missing/', date: date('2026-10-01'), venue_type: '会议', venue_name: 'KDD' },
+    { title: 'Preprint', path: 'article/preprint/', date: date('2026-10-02'), venue_type: 'arXiv预印本', venue_name: 'arXiv' }
+  ];
+  const places = [
+    { id: 'bari', name: 'Bari', wgs84: [16.8719, 41.1171], image: '/images/map/bari.jpg', description: 'Adriatic city' },
+    { id: 'padua', name: 'Padua', wgs84: [11.8768, 45.4064], image: '/images/map/padua.jpg', description: 'University city' }
+  ];
+
+  const payload = buildMapPayload(posts, places, 0.6);
+
+  assert.equal(payload.meta.total_papers, 4);
+  assert.equal(payload.meta.eligible_papers, 3);
+  assert.equal(payload.meta.located_papers, 2);
+  assert.equal(payload.meta.coverage, 2 / 3);
+  assert.equal(payload.meta.enabled, true);
+  assert.deepEqual(payload.papers.map(item => item.title), ['Newest', 'Older']);
+  assert.ok(payload.places.every(place => place.image.startsWith('/images/map/')));
+  assert.equal(payload.links.length, 2);
+  assert.deepEqual(payload.unlocated.map(item => item.title), ['Preprint', 'Missing city']);
+  assert.equal(payload.meta.unlocated_papers, 2);
+});
+
+test('map payload derives a readable introduction from article content', () => {
+  const posts = [{
+    slug: 'real-intro', title: 'Real intro', path: 'article/real-intro/', date: date('2026-01-01'),
+    venue_type: '会议',
+    _content: '> 论文：[arXiv](https://arxiv.org/abs/1234.56789)\n\n## 背景\n\n这项工作研究推荐系统中的长尾问题，并解释为什么传统排序方法会失效。\n\n第二段。'
+  }];
+  const places = [{ id: 'bari', name: 'Bari', wgs84: [16, 41], image: '/images/map/bari.jpg', description: 'Bari' }];
+  const assignments = [{ paper_id: 'real-intro', place_id: 'bari', location_type: 'school', location_label: 'University of Bari' }];
+
+  const payload = buildMapPayload(posts, places, 0, assignments);
+
+  assert.match(payload.papers[0].description, /这项工作研究推荐系统中的长尾问题/);
+  assert.doesNotMatch(payload.papers[0].description, /<[^>]+>/);
+});
+
+test('coverage gate remains closed below sixty percent', () => {
+  const posts = [
+    { title: 'Located', path: 'article/located/', date: date('2026-01-01'), venue_type: '会议', venue_city: 'Bari' },
+    { title: 'Missing one', path: 'article/missing-1/', date: date('2026-01-02'), venue_type: '会议' },
+    { title: 'Missing two', path: 'article/missing-2/', date: date('2026-01-03'), venue_type: '会议' },
+    { title: 'Not eligible', path: 'article/preprint/', date: date('2026-01-04'), venue_type: 'arXiv预印本' }
+  ];
+  const places = [{ id: 'bari', name: 'Bari', wgs84: [16, 41], image: '/images/map/bari.jpg', description: 'Bari' }];
+
+  assert.equal(buildMapPayload(posts, places, 0.6).meta.enabled, false);
+});
+
+test('map page opens as a full color map with a transparent floating legend', () => {
+  const root = path.resolve(__dirname, '..');
+  const page = fs.readFileSync(path.join(root, 'source/map/index.md'), 'utf8');
+  const script = fs.readFileSync(path.join(root, 'source/js/paper-map.js'), 'utf8');
+  assert.match(script, /cache:\s*['"]no-store['"]/);
+  const css = fs.readFileSync(path.join(root, 'source/css/paper-map.css'), 'utf8');
+
+  assert.match(page, /id="paper-map"/);
+  assert.match(page, /leaflet@1\.9\.4/);
+  assert.doesNotMatch(page, /map-intro|map-metrics|map-unlocated/);
+  assert.match(page, /class="map-legend"/);
+  assert.match(page, /class="map-detail"[^>]*aria-hidden="true"/);
+  assert.match(script, /map_data\.json/);
+  assert.match(script, /meta\.enabled/);
+  assert.match(script, /tile\.opentopomap\.org/);
+  assert.match(script, /basemaps\.cartocdn\.com\/rastertiles\/voyager/);
+  assert.match(script, /__PAPER_MAP_CONFIG__/);
+  assert.match(script, /function useFallback/);
+  assert.match(script, /tile\.openstreetmap\.org/);
+  assert.match(script, /tileerror/);
+  assert.match(script, /L\.tileLayer/);
+  assert.match(script, /L\.divIcon/);
+  assert.match(script, /html:\s*'<span class="paper-map-marker/);
+  assert.match(script, /map\.on\('click', function/);
+  assert.match(script, /ignoreNextMapClick/);
+  assert.doesNotMatch(script, /L\.DomEvent\.disableClickPropagation/);
+  assert.match(script, /bubblingMouseEvents:\s*false/);
+  assert.match(script, /classList\.add\('is-open'\)/);
+  assert.match(script, /classList\.remove\('is-open'\)/);
+  assert.doesNotMatch(script, /bindPopup|openPopup|updateMetrics|renderUnlocated/);
+  assert.match(css, /@media\s*\(max-width:\s*820px\)/);
+  assert.match(css, /\.map-status--error/);
+  assert.doesNotMatch(css, /\.leaflet-tile-pane\s*\{[^}]*filter:/s);
+  assert.match(css, /\.map-legend\s*\{[^}]*position:\s*absolute/s);
+  assert.match(css, /\.map-legend\s*\{[^}]*right:/s);
+  assert.match(css, /\.map-legend\s*\{[^}]*background:\s*transparent/s);
+  assert.match(css, /\.map-legend\s*\{[^}]*border:\s*0/s);
+  assert.match(css, /\.map-legend\s*\{[^}]*color:\s*#000/s);
+  assert.match(css, /\.map-detail\.is-open/);
+  assert.match(css, /font-family:\s*SimSun/);
+});
+
+test('CARTO key is injected at build time without committing it to map source', () => {
+  const root = path.resolve(__dirname, '..');
+  const generatorPath = path.join(root, 'scripts/map_carto_config.js');
+  const page = fs.readFileSync(path.join(root, 'source/map/index.md'), 'utf8');
+  const script = fs.readFileSync(path.join(root, 'source/js/paper-map.js'), 'utf8');
+
+  assert.equal(fs.existsSync(generatorPath), true);
+  assert.match(page, /\/js\/map-carto-config\.js["']/);
+  assert.match(script, /\?key=/);
+  assert.match(script, /OpenStreetMap[\s\S]+CARTO/);
+  assert.doesNotMatch(page + script, /cb1_[A-Za-z0-9_]+/);
+});
+
+test('map navigation is present without waiting for an asynchronous coverage gate', () => {
+  const config = fs.readFileSync(path.resolve(__dirname, '../_config.butterfly.yml'), 'utf8');
+  assert.match(config, /论文足迹:\s*\/map\//);
+  assert.doesNotMatch(config, /map-nav-gate\.js/);
+});
+
+test('resolved assignments preserve marker meaning and explanatory metadata', () => {
+  const posts = [{
+    slug: 'paper-one', title: 'Paper one', path: 'article/paper-one/', date: date('2026-05-01'),
+    venue_type: '会议'
+  }];
+  const places = [{ id: 'beijing', name: 'Beijing', wgs84: [116.39, 39.9], image: '/images/map/beijing.jpg', description: 'Beijing' }];
+  const assignments = [{
+    paper_id: 'paper-one', place_id: 'beijing', location_type: 'school',
+    location_label: 'Tsinghua University', source: 'affiliation_dictionary'
+  }];
+
+  const payload = buildMapPayload(posts, places, 0.6, assignments);
+
+  assert.equal(payload.papers[0].location_type, 'school');
+  assert.equal(payload.papers[0].location_label, 'Tsinghua University');
+  assert.equal(payload.places[0].location_type, 'school');
+  assert.match(payload.places[0].id, /school/);
+  assert.equal(payload.meta.city_count, 1);
+});
+
+test('institutions in the same city share one semantic marker and paper list', () => {
+  const posts = [
+    { slug: 'hku-paper', title: 'HKU paper', path: 'article/hku-paper/', date: date('2026-02-01'), venue_type: '会议' },
+    { slug: 'polyu-paper', title: 'PolyU paper', path: 'article/polyu-paper/', date: date('2026-01-01'), venue_type: '会议' }
+  ];
+  const places = [
+    { id: 'hku', name: 'Hong Kong', city: 'Hong Kong', wgs84: [114.1378, 22.283], image: '/images/map/hong-kong.jpg',
+      hover_text: '香港：繁华与竞争之地', city_images: ['/images/map/hong-kong.jpg', '/images/map/hong-kong-2.jpg'],
+      institution: { name: 'HKU', description: 'Hong Kong university' }, description: 'Hong Kong' },
+    { id: 'polyu', name: 'Hong Kong', city: 'Hong Kong', wgs84: [114.1796, 22.305], image: '/images/map/hong-kong.jpg',
+      institution: { name: 'PolyU', description: 'Kowloon university' }, description: 'Hong Kong' }
+  ];
+  const assignments = [
+    { paper_id: 'hku-paper', place_id: 'hku', location_type: 'school', location_label: 'HKU' },
+    { paper_id: 'polyu-paper', place_id: 'polyu', location_type: 'school', location_label: 'PolyU' }
+  ];
+
+  const payload = buildMapPayload(posts, places, 0.6, assignments);
+
+  assert.equal(payload.places.length, 1);
+  assert.equal(payload.papers.length, 2);
+  assert.equal(new Set(payload.papers.map(item => item.city_id)).size, 1);
+  assert.equal(payload.places[0].papers.length, 2);
+  assert.equal(payload.places[0].institutions.length, 2);
+  assert.deepEqual(payload.places[0].city_images, ['/images/map/hong-kong.jpg', '/images/map/hong-kong-2.jpg']);
+  assert.equal(payload.places[0].hover_text, '香港：繁华与竞争之地');
+});
+
+test('map UI defines distinct visual markers for five location meanings', () => {
+  const script = fs.readFileSync(path.resolve(__dirname, '../source/js/paper-map.js'), 'utf8');
+  const css = fs.readFileSync(path.resolve(__dirname, '../source/css/paper-map.css'), 'utf8');
+  ['school', 'company', 'publisher', 'virtual', 'venue'].forEach(type => {
+    assert.match(script, new RegExp(type));
+    assert.match(css, new RegExp('paper-map-marker--' + type));
+  });
+});
+
+test('map UI uses one hover card, managed carousel lifecycle, and optional clustering', () => {
+  const root = path.resolve(__dirname, '..');
+  const page = fs.readFileSync(path.join(root, 'source/map/index.md'), 'utf8');
+  const script = fs.readFileSync(path.join(root, 'source/js/paper-map.js'), 'utf8');
+  const css = fs.readFileSync(path.join(root, 'source/css/paper-map.css'), 'utf8');
+
+  assert.match(page, /id="map-hover-card"/);
+  assert.match(page, /leaflet\.markercluster/);
+  assert.match(script, /carouselTimer/);
+  assert.match(script, /clearInterval\(carouselTimer\)/);
+  assert.match(script, /new Image\(\)/);
+  assert.match(script, /mouseover/);
+  assert.match(script, /markerClusterGroup/);
+  assert.match(script, /setInterval\([\s\S]*?,\s*1000\)/);
+  assert.match(script, /scheduleHideHover/);
+  assert.match(script, /hoverCard\.addEventListener\('mouseenter'/);
+  assert.match(script, /hoverCard\.addEventListener\('click'/);
+  assert.match(css, /\.map-hover-card\.is-visible[^}]*pointer-events:\s*auto/s);
+  assert.doesNotMatch(css, /\.leaflet-tile-pane\s*\{[^}]*filter:/s);
+});
+
+test('unlocated papers stay in the audit list and are never mislabeled as virtual meetings', () => {
+  const posts = [
+    { slug: 'located', title: 'Located', path: 'article/located/', date: date('2026-01-01'), venue_type: '会议' },
+    { slug: 'unknown', title: 'Unknown', path: 'article/unknown/', date: date('2026-01-02'), venue_type: 'arXiv预印本' }
+  ];
+  const places = [
+    { id: 'beijing', name: 'Beijing', city: 'Beijing', wgs84: [116.4, 39.9], image: '/images/map/beijing.jpg' },
+    { id: 'virtual', name: '线上空间', city: 'Virtual', wgs84: [0, 20], image: '/images/map/virtual.svg' }
+  ];
+  const assignments = [{ paper_id: 'located', place_id: 'beijing', location_type: 'school', location_label: 'THU' }];
+
+  const payload = buildMapPayload(posts, places, 0.6, assignments);
+
+  assert.equal(payload.papers.length, 1);
+  assert.equal(payload.meta.mapped_papers, 1);
+  assert.equal(payload.meta.physical_located_papers, 1);
+  assert.equal(payload.meta.virtual_unlocated_papers, 0);
+  assert.equal(payload.meta.unlocated_papers, 1);
+  assert.equal(payload.unlocated[0].title, 'Unknown');
+  assert.equal(payload.places.some(place => place.location_type === 'virtual'), false);
+});
+
+test('canonical arxiv identity prevents the same online paper appearing twice', () => {
+  const posts = [
+    { slug: 'paper-a', title: 'One', path: 'article/paper-a/', arxiv_id: '2403.06447', date: date('2026-01-01') },
+    { slug: 'paper-b', title: 'One copy', path: 'article/paper-b/', paper_url: 'https://arxiv.org/abs/2403.06447v2', date: date('2026-01-02') }
+  ];
+  const places = [{ id: 'ucsd', name: 'La Jolla', city: 'La Jolla', wgs84: [-117, 32], image: '/images/map/la-jolla.jpg' }];
+  const assignments = [
+    { paper_id: 'paper-a', place_id: 'ucsd', location_type: 'school', location_label: 'UC San Diego' },
+    { paper_id: 'paper-b', place_id: 'ucsd', location_type: 'school', location_label: 'UC San Diego' }
+  ];
+
+  const payload = buildMapPayload(posts, places, 0.6, assignments);
+
+  assert.equal(payload.papers.length, 1);
+  assert.equal(payload.meta.duplicate_papers, 1);
+});
+
+test('map legend links to five location catalog pages and navigation is static', () => {
+  const root = path.resolve(__dirname, '..');
+  const page = fs.readFileSync(path.join(root, 'source/map/index.md'), 'utf8');
+  const config = fs.readFileSync(path.join(root, '_config.butterfly.yml'), 'utf8');
+
+  ['school', 'company', 'publisher', 'virtual', 'venue'].forEach(type => {
+    assert.match(page, new RegExp('href="/map/' + type + '/"'));
+    assert.equal(fs.existsSync(path.join(root, 'source/map', type, 'index.md')), true);
+  });
+  assert.match(config, /论文足迹:\s*\/map\//);
+  assert.doesNotMatch(config, /map-nav-gate\.js/);
+});
+
+test('map catalog follows institution-group then paper-card hierarchy', () => {
+  const root = path.resolve(__dirname, '..');
+  const script = fs.readFileSync(path.join(root, 'source/js/map-catalog.js'), 'utf8');
+  const css = fs.readFileSync(path.join(root, 'source/css/map-catalog.css'), 'utf8');
+
+  assert.match(script, /map_data\.json/);
+  assert.match(script, /location_label/);
+  assert.match(script, /map-catalog__institution/);
+  assert.match(script, /map-catalog__paper-card/);
+  assert.match(script, /place\.city_images/);
+  assert.match(script, /paper\.description/);
+  assert.match(script, /chooseUniqueImage/);
+  assert.match(script, /cache:\s*['"]no-store['"]/);
+  assert.match(script, /sessionStorage/);
+  assert.match(css, /\.map-catalog__institution/);
+  assert.match(css, /\.map-catalog__paper-card/);
+  assert.match(css, /grid-template-columns:\s*1fr/);
+});
+
+test('map terminology is precise and the navigation stays above the map canvas', () => {
+  const root = path.resolve(__dirname, '..');
+  const page = fs.readFileSync(path.join(root, 'source/map/index.md'), 'utf8');
+  const script = fs.readFileSync(path.join(root, 'source/js/paper-map.js'), 'utf8');
+  const mapCss = fs.readFileSync(path.join(root, 'source/css/paper-map.css'), 'utf8');
+  const navCss = fs.readFileSync(path.join(root, 'source/css/left-nav.css'), 'utf8');
+
+  for (const label of ['高校与科研院所', '企业研究机构', '出版与学术组织', '线上会议', '会议举办地']) {
+    assert.match(page + script, new RegExp(label));
+  }
+  assert.match(mapCss, /\.paper-map-shell\s*\{[^}]*z-index:\s*0/s);
+  assert.match(navCss, /#sidebar\s*\{[^}]*z-index:\s*(?:1[0-9]{3}|[2-9][0-9]{3,})/s);
+});
+
+test('category and tag list icons use portable glyphs instead of mismatched Font Awesome codepoints', () => {
+  const css = fs.readFileSync(path.resolve(__dirname, '../source/css/pages.css'), 'utf8');
+
+  assert.match(css, /content:\s*"📁"/);
+  assert.match(css, /content:\s*"📄"/);
+  assert.match(css, /content:\s*"🏷"/);
+  assert.doesNotMatch(css, /Font Awesome 6 Free/);
+});

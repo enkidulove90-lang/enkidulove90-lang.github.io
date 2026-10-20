@@ -46,6 +46,34 @@ def plain(rich):
     return "".join(seg.get("plain_text", "") for seg in rich)
 
 
+def notion_text_property(props, name):
+    """Read a city-like Notion property whether it is Text or Select."""
+    prop = props.get(name) or {}
+    selected = prop.get("select") or {}
+    return (selected.get("name") or plain(prop.get("rich_text", []))).strip()
+
+
+def notion_city_list(props, name):
+    """Read cities from Multi-select, Select, or comma-separated Text."""
+    prop = props.get(name) or {}
+    selected = [item.get("name", "").strip() for item in prop.get("multi_select", [])]
+    if not selected:
+        scalar = notion_text_property(props, name)
+        selected = [item.strip() for item in re.split(r"[,，、;；]", scalar) if item.strip()]
+    return list(dict.fromkeys(item for item in selected if item))
+
+
+def notion_location_fields(props):
+    """Normalize the five Notion geography properties used by the map pipeline."""
+    return {
+        "location_type": notion_text_property(props, "location_type"),
+        "venue_city": notion_text_property(props, "venue_city"),
+        "affil_city": notion_city_list(props, "affil_city"),
+        "corresponding_city": notion_text_property(props, "corresponding_city"),
+        "affiliation_name": notion_text_property(props, "affiliation_name"),
+    }
+
+
 def slugify(title, page_id):
     s = re.sub(r"[\\/:*?\"<>|\s]+", "-", title.strip()).strip("-")
     s = urllib.parse.quote(s)[:60] if not re.fullmatch(r"[A-Za-z0-9._-]+", s) else s[:60]
@@ -174,6 +202,7 @@ def page_to_md(page):
     venue_type = ((props.get("venue_type") or {}).get("select") or {}).get("name") or "arXiv预印本"
     venue_name = plain((props.get("venue_name") or {}).get("rich_text", []))
     arxiv_id = plain((props.get("arxiv_id") or {}).get("rich_text", []))
+    location = notion_location_fields(props)
 
     # 三维分类落地：Notion 的 category 写「领域大类 / 二级分类」（斜杠或逗号分隔），
     # tags 放「任务场景 + 技术方法」；Hexo 侧 categories 支持两级、tags 为标签云
@@ -190,6 +219,10 @@ def page_to_md(page):
         md.append(f"description: {summary}")
     if arxiv_id:
         md.append("arxiv_id: " + json.dumps(arxiv_id, ensure_ascii=False))
+    for field in ("location_type", "venue_city", "affil_city", "corresponding_city", "affiliation_name"):
+        value = location[field]
+        if value:
+            md.append(field + ": " + json.dumps(value, ensure_ascii=False))
     # 封面不写死：交给主题的 cover.default_cover 池在每次构建时随机分配
     # （池内是固定 seed 图，有 30 天 immutable 缓存，不影响加载速度）
     md.append("---", )

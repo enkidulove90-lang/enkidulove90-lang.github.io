@@ -4,6 +4,9 @@ date: 2026-04-13
 year: 2026
 venue_type: 会议
 venue_name: WWW 2026
+location_type: Affiliation
+affil_city: [London]
+affiliation_name: "Imperial College London"
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐, 序列推荐]
 slug: prism-information-synergy-module
