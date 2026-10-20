@@ -1,5 +1,5 @@
 ---
-title: "高德生成式下一兴趣点推荐"
+title: "Gwhere：用对比式语义ID与EAKTO把生成式下一POI推荐搬上高德首页"
 date: 2026-07-01
 year: 2026
 venue_type: "arXiv预印本"
@@ -8,57 +8,124 @@ categories: [推荐系统, 论文速递]
 tags: [论文速递]
 slug: paper-2607.26073
 arxiv_id: "2607.26073"
-description: "论文提出Gwhere，一个端到端的生成式下一兴趣点（POI）推荐框架，旨在解决生成式检索在工业场景中面临的令牌分配冗余/冲突及异构信号融合不足的问题。"
+description: "Gwhere 以对比残差量化学习多模态 POI 语义 ID，再经持续预训练、SFT 与曝光感知 KTO 对齐 LLM，在 AMAP 上 Acc@1 相对级联排序提升 14.8%，线上 P-CTR +5.83%、U-CTR +6.20%。"
 ---
 
 > 论文：[arXiv 2607.26073](https://arxiv.org/abs/2607.26073) · 代码：[GitHub](https://github.com/alibaba/SimCIT) · PDF：[本地阅读](/papers/2607.26073.pdf)
 
-论文提出Gwhere，一个端到端的生成式下一兴趣点（POI）推荐框架，旨在解决生成式检索在工业场景中面临的令牌分配冗余/冲突及异构信号融合不足的问题。Gwhere首先通过对比残差量化分词器学习具有判别性的多模态语义ID（SID），融合文本、视觉、空间和协同信号；然后基于SID，通过持续预训练、监督微调（SFT）和曝光感知Kahneman-Tversky优化（EAKTO）将LLM适配到移动领域。在公开数据集和高德大规模工业数据集上的实验表明，Gwhere显著优于基线，并已部署于高德首页服务，长期A/B测试中P-CTR提升5.83%，U-CTR提升6.20%。
+下一兴趣点（POI）推荐是位置服务的基础任务：给定用户的历史签到、当前位置与天气、时间等情境，预测他接下来会去哪里。传统工业系统走的是“多路召回—粗排—精排—认知重排”的级联路线，每一级只做局部优化，异构信号在层层漏斗中被反复压缩。生成式检索提供了另一条路径：把物品映射为紧凑的语义标识符（SID），让模型直接自回归“写出”下一个物品，从而把召回与排序统一到一个生成过程里。
 
-## 研究问题
+Gwhere 是这条路径上少见的、真正跑进高德首页的端到端系统。它的定位不是提出一个只在公开数据集上刷点的模型，而是同时回答两个工业问题：SID 怎么学才能既融合文本、图像、空间与协同信号，又保持足够的判别性；LLM 怎么适配移动领域，才能既预测得准，又不违背用户的空间认知与偏好。论文给出的答案是“对比式分词器 + 三阶段 LLM 后训练”，并在高德“猜你去哪”卡片上完成了长期 A/B 测试。
 
-论文提出Gwhere，一个端到端的生成式下一兴趣点（POI）推荐框架，旨在解决生成式检索在工业场景中面临的令牌分配冗余/冲突及异构信号融合不足的问题。Gwhere首先通过对比残差量化分词器学习具有判别性的多模态语义ID（SID），融合文本、视觉、空间和协同信号；然后基于SID，通过持续预训练、监督微调（SFT）和曝光感知Kahneman-Tversky优化（EAKTO）将LLM适配到移动领域。在公开数据集和高德大规模工业数据集上的实验表明，Gwhere显著优于基线，并已部署于高德首页服务，长期A/B测试中P-CTR提升5.83%，U-CTR提升6.20%。
+论文指出的核心矛盾有两层。第一层在分词：主流 RQ-VAE 类方法用重构损失优化，而重构目标并不直接约束物品之间的可分性，语义相近与长尾 POI 容易出现令牌分配冗余或碰撞，表示坍塌随之而来；同时多模态信号多以输入层拼接等浅层方式融合，难以刻画层次化的语义依赖。第二层在偏好对齐：SFT 只利用显式交互标签，无法建模 POI 之间的相对偏好；DPO、GRPO 需要成对比较数据，而大规模推荐系统的曝光日志天然只有“点击/未点击”这样的二元信号，且未点击往往源于注意力分散或延迟，而非真实厌恶。
 
-## 方法：核心思路与整体框架
+前置条件与部署约束同样明确。Gwhere 的生成模块以 Qwen2.5 系列（0.5B、1.5B、3B、7B）为基座，训练使用 200 块 NVIDIA H20 GPU、每卡批大小 16、梯度累积 8、序列长度 4096，输入最近 50 条签到记录；线上则只部署 0.5B 版本，在 50 QPS、2 块 H20 的条件下把 p99 延迟控制在约 30ms。这意味着论文的“效果”与“效率”是两条并行证据链，而不是单一指标的胜利。
 
-Gwhere将下一POI预测转化为自回归生成SID序列的问题。首先，通过对比残差量化分词器将多模态POI特征（文本、图像、空间、协同）融合并量化为紧凑的SID元组；然后，基于SID序列，使用Qwen2.5作为基础LLM，通过持续预训练（掩码SID预测和SID-属性对齐）注入时空知识，再通过SFT学习推荐逻辑，最后通过EAKTO进行偏好对齐。推理时，模型生成目标SID并通过查找表映射回POI。
+## 一、方法：从对比式 SID 到曝光感知偏好对齐
 
-![图 1：Figure 1: Ofline Training and Online Serving Procedure of proposed framework Gwhere. Ofline Training:(1) POIs are tokenized as Semantic IDs (SIDs); (2) a base LLM is continually pretrained on the collected corpus. (3) The LLM is further fine-tuned and aligned the with inference prompt to finish this procedure. Online Serving: Gwhere is stored in a model engine and invoked through a data-service engine that converts real-time context—user profile, recent check-ins, current time, location and weather—into an instruction prompt. The model predicts the next POI in SID form, which is mapped back to a readable location and returned to the mobile client.](/images/papers/2607.26073/9763bee4fc97cac195f66407d8b739af7a16c4d51cfa29828a61c11f9d9f64d4.jpg)
+Gwhere 把下一 POI 预测改写为自回归生成 SID 元组的问题。每个 POI 先被映射为长度为 L 的码字序列，用户历史签到序列随之变成 SID 序列；模型在给定历史、当前位置与情境的条件下逐位生成目标 SID，再通过预建的 SID-to-POI 查找表还原为可读地点。整条数据流分为离线训练与在线服务两段，下图给出了完整链路。
 
-*图 1 · 原图说明：Figure 1: Ofline Training and Online Serving Procedure of proposed framework Gwhere. Ofline Training:(1) POIs are tokenized as Semantic IDs (SIDs); (2) a base LLM is continually pretrained on the collected corpus. (3) The LLM is further fine-tuned and aligned the with inference prompt to finish this procedure. Online Serving: Gwhere is stored in a model engine and invoked through a data-service engine that converts real-time context—user profile, recent check-ins, current time, location and weather—into an instruction prompt. The model predicts the next POI in SID form, which is mapped back to a readable location and returned to the mobile client.*
+![Gwhere 的离线训练与在线服务流程](/images/papers/2607.26073/9763bee4fc97cac195f66407d8b739af7a16c4d51cfa29828a61c11f9d9f64d4.jpg)
 
-**图示解释：** Gwhere将下一POI预测转化为自回归生成SID序列的问题。
+阅读这张图可以按上下两段走。上半段是离线训练的三步：POI 先被分词为 SID；基座 LLM 在收集到的语料上做持续预训练；随后再经微调与偏好对齐，使训练目标与推理提示的格式一致。下半段是在线服务：模型存放在模型引擎中，由数据服务引擎把实时情境——用户画像、最近签到、当前时间、位置与天气——拼成指令提示，模型以 SID 形式输出下一个 POI，再映射回可读地点返回移动端。这张图支撑的核心主张是：SID 是训练与服务共享的中间语言，离线阶段学到的分词空间直接决定了在线阶段生成与还原的可行性。
 
-## 创新点
+分词器是整条链路的第一块基石。Gwhere 为每个 POI 抽取四类模态特征：文本用预训练语言模型编码，图像用预训练 ViT，空间用基于 Haversine 距离建图的 GraphSAGE 编码器，协作用用户—POI 交互矩阵上的 ALS 分解。四路特征先投影到共享维度，再用可学习注意力向量自适应加权融合，而不是简单拼接。
 
-1. 提出完全对比式的语义分词框架，结合可学习残差量化与层次化标识符学习，融合文本、视觉、空间和协同等多模态POI信号，通过对比损失（NT-Xent）替代重构损失，增强令牌判别性并缓解长尾POI的表示坍塌问题。
-2. 设计端到端LLM生成式下一POI预测框架Gwhere，通过持续预训练（掩码SID预测和SID-属性对齐）、监督微调（SFT）和曝光感知Kahneman-Tversky优化（EAKTO）三阶段训练，使LLM适配移动领域并实现认知对齐的推荐。
-3. 提出EAKTO强化学习目标，利用曝光但未点击的POI作为E-Neg信号，在标签不平衡下有效利用曝光数据，平衡用户参与度与负面反馈抑制，实验证明其优于DPO和GRPO。
-4. 在工业级部署中采用预填充-解码解耦和多令牌预测等工程优化，满足高并发低延迟要求，并通过大规模在线A/B测试验证了长期效果。
+融合后的向量进入残差量化器。与 RQ-VAE 不同，Gwhere 用 Gumbel-softmax 做可微的软分配，逐层减去已选码字的贡献得到残差，并把量化表示与各模态表示一起送入 NT-Xent 对比损失：正样本是该 POI 自身的各模态投影，负样本来自批内其他样本。这一替换是方法的关键——优化目标从“能否重构自己”变成“能否与别人区分开”，直接针对长尾 POI 的表示坍塌与码字碰撞。
 
-## 实验：数据、基线与结果
+第二块基石是把 LLM 适配到移动领域，分三阶段推进。持续预训练使用两类语料：SID-位置-描述语料以（SID, Geohash, 文本描述）三元组建立 SID 与真实世界属性的双向对齐，解决 SID 与 Geohash 对预训练词表而言是 OOV 的问题；时空行为序列语料把用户签到改写成带时间戳、动作类型、情境标注与画像提示的自然语言叙事，并通过掩码 SID 预测学习序列依赖与空间关联。两个目标——掩码 SID 预测与 SID-属性对齐——分别负责行为建模与语义对齐。
 
-### 数据集与设置
+SFT 阶段用高质量交互数据与多级用户画像（静态画像、长期偏好、周期性需求）构造提示—回复对，以交叉熵训练模型生成符合历史偏好与情境约束的 SID。此后的 EAKTO 才处理偏好排序：它保留 KTO 只需二元信号的优势，并针对推荐场景打两个补丁。其一是正样本奖励锚定，强制可欲样本的奖励为正，防止长时间训练后点击与未点击样本的奖励同时转负所造成的奖励漂移；其二是条件负样本更新，仅当模型对未点击样本错误地给出正奖励时才计算负样本损失，以抑制“未点击即厌恶”的噪声。损失中还加入一项针对可欲样本的噪声点击正则，超参数取 λ_D=1.0、λ_U=1.0、β=0.1、α=0.3。
 
-任务为下一POI预测。数据集包括三个公开数据集（Foursquare-NYC、Foursquare-TKY、Gowalla-CA）和一个高德工业数据集（AMAP）。预处理：移除交互少于10次的POI和签到少于10次的用户，按时间排序，按80%/10%/10%划分训练/验证/测试集。测试集中移除训练集中未出现的用户和POI。每个用户最后一次访问作为真值，之前访问作为输入序列。AMAP数据集包含1000万用户、8310万POI、3.8亿交互，平均序列长度38。
+## 二、实验：公开集、工业集与线上 A/B
 
-### Benchmark 与结果
+实验覆盖三个公开数据集与一个高德工业数据集，任务统一为下一 POI 预测，指标以 Acc@1 为主。下表汇总数据规模、划分与实现条件。
 
-离线实验中，Gwhere在所有数据集上显著优于基线。在NYC、TKY、CA数据集上，Gwhere-7B相比SOTA GNPR-SID分别提升11.3%、8.1%、13.2%（Acc@1）。在AMAP数据集上，Gwhere-7B相比级联排序基线Acc@1相对提升14.8%。消融实验显示，移除SID、RL、CPT分别导致Acc@1下降16.01%、11.73%、9.96%。偏好对齐中，EAKTO（0.2820）优于GRPO（0.2759）和DPO（0.2634）。在线A/B测试中，Gwhere相比生产基线P-CTR提升5.83%，U-CTR提升6.20%，AC-Rate提升9.67%，NF-Rate降低11.11%。
+| 项目 | 设置 |
+| --- | --- |
+| 数据集 | Foursquare-NYC、Foursquare-TKY、Gowalla-CA、AMAP |
+| 预处理 | 移除交互少于 10 次的 POI 与签到少于 10 次的用户；按时间排序；80%/10%/10% 划分；测试集移除训练集未出现的用户与 POI |
+| 样本构造 | 每个用户最后一次访问为真值，之前访问为输入序列 |
+| AMAP 规模 | 1000 万用户、8310 万 POI、3.8 亿交互，平均序列长度 38 |
+| 分词器 | 文本 BERT 类编码器、图像 ViT、空间 GraphSAGE、协同 ALS；96 维隐向量、3 层码本、每层数十码字（公开集 48，AMAP 更大） |
+| 生成模块 | Qwen2.5 0.5B/1.5B/3B/7B；学习率 1e-5；20 步预热；200 块 H20；每卡批大小 16；梯度累积 8；序列长度 4096；输入最近 50 条签到 |
+| 基线 | 传统 PRME、PLSPL；Transformer STAN、GETNext；GCN STHGCN；时间感知 TPG、ROTAN；LLM4POI、GNPR-SID；AMAP 上为生产级联排序系统 |
+| 指标 | 离线 Acc@1；线上 P-CTR、U-CTR、SC-Rate、RE-Rate、AC-Rate、NF-Rate（相对生产基线的百分比） |
 
+公开集主结果如下。Gwhere 各规模版本全面超过所有基线，最强相关基线是同样使用 SID 与时间戳的 GNPR-SID（基座为 LLaMA-7B）。
 
+| 模型 | POI 表示 | 用户表示 | 时间 | NYC | TKY | CA |
+| --- | --- | --- | --- | --- | --- | --- |
+| PRME | RID | UID | × | 0.1159 | 0.1052 | 0.0521 |
+| PLSPL | RID | UID | × | 0.1917 | 0.1889 | 0.1072 |
+| STAN | RID | UID | × | 0.2231 | 0.1963 | 0.1104 |
+| GETNext | RID | UID | × | 0.2435 | 0.1829 | 0.1357 |
+| STHGCN | RID | UID | × | 0.2734 | 0.2950 | 0.1730 |
+| TPG | RID | UID | √ | 0.2555 | 0.1420 | 0.1749 |
+| ROTAN | RID | UID | √ | 0.3106 | 0.2458 | 0.2199 |
+| LLM4POI | RID | UID | √ | 0.3372 | 0.3035 | 0.2065 |
+| GNPR-SID | SID | UID | √ | 0.3618 | 0.3062 | 0.2403 |
+| Gwhere-0.5B | SID | UP | √ | 0.3705 | 0.3125 | 0.2555 |
+| Gwhere-1.5B | SID | UP | √ | 0.3727 | 0.3170 | 0.2585 |
+| Gwhere-3B | SID | UP | √ | 0.3872 | 0.3202 | 0.2611 |
+| Gwhere-7B | SID | UP | √ | 0.4027 | 0.3310 | 0.2721 |
 
-### 消融实验
+三点值得注意。其一，最小的 Gwhere-0.5B 已在三个数据集上全部超过 GNPR-SID，说明收益并非只来自模型规模，SID 分词与用户画像输入（UP 替代 UID）本身就有贡献。其二，从 0.5B 到 7B 呈单调上升，7B 相对 GNPR-SID 分别提升 11.3%、8.1%、13.2%，规模与生成式范式是互补而非替代关系。其三，CA 数据集上所有方法绝对值都偏低，Gwhere-7B 的 0.2721 仍明显高于 GNPR-SID 的 0.2403，但该数据集稀疏度极高，结论应限定在相对排序而非绝对可用性上。
 
-对比方法包括：传统方法PRME、PLSPL；Transformer方法STAN、GETNext；GCN方法STHGCN；时间感知方法TPG、ROTAN；LLM方法LLM4POI、GNPR-SID。消融实验包括：w/o SID（随机ID）、w/o ST（无时空描述）、w/o SLD（无SID-位置-描述语料）、w/o CPT（无持续预训练）、w/o SFT、w/o RL。偏好对齐对比：SFT-only、SFT+DPO、SFT+GRPO、SFT+EAKTO。
+AMAP 工业集上，Gwhere 各版本对生产级联排序基线的 Acc@1 如下，7B 相对提升 14.8%。
 
-## 总结
+| 模型 | Baseline | Gwhere-0.5B | Gwhere-1.5B | Gwhere-3B | Gwhere-7B |
+| --- | --- | --- | --- | --- | --- |
+| Acc@1 | 0.2675 | 0.2820 | 0.2862 | 0.2923 | 0.3071 |
 
-论文提出Gwhere，一个端到端的生成式下一兴趣点（POI）推荐框架，旨在解决生成式检索在工业场景中面临的令牌分配冗余/冲突及异构信号融合不足的问题。
+消融实验以 Gwhere-3B 在 AMAP 上进行，逐项移除模块后的 Acc@1 变化如下。
+
+| 消融设置 | Acc@1 |
+| --- | --- |
+| w/o SID（随机 ID） | 0.2455（↓16.01%） |
+| w/o ST（无时空描述） | 0.2785（↓4.72%） |
+| w/o SLD（无 SID-位置-描述语料） | 0.2822（↓3.46%） |
+| w/o CPT（无持续预训练） | 0.2632（↓9.96%） |
+| w/o SFT | 0.2725（↓6.77%） |
+| w/o RL | 0.2580（↓11.73%） |
+| Gwhere | 0.2923 |
+
+移除 SID 的跌幅最大（16.01%），移除 RL 次之（11.73%），持续预训练排第三（9.96%）。这说明分词空间与偏好对齐是两根最吃重的支柱，而 SID-位置-描述语料单独移除只带来 3.46% 的下降，语义对齐语料的作用更像是为后续阶段铺路，而非独立贡献。
+
+偏好对齐的对照实验固定分词器与模型结构，只替换对齐目标。
+
+| 变体 | Acc@1 |
+| --- | --- |
+| SFT-only | 0.2492 |
+| SFT + DPO | 0.2634 |
+| SFT + GRPO | 0.2759 |
+| SFT + EAKTO | 0.2820 |
+
+EAKTO 高于 GRPO 与 DPO，且相对 SFT-only 的提升幅度最大，验证了在标签不平衡下利用曝光未点击数据作为 E-Neg 信号的有效性。需要指出的是，这一比较只在 AMAP 单一数据集上报告，跨数据集的稳健性未在证据中给出。
+
+多模态协同方面，论文在 AMAP 上系统比较了文本（TX）、图像（IM）、空间（SP）、协同（CF）四类模态单独与组合使用的效果，结论是渐进式融合带来单调提升，其中空间特征单独贡献最大，四模态全开达到最优。训练语料方面，输入序列长度在约 2048 token（约 30 条历史签到）之前收益明显，超过 4096 token（约 50 条签到）后基本饱和；持续预训练的 token 量则呈近似线性增长，最终模型在 10B token 上训练至收敛，且尚未饱和，说明性能仍受数据量约束。
+
+线上部分是高德首页“猜你去哪”卡片，对照对象是同一入口的生产级联排序系统，两者共享流量分配、页面位置、请求上下文与指标定义。部署前在 50 QPS、2 块 H20 上做压测：级联排序的 p99 延迟稳定在约 20ms，Gwhere-7B 虽离线最优但成本过高，最终选择 Gwhere-0.5B，p99 约 30ms。一个月长期 A/B 结果如下，均为相对生产基线的百分比。
+
+| 变体 | P-CTR | U-CTR | SC-Rate | RE-Rate | AC-Rate | NF-Rate |
+| --- | --- | --- | --- | --- | --- | --- |
+| w/o EAKTO | +4.23% | +4.59% | +1.01% | +1.65% | +5.99% | -5.85% |
+| Gwhere | +5.83% | +6.20% | +2.18% | +2.60% | +9.67% | -11.11% |
+
+最直接的读法是：去掉 EAKTO 后，P-CTR 从 +5.83% 回落到 +4.23%，NF-Rate 的抑制从 -11.11% 收窄到 -5.85%，说明偏好对齐模块主要贡献在“少推错”而非“多推对”。同时也要看到代价与边界：线上部署的是 0.5B 小模型，离线最强的 7B 并未上线；p99 延迟约 30ms 仍高于级联排序的约 20ms；SC-Rate 与 RE-Rate 的增益只有个位数百分比，论文自己也指出这类参与度指标的改善往往需要更长周期才显现。
+
+## 三、总结
+
+Gwhere 的机制可以概括为一条共享中间语言的流水线：对比残差量化把多模态 POI 信号压成判别性 SID，持续预训练让 LLM 认识 SID 与地理属性、行为节律的对应关系，SFT 教会它推荐逻辑，EAKTO 再用曝光日志中的点击与未点击把输出拉向真实偏好。实验证据在两个层面成立：离线侧，Gwhere-7B 在 NYC、TKY、CA 上相对 GNPR-SID 提升 11.3%、8.1%、13.2%，在 AMAP 上相对级联排序提升 14.8%；线上侧，0.5B 版本一个月 A/B 取得 P-CTR +5.83%、U-CTR +6.20%、NF-Rate -11.11%。
+
+边界同样清楚。线上只验证了 0.5B 规模，7B 的离线优势能否在延迟约束下兑现尚未回答；偏好对齐的对照只在 AMAP 上报告；分词器依赖图像、空间图与协同矩阵等多源特征，冷启动 POI 与新区用户的可迁移性被论文列为未来工作。此外，30ms 对 20ms 的延迟差在超高并发下仍是实打实的成本。
+
+可迁移的设计启示有两条。第一，当生成式检索的瓶颈在“物品表示是否可分”时，把重构损失换成对比损失、把浅层拼接换成注意力融合，往往比换更大的基座模型更划算。第二，工业推荐系统的曝光日志本身就是天然的二元偏好信号，与其费力构造成对比较数据，不如像 EAKTO 那样给负样本加条件、给正样本加锚定，让噪声数据在可控范围内发挥作用。
 
 ## References
 
-- Guess Where You Go: Generative Next Point-of-Interest Recommendation in Amap：[arXiv 2607.26073](https://arxiv.org/abs/2607.26073)
-
-- [代码：GitHub](https://github.com/alibaba/SimCIT)
-- [PDF源文件](/papers/2607.26073.pdf)
+1. Penglong Zhai, Bowen Zheng, Jie Li, Yifang Yuan, Yue Liu, Sicong Wang, Mingyang Yin, Tingting Hu, Shuaijun Guo, Fanyi Di, Xin Li. Guess Where You Go: Generative Next Point-of-Interest Recommendation in Amap. RecSys '26. arXiv:2607.26073. https://arxiv.org/abs/2607.26073 · 代码：https://github.com/alibaba/SimCIT
+2. Yupeng Hou et al. GNPR-SID: 基于语义 ID 的生成式下一 POI 推荐（论文中的最强相关基线，结果引自原文）。
+3. Kawin Ethayarajh et al. Model Alignment as Prospect Theoretic Optimization (KTO). ICML 2024.
+4. Rafael Rafailov et al. Direct Preference Optimization. NeurIPS 2023.
+5. Qwen Team. Qwen2.5 Technical Report. arXiv:2412.15115.

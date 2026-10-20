@@ -1,64 +1,208 @@
 ---
-title: "FOCUS：基于耦合松弛与双粒度缩放的FP4优化"
+title: "量化尺度不必守硬件规矩：FOCUS 如何把 FP4 精度拉回 FP16"
 date: 2026-08-01
 year: 2026
 venue_type: "arXiv预印本"
 venue_name: "arXiv"
 categories: [推荐系统, 论文速递]
-tags: [论文速递]
+tags: [论文速读, FP4, 模型量化, PTQ]
 slug: paper-2608.01847
 arxiv_id: "2608.01847"
-description: "论文提出FOCUS，一种面向MXFP4和NVFP4格式的端到端训练后量化（PTQ）框架。"
+description: "FOCUS 抓住一个容易被忽略的事实：推理阶段只保存反量化尺度，离线使用的量化尺度没有必要服从硬件精度与块大小。论文用 CRS 和 DGS 释放这两个自由度，在不增加推理开销的前提下显著缩小 FP4 与 FP16 的差距。"
 ---
 
-> 论文：[arXiv 2608.01847](https://arxiv.org/abs/2608.01847) · 代码：[GitHub](https://github.com/tencent/AngelSlim) · PDF：[本地阅读](/papers/2608.01847.pdf)
+> 论文：[arXiv 2608.01847](https://arxiv.org/abs/2608.01847) · 代码：[GitHub / AngelSlim](https://github.com/tencent/AngelSlim) · PDF：[本地阅读](/papers/2608.01847.pdf)
 
-论文提出FOCUS，一种面向MXFP4和NVFP4格式的端到端训练后量化（PTQ）框架。核心洞察是量化尺度（quantization scale）在推理时不被存储，因此无需遵循硬件强制的低精度格式和块粒度约束。FOCUS沿精度和粒度两个维度释放量化尺度的优化空间：耦合松弛缩放（CRS）引入可学习的全精度系数，将量化尺度优化从离散低精度空间提升到连续空间；双粒度缩放（DGS）在子块级别分配量化尺度，捕捉块内局部权重变化。实验表明FOCUS在两种FP4格式下均达到SOTA精度，且无额外推理开销。
+大语言模型进入部署阶段后，显存占用、带宽和矩阵乘成本往往比模型本身是否“足够聪明”更先成为瓶颈。FP4 把权重和激活压到 4 bit，MXFP4、NVFP4 又得到新一代加速器的原生支持，因此 W4A4 已经不只是学术上的极低比特实验，而是一条很现实的部署路线。
 
-## 研究问题
+问题在于，FP4 能表示的数值十分有限。MXFP4 每 32 个元素共享一个 E8M0 尺度，NVFP4 每 16 个元素共享一个 E4M3 尺度；尺度本身也被压缩后，一个不合适的取值就可能让整块权重落入错误的舍入区间。已有工作会搜索尺度、调整舍入，或者用 Hadamard 旋转重塑分布，但前者通常依赖局部规则，后者又可能增加在线变换和框架适配成本。
 
-论文提出FOCUS，一种面向MXFP4和NVFP4格式的端到端训练后量化（PTQ）框架。核心洞察是量化尺度（quantization scale）在推理时不被存储，因此无需遵循硬件强制的低精度格式和块粒度约束。FOCUS沿精度和粒度两个维度释放量化尺度的优化空间：耦合松弛缩放（CRS）引入可学习的全精度系数，将量化尺度优化从离散低精度空间提升到连续空间；双粒度缩放（DGS）在子块级别分配量化尺度，捕捉块内局部权重变化。实验表明FOCUS在两种FP4格式下均达到SOTA精度，且无额外推理开销。
+FOCUS 来自上海交通大学与腾讯。截至本文整理时，它仍是一篇 arXiv 预印本，不能把它写成已经获得会议背书的定论；但它切中的问题很前沿：**在硬件原生 FP4 已经出现后，怎样让训练后量化真正利用这种格式，而不是再为推理引入一套额外变换。**代码放进了腾讯的 AngelSlim 工具库，也让这项工作不只停留在公式层面。
 
-## 方法：核心思路与整体框架
+论文研究的核心问题可以压缩成一句话：**量化时用来“除”的尺度，与推理时用来“乘回来”的尺度，真的必须是同一个数吗？**
 
-FOCUS冻结原始模型权重，仅优化权重量化尺度。基线方法将尺度维护为FP16副本，前向传播时通过STE量化为硬件格式，使用KL-Top蒸馏损失端到端优化。CRS在此基础上引入可学习全精度系数c_i，定义量化尺度S_i^q = S_i^dq · c_i，其中S_i^dq为硬件合规的反量化尺度，c_i初始化为1。DGS进一步将每个块划分为K个子块，每个子块有独立系数c_i^k，量化尺度为S_i^dq · c_i^k。训练后所有系数被丢弃，仅存储FP4权重和反量化尺度。
+FOCUS 的前置条件也很明确：它是一种训练后量化方法，原始模型权重保持冻结，只用少量校准数据学习尺度；激活仍然动态量化；最终部署物必须保持标准 MXFP4 或 NVFP4 格式。也就是说，它要优化精度，但不能把成本转嫁到在线推理阶段。
 
-![图 1：Figure 3: Overview of FOCUS. (a) End-to-end Scale Learning Baseline: learns FP8 scales via STE while weights are frozen during quantization and dequantization. (b) Coupled-Relaxation Scaling (CRS): introduces learnable relaxation coeficients for additional flexibility beyond FP8 precision. (c) Dual-Granularity Scaling (DGS): partitions each block into sub-blocks with independent coeficients for fine-grained scale adjustment. (d) Output Model: only FP4 weights and dequantization scales are stored, while quantization scales are discarded.](/images/papers/2608.01847/966cd100a2b1895042d0fed27684915935663075fb7de8a7e338c07b767500ac.jpg)
+---
 
-*图 1 · 原图说明：Figure 3: Overview of FOCUS. (a) End-to-end Scale Learning Baseline: learns FP8 scales via STE while weights are frozen during quantization and dequantization. (b) Coupled-Relaxation Scaling (CRS): introduces learnable relaxation coeficients for additional flexibility beyond FP8 precision. (c) Dual-Granularity Scaling (DGS): partitions each block into sub-blocks with independent coeficients for fine-grained scale adjustment. (d) Output Model: only FP4 weights and dequantization scales are stored, while quantization scales are discarded.*
+## 一、方法：把离线量化尺度从硬件约束里释放出来
 
-**图示解释：** FOCUS在几乎所有设置下取得最低困惑度和最高平均准确率。
+### 1. 先分清两个尺度的职责
 
-## 创新点
+标准 FP4 量化通常把一个尺度同时用于两步：
 
-1. 关键洞察：量化尺度在推理时不被存储，因此不受硬件精度格式和块粒度约束，而现有方法将量化尺度与反量化尺度紧耦合，浪费了这一优化自由度。
-2. 耦合松弛缩放（CRS）：引入可学习的全精度系数c_i，以乘法形式松弛量化尺度与反量化尺度的紧耦合，将优化从离散低精度空间提升到连续全精度空间，同时保持训练稳定性。
-3. 双粒度缩放（DGS）：将每个硬件块（MXFP4为32元素，NVFP4为16元素）划分为子块（大小为8），每个子块分配独立的可学习系数，使量化尺度以比反量化尺度更细的粒度适应块内权重变化。
-4. 无推理开销且框架兼容：FOCUS仅学习尺度参数，不修改权重，不依赖Hadamard变换等在线计算，部署模型保持标准MXFP4/NVFP4格式，与主流推理框架无缝兼容。
+```text
+FP16 权重 ÷ S_q  →  FP4 权重
+FP4 权重 × S_dq  →  反量化权重
+```
 
-## 实验：数据、基线与结果
+`S_q` 决定一个 FP16 数值会被分配到哪个 FP4 格点；`S_dq` 决定推理时怎样把这个格点还原到实际数值范围。传统做法令 `S_q = S_dq`，于是二者一起服从硬件规定的低精度格式和块大小。
 
-### 数据集与设置
+![标准 FP4 将两个尺度绑定，FOCUS 只保留反量化尺度的硬件约束](/images/papers/2608.01847/focus-scale-decoupling.png)
 
-在五个LLM上进行W4A4量化：LLaMA-3.1-8B-Instruct、LLaMA-3.2-1B-Instruct、LLaMA-3.2-3B-Instruct、Qwen3-4B、Qwen3-8B。校准集使用WikiText2训练集的1,248个样本，序列长度2,048。评估包括WikiText2和C4上的困惑度（序列长度2,048），五个零样本常识推理基准（ARC-C、ARC-E、HellaSwag、PIQA、Winogrande），以及GSM8K和MMLU上的CoT推理评估。
+这张图真正要看的不是英文流程，而是上下两行锁的变化。上半部分里，`S_q` 和 `S_dq` 被绑在一起：两边都只能使用 E8M0/E4M3 精度，也只能按 32/16 个元素共享尺度。下半部分里，FOCUS 仍让 `S_dq` 遵守硬件规则，却打开了 `S_q` 左侧的锁。
 
-### Benchmark 与结果
+原因很直接：模型部署时只需要保存 FP4 权重和 `S_dq`；`S_q` 只在离线生成 FP4 权重时出现，量化结束后就会被丢弃。既然它不会进入推理图，就没有必要提前替硬件背负限制。
 
-FOCUS在几乎所有设置下取得最低困惑度和最高平均准确率。Qwen3-8B上，MXFP4 WikiText2困惑度9.76（FP16为9.73），NVFP4为9.47；NVFP4零样本平均准确率71.37%，恢复FP16的99.8%，优于RaZeR的70.54%。Qwen3-4B上，NVFP4平均准确率67.05%，恢复FP16的98.2%；MXFP4为65.65%，恢复96.2%。MXFP4下FOCUS在Qwen模型上比MR-GPTQ困惑度降低1.5-2.5点。CoT推理方面，LLaMA-3.1-8B上GSM8K达73.31%、MMLU达65.53%，分别超MR-GPTQ 0.9和2.1点；LLaMA-3.2-3B上超MR-GPTQ约4点。消融显示CRS和DGS均带来持续提升。
+### 2. 端到端尺度学习基线
 
+FOCUS 先建立一个朴素但重要的基线：冻结全部模型权重，只维护一份 FP16 的可学习块尺度；前向计算时再把尺度临时量化成 E8M0 或 E4M3，并通过直通估计器（STE）传递梯度。优化目标采用 KL-Top 蒸馏损失，让量化模型的输出接近 FP16 教师模型。
 
+这一步已经比 absmax 或逐层 MSE 搜索更强，因为所有层的尺度由最终任务损失共同调整。不过，前向阶段的尺度仍要落到离散低精度格点，优化空间会出现明显台阶；量化和反量化仍共享同一粒度，也无法处理一个硬件块内部的分布差异。
 
-### 消融实验
+### 3. CRS：保留联系，但放松精度耦合
 
-MXFP4和NVFP4格式下均对比RTN、GPTQ、MR-GPTQ；NVFP4额外对比4over6和RaZeR（当前SOTA）。消融实验在Qwen3-4B上逐步添加CRS和DGS，与朴素尺度学习基线对比。
+完全让 `S_q` 和 `S_dq` 各学各的看似最自由，论文实验却发现两组梯度容易互相冲突，训练会振荡。Coupled-Relaxation Scaling（CRS）的处理更克制：给每个块增加一个初始化为 1 的全精度系数 `c_i`：
 
-## 总结
+```text
+S_q = S_dq × c_i
+```
 
-论文提出FOCUS，一种面向MXFP4和NVFP4格式的端到端训练后量化（PTQ）框架。
+`S_dq` 仍然是硬件可执行的 E8M0/E4M3 数值，`c_i` 则在连续空间里微调量化边界。这样既保留两种尺度之间的锚点，又避免 `S_q` 被困在离散硬件格式中。优化真正改变的是“每个权重最终选中哪个 FP4 格点”，而不是在部署模型里偷偷加入一个新算子。
+
+### 4. DGS：反量化按硬件块，量化按更小子块
+
+CRS 解决了精度约束，Dual-Granularity Scaling（DGS）继续解决粒度约束。一个 MXFP4 块有 32 个元素，FOCUS 把它划成 4 个 8 元素子块；一个 NVFP4 块有 16 个元素，则划成 2 个 8 元素子块。每个子块拥有自己的 `c_i^k`，但整个硬件块仍共享同一个 `S_dq`。
+
+![NVFP4 与 MXFP4 中的双粒度子块划分](/images/papers/2608.01847/focus-dual-granularity.png)
+
+这相当于让同一硬件块里的不同局部区域拥有不同的舍入边界：离群值集中的子块可以把边界拉宽，数值密集的子块可以保留更细的分辨率。最终真正写入模型的仍然只是标准 FP4 权重和块级反量化尺度，所有子块系数都会在校准结束后删除。
+
+### 5. 把完整流程连起来
+
+![FOCUS 的端到端尺度学习、CRS、DGS 与最终部署模型](/images/papers/2608.01847/focus-framework.png)
+
+整套方法可以按图中的四个区域理解：
+
+1. 用冻结的 FP16 模型监督 FP4 模型，只更新尺度和松弛系数；
+2. CRS 用连续系数放松量化尺度的精度限制；
+3. DGS 把量化尺度细化到子块，让同一硬件块内部可以采用不同舍入边界；
+4. 校准完成后删掉 FP16 权重、`S_q` 和所有系数，只留下 `W_fp4` 与硬件合规的 `S_dq`。
+
+因此，FOCUS 的创新不是设计一种新的 FP4 数据格式，而是利用“训练时参数可以比部署时参数更自由”这件事，为标准格式找到更好的权重编码。它的实际价值也正在这里：**训练阶段扩大搜索空间，推理阶段不增加任何算子、参数或延迟。**
+
+---
+
+## 二、实验：更好的 FP4 分配是否真的保住模型能力
+
+### 1. 数据集、模型和对照方法
+
+| 作用 | 数据或模型 | 评价方式 |
+|---|---|---|
+| 校准 | WikiText2 训练集 1,248 条，长度 2,048 | 只训练 1 个 epoch，不更新模型权重 |
+| 语言建模 | WikiText2、C4 | 困惑度 PPL，越低越好 |
+| 零样本常识推理 | ARC-Challenge、ARC-Easy、HellaSwag、PIQA、Winogrande | 准确率及五任务平均值，越高越好 |
+| 多步推理 | GSM8K、MMLU | Chain-of-Thought 准确率 |
+| 主干模型 | LLaMA-3.2-1B/3B-Instruct、LLaMA-3.1-8B-Instruct、Qwen3-4B/8B | 五种规模与家族组合 |
+
+所有线性层的权重和激活都量化为 FP4。实验在单张 NVIDIA H20 上完成，优化器为 AdamW，全局 batch size 为 32。MXFP4 与 NVFP4 都对比 RTN、GPTQ、MR-GPTQ；NVFP4 还加入 4over6 和 RaZeR。这一点很重要，因为 FOCUS 不是只与最弱的直接舍入比较，也面对了专门为 FP4 设计的强基线。
+
+### 2. 主结果：Qwen3 上同时改善困惑度与零样本准确率
+
+下表保留每种格式最有代表性的强基线。`Avg.` 是五个零样本任务的平均准确率。
+
+| 模型 | 格式 | 方法 | WikiText2 ↓ | C4 ↓ | Avg. ↑ |
+|---|---|---|---:|---:|---:|
+| Qwen3-4B | FP16 | FP16 | 13.66 | 16.63 | 68.25 |
+| Qwen3-4B | MXFP4 | MR-GPTQ | 15.48 | 18.38 | 64.79 |
+| Qwen3-4B | MXFP4 | **FOCUS** | **12.85** | **17.77** | **65.65** |
+| Qwen3-4B | NVFP4 | RaZeR | 14.11 | 17.26 | 65.71 |
+| Qwen3-4B | NVFP4 | **FOCUS** | **12.57** | **16.97** | **67.05** |
+| Qwen3-8B | FP16 | FP16 | 9.73 | 13.30 | 71.54 |
+| Qwen3-8B | MXFP4 | MR-GPTQ | 11.45 | 15.41 | 68.39 |
+| Qwen3-8B | MXFP4 | **FOCUS** | **9.76** | **14.28** | **69.39** |
+| Qwen3-8B | NVFP4 | RaZeR | 9.99 | 13.64 | 70.54 |
+| Qwen3-8B | NVFP4 | **FOCUS** | **9.47** | **13.62** | **71.37** |
+
+结果有三个值得注意的特点：
+
+- **越受限制的 MXFP4，收益越明显。**Qwen3-4B 的 WikiText2 困惑度从 MR-GPTQ 的 15.48 降到 12.85，Qwen3-8B 从 11.45 降到 9.76。E8M0 只能表达 2 的幂，正是 CRS 的连续松弛最能发挥作用的地方。
+- **NVFP4 也不是已经“足够细”就无需优化。**Qwen3-4B 的平均准确率由 RaZeR 的 65.71 提升到 67.05；Qwen3-8B 达到 71.37，接近 FP16 的 71.54。
+- **PPL 接近甚至低于 FP16，不等于量化模型全面超过 FP16。**例如 Qwen3-4B 的 WikiText2 数值很好，但五项零样本平均仍低于 FP16。论文的可靠结论应是 FOCUS 更好地保住了量化后的综合能力，而不是“4 bit 全面战胜 16 bit”。
+
+![Qwen3-4B 上不同方法恢复 FP16 零样本准确率的比例](/images/papers/2608.01847/focus-recovery.png)
+
+恢复率图把差距换成了更直观的比例：FOCUS 在 NVFP4 下恢复 98.2% 的 FP16 零样本准确率，在限制更严格的 MXFP4 下恢复 96.2%。图中其他方法在 MXFP4 上最高为 94.9%，说明“释放量化尺度”并不是只对某一种 FP4 格式有效。
+
+### 3. 多步推理：量化噪声更伤推理，FOCUS 仍保持领先
+
+| 模型（MXFP4） | 方法 | GSM8K-CoT ↑ | MMLU-CoT ↑ |
+|---|---|---:|---:|
+| LLaMA-3.2-3B | FP16 | 77.86 | 64.57 |
+| LLaMA-3.2-3B | RTN | 55.42 | 53.96 |
+| LLaMA-3.2-3B | GPTQ | 51.10 | 51.60 |
+| LLaMA-3.2-3B | MR-GPTQ | 60.20 | 55.16 |
+| LLaMA-3.2-3B | **FOCUS** | **64.14** | **59.09** |
+| LLaMA-3.1-8B | FP16 | 85.67 | 72.71 |
+| LLaMA-3.1-8B | RTN | 59.29 | 57.90 |
+| LLaMA-3.1-8B | GPTQ | 63.84 | 61.81 |
+| LLaMA-3.1-8B | MR-GPTQ | 72.40 | 63.39 |
+| LLaMA-3.1-8B | **FOCUS** | **73.31** | **65.53** |
+
+这组结果也暴露了 FP4 的真实边界：CoT 推理的下降远大于普通困惑度下降，说明多步推理会持续累积量化噪声。FOCUS 没有消除这个问题，但在 3B 模型上相对 MR-GPTQ 将 GSM8K 和 MMLU 分别提高 3.94 与 3.93 个百分点；8B 模型上分别提高 0.91 与 2.14 个百分点。尺度优化不仅改善 token 级重构，也确实保留了更多推理能力。
+
+### 4. 消融实验：基线、CRS 和 DGS 各自贡献什么
+
+| 格式 | 配置 | WikiText2 ↓ | C4 ↓ | Avg. ↑ |
+|---|---|---:|---:|---:|
+| NVFP4 | RTN | 13.88 | 17.29 | 65.58 |
+| NVFP4 | 端到端尺度学习 | 12.63 | 17.02 | 65.92 |
+| NVFP4 | + CRS | 12.61 | 16.98 | 66.91 |
+| NVFP4 | **+ CRS + DGS** | **12.57** | **16.97** | **67.05** |
+| MXFP4 | RTN | 18.60 | 20.62 | 62.35 |
+| MXFP4 | 端到端尺度学习 | 12.96 | 17.98 | 64.69 |
+| MXFP4 | + CRS | 12.99 | 17.95 | 64.81 |
+| MXFP4 | **+ CRS + DGS** | **12.85** | **17.77** | **65.65** |
+
+消融表揭示了两个不同层次的贡献：
+
+- 从 RTN 到端到端尺度学习，是最大的第一步，尤其在 MXFP4 上把 WikiText2 PPL 从 18.60 降到 12.96。这说明“让任务损失统一调整所有尺度”本身就比固定规则强。
+- CRS 在 NVFP4 上把平均准确率从 65.92 推到 66.91，说明连续系数并非只是数学上的改写，它确实找到了离散尺度无法到达的量化边界。
+- DGS 在两种格式上继续取得稳定增益，完整模型相对尺度学习基线的平均准确率分别提高 1.13 和 0.96 个百分点。局部子块不是冗余参数，而是在补偿硬件块内部不均匀的权重分布。
+
+### 5. 与创新点直接相关的实验：子块应该切多细
+
+| 格式 | 子块大小 | WikiText2 ↓ | C4 ↓ | Avg. ↑ |
+|---|---:|---:|---:|---:|
+| NVFP4 | 16（退化为 CRS） | 12.61 | 16.96 | 66.91 |
+| NVFP4 | **8** | **12.57** | 16.97 | **67.05** |
+| NVFP4 | 4 | **12.57** | **16.91** | **67.05** |
+| NVFP4 | 2 | 12.62 | 16.92 | 66.94 |
+| MXFP4 | 32（退化为 CRS） | 12.99 | 17.95 | 64.81 |
+| MXFP4 | 16 | 12.98 | 17.79 | **65.65** |
+| MXFP4 | **8** | 12.85 | **17.77** | **65.65** |
+| MXFP4 | 4 | **12.83** | 17.78 | 64.94 |
+
+粒度并不是越小越好。NVFP4 从 16 缩到 8 后已经拿到主要收益，再缩到 4 几乎不变，缩到 2 反而回落；MXFP4 的 16 和 8 并列最佳平均准确率，4 元素子块虽然 PPL 略低，平均准确率却降到 64.94。因此论文统一选择大小 8，是精度、稳定性与校准参数量之间更合理的折中。
+
+### 6. 量化成本：时间更短，但校准显存更高
+
+| 模型 | 方法 | H20 峰值显存 | 量化时间 |
+|---|---|---:|---:|
+| Qwen3-4B | MR-GPTQ | 45 GB | 29 分钟 |
+| Qwen3-4B | **FOCUS** | 77 GB | **19 分钟** |
+| Qwen3-8B | MR-GPTQ | 62 GB | 40 分钟 |
+| Qwen3-8B | **FOCUS** | 85 GB | **29 分钟** |
+
+FOCUS 用标准的前向—反向过程联合优化全部尺度，避免了 MR-GPTQ 的逐层重构、激活重排和多阶段搜索，所以在 4B、8B 模型上分别节省约 34% 和 28% 的时间。代价是校准阶段要保存可学习系数和优化器状态，峰值显存分别多出 32 GB 和 23 GB。这个成本只发生在离线量化阶段，不会进入部署模型，但它仍是复现实验时不能省略的条件。
+
+---
+
+## 三、总结
+
+FOCUS 最有价值的地方，不是又发明了一种更复杂的量化格式，而是重新检查了一个被默认接受的约束：量化尺度和反量化尺度虽然长期共用一个数，却不承担同一种职责。
+
+CRS 沿精度维度释放离线量化尺度，用连续系数寻找更好的 FP4 舍入边界；DGS 沿粒度维度继续释放它，让一个硬件块内部的不同子块分别适应局部权重分布。校准结束后，这些自由度全部被折叠进最终 FP4 权重，部署端仍然只看到标准权重和反量化尺度。
+
+实验支持了这条设计逻辑：它在 Qwen 与 LLaMA、MXFP4 与 NVFP4、困惑度、零样本任务和 CoT 推理上都表现稳定；消融也能把收益分别追溯到端到端尺度学习、CRS 和 DGS。需要同时看到的限制是，FP4 对多步推理依然有明显伤害，而且 FOCUS 用更高的离线显存换取了更快的量化过程。
+
+如果把这篇论文的思路抽象出来，就是一句很有工程意味的话：**部署约束只应该约束最终部署物，不应无条件限制那些训练结束后会被丢弃的变量。**
 
 ## References
 
-- FOCUS: FP4 Optimization via Coupled-Relaxation and Dual-Granularity Scaling：[arXiv 2608.01847](https://arxiv.org/abs/2608.01847)
-
-- [代码：GitHub](https://github.com/tencent/AngelSlim)
-- [PDF源文件](/papers/2608.01847.pdf)
+- Xianglong Yan et al. *FOCUS: FP4 Optimization via Coupled-Relaxation and Dual-Granularity Scaling* — [arXiv:2608.01847](https://arxiv.org/abs/2608.01847) · [GitHub / AngelSlim](https://github.com/tencent/AngelSlim)
+- Frantar et al. *GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers* — ICLR 2023
+- Egiazarian et al. *Bridging the Gap Between Promise and Performance for Microscaling FP4 Quantization*（MR-GPTQ）— ICLR 2026
+- Cook et al. *Four Over Six: More Accurate NVFP4 Quantization with Adaptive Block Scaling* — arXiv 2025
+- Chen et al. *RaZeR: Pushing the Limits of NVFP4 Quantization with Redundant Zero Remapping* — arXiv 2026
+- Open Compute Project Foundation. *OCP Microscaling Formats (MX) Specification 1.0* — 2023

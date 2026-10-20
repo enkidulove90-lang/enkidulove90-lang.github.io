@@ -4,6 +4,9 @@ date: 2025-08-11
 year: 2025
 venue_type: 会议
 venue_name: ACM 会议
+location_type: Affiliation
+affil_city: [Hanoi]
+affiliation_name: "VNU University of Engineering and Technology"
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐, 冷启动, 混合专家]
 slug: mamex-moe-coldstart-recommendation

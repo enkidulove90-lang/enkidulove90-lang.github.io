@@ -4,6 +4,9 @@ date: 2023-08-30
 year: 2023
 venue_type: 会议
 venue_name: CIKM 2023
+location_type: Affiliation
+affil_city: [Singapore]
+affiliation_name: "National University of Singapore"
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐, 序列推荐, 图神经网络]
 slug: mmsr-adaptive-multimodal-fusion

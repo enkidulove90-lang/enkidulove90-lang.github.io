@@ -7,6 +7,7 @@ import hashlib
 import math
 import mimetypes
 import re
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,12 +35,18 @@ class RequestsTransport:
             "Authorization": f"Bearer {token}",
             "Notion-Version": api_version,
         }
+        self.session = requests.Session()
 
     def request(self, method: str, path: str, **kwargs):
         headers = dict(self.headers)
         if "files" not in kwargs:
             headers["Content-Type"] = "application/json"
-        response = requests.request(method, API + path, headers=headers, timeout=120, **kwargs)
+        try:
+            response = self.session.request(method, API + path, headers=headers, timeout=120, **kwargs)
+        except requests.exceptions.SSLError:
+            self.session.close()
+            self.session = requests.Session()
+            raise
         response.raise_for_status()
         return response.json() if response.content else {}
 
@@ -53,23 +60,48 @@ class NotionClient:
         api_version: str = API_VERSION,
         multipart_threshold: int = 20 * 1024 * 1024,
         part_size: int = 10 * 1024 * 1024,
+        max_retries: int = 5,
+        retry_backoff: float = 1.0,
     ):
         if not token:
             raise ValueError("Notion token is required for write mode")
         self.transport = transport or RequestsTransport(token, api_version)
         self.multipart_threshold = multipart_threshold
         self.part_size = part_size
+        self.max_retries = max_retries
+        self.retry_backoff = retry_backoff
         self._upload_cache: dict[str, str] = {}
         self._data_sources: dict[str, str] = {}
+        self._property_names: set[str] | None = None
 
     def _request(self, method: str, path: str, **kwargs):
-        return self.transport.request(method, path, **kwargs)
+        file_positions: list[tuple[object, int]] = []
+        for value in (kwargs.get("files") or {}).values():
+            payload = value[1] if isinstance(value, tuple) and len(value) > 1 else value
+            if hasattr(payload, "tell") and hasattr(payload, "seek"):
+                file_positions.append((payload, payload.tell()))
+        for attempt in range(self.max_retries + 1):
+            for handle, position in file_positions:
+                handle.seek(position)
+            try:
+                return self.transport.request(method, path, **kwargs)
+            except requests.RequestException as exc:
+                status = getattr(getattr(exc, "response", None), "status_code", None)
+                transient = status is None or status == 429 or status >= 500
+                if not transient or attempt >= self.max_retries:
+                    raise
+                retry_after = getattr(getattr(exc, "response", None), "headers", {}).get("Retry-After")
+                delay = float(retry_after) if retry_after else self.retry_backoff * (2**attempt)
+                time.sleep(delay)
 
     def _data_source_id(self, database_id: str) -> str:
         if database_id not in self._data_sources:
             database = self._request("GET", f"/databases/{database_id}")
             sources = database.get("data_sources") or []
             self._data_sources[database_id] = sources[0]["id"] if sources else database_id
+            if sources:
+                source = self._request("GET", f"/data_sources/{self._data_sources[database_id]}")
+                self._property_names = set((source.get("properties") or {}).keys())
         return self._data_sources[database_id]
 
     @staticmethod
@@ -77,7 +109,7 @@ class NotionClient:
         return [{"type": "text", "text": {"content": value[:2000]}}] if value else []
 
     def _properties(self, values: dict) -> dict:
-        return {
+        properties = {
             "title": {"title": self._rich_text(values.get("title", ""))},
             "status": {"select": {"name": values.get("status", "Invisible")}},
             "type": {"select": {"name": "Post"}},
@@ -85,6 +117,9 @@ class NotionClient:
             "summary": {"rich_text": self._rich_text(values.get("summary", ""))},
             "arxiv_id": {"rich_text": self._rich_text(values.get("arxiv_id", ""))},
         }
+        if self._property_names is not None:
+            properties = {key: value for key, value in properties.items() if key in self._property_names}
+        return properties
 
     def find_page_by_arxiv(self, database_id: str, arxiv_id: str):
         source_id = self._data_source_id(database_id)
@@ -98,6 +133,34 @@ class NotionClient:
             return None
         page_id = pages[0]["id"]
         return {"id": page_id, "has_source_pdf": self._page_has_source_pdf(page_id)}
+
+    def find_page_by_slug(self, database_id: str, slug: str):
+        source_id = self._data_source_id(database_id)
+        payload = {
+            "filter": {"property": "slug", "rich_text": {"equals": slug}},
+            "page_size": 2,
+        }
+        result = self._request("POST", f"/data_sources/{source_id}/query", json=payload)
+        pages = result.get("results") or []
+        return {"id": pages[0]["id"]} if pages else None
+
+    def list_pages_by_slug(self, database_id: str) -> dict[str, dict]:
+        source_id = self._data_source_id(database_id)
+        pages_by_slug: dict[str, dict] = {}
+        cursor = None
+        while True:
+            payload: dict = {"page_size": 100}
+            if cursor:
+                payload["start_cursor"] = cursor
+            result = self._request("POST", f"/data_sources/{source_id}/query", json=payload)
+            for page in result.get("results") or []:
+                rich_text = (page.get("properties") or {}).get("slug", {}).get("rich_text") or []
+                slug = "".join(item.get("plain_text", "") for item in rich_text).strip()
+                if slug:
+                    pages_by_slug[slug] = {"id": page["id"]}
+            if not result.get("has_more"):
+                return pages_by_slug
+            cursor = result.get("next_cursor")
 
     def _page_has_source_pdf(self, page_id: str) -> bool:
         cursor = None
@@ -142,6 +205,42 @@ class NotionClient:
 
     def append_children(self, page_id: str, blocks: list[dict]) -> None:
         self._request("PATCH", f"/blocks/{page_id}/children", json={"children": blocks})
+
+    def replace_markdown(self, page_id: str, markdown: str) -> None:
+        self._request(
+            "PATCH",
+            f"/pages/{page_id}/markdown",
+            json={"type": "replace_content", "replace_content": {"new_str": markdown}},
+        )
+
+    def retrieve_markdown(self, page_id: str) -> dict:
+        return self._request("GET", f"/pages/{page_id}/markdown")
+
+    def append_markdown(self, page_id: str, markdown: str) -> None:
+        self._request(
+            "PATCH",
+            f"/pages/{page_id}/markdown",
+            json={
+                "type": "insert_content",
+                "insert_content": {"content": markdown, "position": {"type": "end"}},
+            },
+        )
+
+    def append_uploaded_image(self, page_id: str, upload_id: str, caption: str) -> None:
+        self.append_children(
+            page_id,
+            [
+                {
+                    "object": "block",
+                    "type": "image",
+                    "image": {
+                        "type": "file_upload",
+                        "file_upload": {"id": upload_id},
+                        "caption": self._rich_text(caption),
+                    },
+                }
+            ],
+        )
 
     def upload_file(self, path: Path) -> str:
         path = Path(path)

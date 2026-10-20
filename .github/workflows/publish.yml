@@ -42,10 +42,16 @@ jobs:
           pip install --quiet requests
           python tools/notion_sync.py
 
+      - name: Build cached paper-map places
+        run: python tools/build_places.py
+
       - name: Install deps
         run: npm ci || npm install
 
       - name: Build
+        env:
+          CARTO_API_KEY: ${{ secrets.CARTO_API_KEY }}
+          PAPER_INTAKE_API_BASE: ${{ secrets.PAPER_INTAKE_API_BASE }}
         run: npx hexo clean && npx hexo generate
 
       - name: Keep .nojekyll (force_orphan 会重写 main，需重建)
@@ -59,3 +65,22 @@ jobs:
           publish_dir: ./public
           force_orphan: true
           commit_message: "Publish: ${{ github.event_name }} @ ${{ github.sha }}"
+
+      - name: Report paper intake deployment
+        if: ${{ always() && github.event_name == 'repository_dispatch' && github.event.client_payload.job_id != '' }}
+        env:
+          CALLBACK_URL: ${{ secrets.PAPER_INTAKE_CALLBACK_URL }}
+          CALLBACK_TOKEN: ${{ secrets.PAPER_INTAKE_CALLBACK_TOKEN }}
+          JOB_ID: ${{ github.event.client_payload.job_id }}
+          DEPLOY_STATUS: ${{ job.status }}
+        run: |
+          if [ "$DEPLOY_STATUS" = "success" ]; then
+            OK=true
+          else
+            OK=false
+          fi
+          curl --fail-with-body --retry 3 --retry-all-errors \
+            --request POST "$CALLBACK_URL/v1/publications/callback" \
+            --header "Authorization: Bearer $CALLBACK_TOKEN" \
+            --header "Content-Type: application/json" \
+            --data "{\"job_id\":\"$JOB_ID\",\"ok\":$OK,\"git_commit\":\"${GITHUB_SHA}\"}"

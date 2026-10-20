@@ -4,6 +4,9 @@ date: 2025-02-13
 year: 2025
 venue_type: 会议
 venue_name: WWW 2025
+location_type: Affiliation
+affil_city: [Hefei]
+affiliation_name: "University of Science and Technology of China"
 categories: [推荐系统, 基础推荐算法]
 tags: [论文速读, 基础推荐算法]
 slug: llm-denoising-recommendation

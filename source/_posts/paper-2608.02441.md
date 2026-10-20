@@ -1,5 +1,5 @@
 ---
-title: "智能体商业世界：可审计可验证的Vibe Commerce环境"
+title: "ACWORLD：用VCP把智能体商业决策变成可审计、可重放的执行轨迹"
 date: 2026-08-01
 year: 2026
 venue_type: "arXiv预印本"
@@ -8,58 +8,98 @@ categories: [推荐系统, 论文速递]
 tags: [论文速递]
 slug: paper-2608.02441
 arxiv_id: "2608.02441"
-description: "论文提出ACWORLD，一个面向vibe commerce的可审计、可验证的多对多智能体商业环境。"
+description: "ACWORLD通过Vibe Commerce Protocol将Buyer/Merchant决策与共享状态变更权限分离，在200任务能力覆盖与785,022商品大目录两赛道评测10个模型，并证明仅看最终状态会漏判11.5%的未满分运行。"
 ---
 
 > 论文：[arXiv 2608.02441](https://arxiv.org/abs/2608.02441) · 代码：[GitHub](https://github.com/google-agentic-commerce/AP2) · PDF：[本地阅读](/papers/2608.02441.pdf)
 
-论文提出ACWORLD，一个面向vibe commerce的可审计、可验证的多对多智能体商业环境。其核心是Vibe Commerce Protocol（VCP），将每个智能体决策绑定到具体Buyer或Merchant，经Commerce Intelligence Platform验证后才由World提交共享交易状态变更，从而支持状态重建与重打分。论文同时发布ACWORLD Benchmark，包含200任务/80能力的能力覆盖赛道和60任务/785,022商品的大目录赛道，并在10个模型上验证了过程级证据的必要性。
+当人们用自然语言描述购物或销售目标，并把执行交给智能体时，商业交互就进入了“vibe commerce”的范畴。与vibe coding不同，商业场景天然是多对多的：一个Buyer背后是一位有私人预算的消费者，一个Merchant背后是一位有私人底价的卖家，双方在共享市场中交互，却不应看到对方的私有约束。现有协议如ACP、UCP、AP2提供了发现、购买协调或支付授权的结构化接口，但它们主要服务于已部署方之间的协调，并不提供受控的策略评测；购物与市场基准则通常固定对手或网站，难以把共享状态的变化归因到某一方的决策。
 
-## 研究问题
+ACWORLD的定位正是填补这一空隙：它不是一个生产级支付系统，而是一个研究环境，让独立控制的Buyer与Merchant策略在同一持久化市场中交互，同时保留各自的身份、私有mandate与权限。论文的核心主张是“可审计、可验证”——这里的可验证有明确边界，指在声明的ACWORLD契约下状态可重建、可重打分，而非证明转移语义或生产安全性。
 
-论文提出ACWORLD，一个面向vibe commerce的可审计、可验证的多对多智能体商业环境。其核心是Vibe Commerce Protocol（VCP），将每个智能体决策绑定到具体Buyer或Merchant，经Commerce Intelligence Platform验证后才由World提交共享交易状态变更，从而支持状态重建与重打分。论文同时发布ACWORLD Benchmark，包含200任务/80能力的能力覆盖赛道和60任务/785,022商品的大目录赛道，并在10个模型上验证了过程级证据的必要性。
+研究矛盾集中在评估层面。最终World状态只保留结果，最终VCP动作只保留被评估方最后一次公开业务动作，公开动作序列保留全部公开动作，但这些视图都不包含Commerce Intelligence Platform的验证决定与World提交。于是可能出现“受限视图碰撞”：一个未满分运行与一个被接受的满分运行在某种投影下完全相同，任何只依赖该投影的评估器都无法同时接受后者而拒绝前者。论文用861个未满分运行中的99个最终状态碰撞来量化这一信息不足，而不是声称某个评估器的经验错误率。
 
-## 方法：核心思路与整体框架
+前置条件与部署边界也需要先交代。ACWORLD面向研究评测，商品目录来自公开记录，能力覆盖赛道用1,082个公开商品快照并按固定规则补齐缺失字段，大目录赛道用791,431条公开源记录构建只读数据库，其中785,022条有正价格并进入可交易目录。每个任务从相同初始World开始，面对相同固定对手，智能体只看到角色可见信息。训练/验证/测试划分原文未披露，因此下文所有结果都应理解为在该冻结契约下的受控比较，而非对真实市场频率的估计。
 
-论文采用系统构建与基准评测相结合的方法。首先定义VCP协议，将智能体决策、平台验证与World状态提交分离；然后实现ACWORLD环境，通过确定性转移函数W_{j+1}=F(W_j,u_j)提交授权事件，并记录链接执行轨迹。评测采用冻结任务契约、固定对手策略和确定性评分器，基于加权谓词聚合得分，并通过状态重建、重打分、变异测试和HTTP一致性检查验证评测有效性。
+## 一、方法：VCP如何把决策、验证与提交拆开
 
-![图 1：Figure 11: Detection of 95 injected errors under four evidence views. Filled cells are detected, and gray cells are missed. This tests view coverage, not empirical error rates.](/images/papers/2608.02441/58982b403121325b43704daf890c405691ace94dc2002aba5608ccdc8d42f675.jpg)
+ACWORLD的架构由Buyer智能体、Merchant智能体、Commerce Intelligence Platform与World四部分组成，四者通过Vibe Commerce Protocol（VCP）连接。人用自然语言给出买卖目标，智能体用角色专属技能推进；每个智能体保留自己的mandate与会话，可以与多个对手交互，但不能直接修改共享状态。Commerce Intelligence Platform检查每个请求是否符合市场规则与当前World，拒绝非法动作，并把批准的事件交给World。World通过确定性转移提交授权事件：
 
-*图 1 · 原图说明：Figure 11: Detection of 95 injected errors under four evidence views. Filled cells are detected, and gray cells are missed. This tests view coverage, not empirical error rates.*
+$$\mathcal{W}_{j+1} = F(\mathcal{W}_j, u_j)$$
 
-**图示解释：** 论文采用系统构建与基准评测相结合的方法。
+其中$\mathcal{W}_j$是第$j$个已提交事件后的状态，$u_j$是下一个被批准的事件，$F$是转移函数。模型响应在这条路径接受之前没有任何商业效果。World可以从共享只读SQLite目录提供商品记录，同时保持每个任务的交易状态隔离；智能体通过ACWORLD工具搜索，原始表和完整目录不会进入模型提示。
 
-## 创新点
+VCP强制四条不变量：每个动作属于一个已认证主体；消息不能更新World；每次提交必须引用一个已被接受的Commerce Intelligence Platform验证结果；从同一初始状态按序重放提交可以复现最终状态与事件摘要。私有mandate始终留在各策略内部。表1将VCP与ACP、UCP、AgenticPay、Magentic Marketplace对比，VCP+ACWORLD在双边、角色私有状态、类型化、授权、生命周期与重建六个维度上均为完整支持，而其他系统在重建一列均为缺失。
 
-1. 提出Vibe Commerce Protocol（VCP），将智能体决策与共享状态变更权限分离，每个动作绑定认证主体，消息不能直接修改World，提交必须引用已接受的验证结果，并支持从初始状态重放提交以复现最终状态与事件摘要。
-2. 构建ACWORLD持久化多对多商业环境，支持独立控制的Buyer与Merchant策略在同一市场中交互，同时保留各自私有mandate、身份与权限，实现决策、验证与效果的可审计归因。
-3. 设计双赛道ACWORLD Benchmark：能力覆盖赛道含200任务、10个商业家族、80项能力；大目录赛道含60任务、覆盖785,022个可交易商品，二者共用同一执行与评分路径但独立报告均值。
-4. 提出基于链接记录L_t=(actor, decision, validation, evidence, ΔWorld)的执行轨迹与确定性重打分机制，无需再次调用模型即可重建状态并重新评分，同时暴露候选过程奖励信号。
-5. 实验表明最终状态不足以评估智能体：在861个未满分运行中，99个运行虽达到与满分执行相同的最终状态，但仍存在被评估错误，说明过程级证据对归因和评估是必要的。
+交易生命周期从分离的私有目标与公开市场记录开始。Buyer收到购买目标，每个Merchant控制自己的listing、价格与库存；多个Merchant可能卖同一商品，但报价保持独立。Buyer可以比较性价比、查看Merchant声誉，再选择满足目标的报价，并通过VCP把决定送到Commerce Intelligence Platform验证。批准后，World从被接受的报价创建订单，把结算与库存、支付效果关联；Buyer与选中的Merchant可以跟踪订单，无关交易与私有目标保持隐藏。后续动作从同一订单继续，幂等键防止重试重复应用同一变更。
 
-## 实验：数据、基线与结果
+评估的核心是链接记录。对每个被评估决策$t$，ACWORLD存储：
 
-### 数据集与设置
+$$L_t = (a_t, d_t, v_t, \mathcal{E}_t, \Delta\mathcal{W}_t)$$
 
-能力覆盖赛道含200个任务，覆盖10个商业家族和80项能力，角色划分为116个Buyer任务和84个Merchant任务，使用1,082个公开商品快照，缺失字段按固定规则填充。大目录赛道含60个任务，覆盖Discovery、Grounding、Preference、Multi-item四类共18项能力，角色划分为45个Buyer和15个Merchant，查询由791,431条公开源记录构建的只读数据库，其中785,022条有正价格并进入可交易目录。每个任务从相同初始World开始，面对相同固定对手，智能体仅看到角色可见信息。训练/验证/测试划分原文未披露。
+其中$a_t$标识主体，$d_t$是业务决策，$v_t$是Commerce Intelligence Platform验证结果，$\mathcal{E}_t$是后续执行证据，$\Delta\mathcal{W}_t$是World状态变化。被拒绝的提案没有提交；正确的只读动作或弃权可能不改变World，但仍产生完整血缘记录。这些链接记录构成执行轨迹。状态重建从保存的初始状态开始，按序重新应用被接受的提交，通过匹配状态与事件摘要验证记录的交易产生相同商业结果；这一检查不重跑模型，也不恢复其私有推理。验证后的轨迹可以不再调用模型而重新打分。
 
-### Benchmark 与结果
+重建与重打分把每个中间信号连接到经过检查的执行证据，而不是模型自报的进度。例如，智能体可以因正确报价的grounding获得分数，却因未授权动作或缺失结算不得分。这些经过验证的中间结果可作为未来策略学习研究的候选奖励；论文只评估其构造与对谓词权重的敏感性，不评估其学习效用。
 
-能力覆盖赛道2,000次运行中，模型均值范围为65.9%至85.6%，GPT-5.6 Sol总体最高，Gemini 3.6 Flash的Merchant均值最高。运行分布为1,139次满分、757次部分分、104次零分。家族层面，Inventory和Lifecycle最强，平均分别为93.3%和90.3%；Timing和Discovery最弱，分别为40.3%和65.9%。大目录赛道600次运行中，模型均值范围为56.10%至91.36%，Gemini 3.5 Flash和Gemini 3.6 Flash总体接近，分别为91.36%和91.35%，GPT-5.6 Sol为89.11%。运行分布为365次满分、206次部分分、29次零分。阶段分数显示Validation达94.17%、Evidence达86.75%，而Search为76.11%、Decision为73.67%。失败分析中，861个未满分运行有803个可归因到唯一主导组，其中Evidence 314、Choice 159、Execution 208、Authority 122；99个未满分运行达到与满分执行相同的最终状态。5×5市场研究中，确定性清算完成5笔交易，分配匹配参考，达到全局最优的97.8%，并重建到相同World状态。
+![图 1：95个注入错误在四种证据视图下的检测情况。填充格表示被检测到，灰色格表示漏检；该实验测试视图覆盖，而非经验错误率。](/images/papers/2608.02441/58982b403121325b43704daf890c405691ace94dc2002aba5608ccdc8d42f675.jpg)
 
+这张图应沿“证据视图”这一维度阅读：每一行对应一种受限视图，每一列对应一个注入错误，填充与灰色直接表示该视图能否发现该错误。它支撑的主张不是某个评估器的错误率，而是不同证据投影在覆盖能力上的差异——最终状态、最终动作、公开动作序列与完整轨迹所保留的信息量不同，因此仅靠结果视图会系统性地漏掉某些过程错误。这也解释了为什么论文把完整执行轨迹作为声明的评分证据，并在主文中报告最终状态视图下99个碰撞。
 
+## 二、实验：双赛道评测与过程证据的必要性
 
-### 消融实验
+ACWORLD Benchmark包含两个互补赛道。能力覆盖赛道用紧凑受控世界测试广泛商业行为，含200个任务、10个商业家族、80项能力，角色划分为116个Buyer任务与84个Merchant任务，使用1,082个公开商品快照，缺失字段按固定规则填充。大目录赛道用同一Agent、VCP、Commerce Intelligence Platform、World与评分路径，但目录规模大得多：60个任务覆盖Discovery、Grounding、Preference、Multi-item四类共18项能力，角色划分为45个Buyer与15个Merchant，查询由791,431条公开源记录构建的只读数据库，其中785,022条有正价格并进入可交易目录。两个赛道任务分布不同，因此独立报告均值，不合并为260任务总分。
 
-对比模型包括Claude Sonnet 5、DeepSeek-V4-Pro、Gemini 3.5 Flash、Gemini 3.6 Flash、GPT-5.6 Luna、GPT-5.6 Sol、GPT-5.6 Terra、Kimi K3、Mistral Medium 3.5、Qwen3.5 Plus，共10个模型。每个模型完成200个能力覆盖任务和60个大目录任务，分别产生2,000和600次运行。消融与验证设置包括：95个针对性决策变异覆盖全部80项能力、18个HTTP一致性episode、60个满分参考、374个针对性变异运行、60个确定性重打分和60个过程分数一致性检查；另有5×5多智能体市场研究、持久化案例、扩展接口案例和10个完整性案例。
+| 项目 | 能力覆盖赛道 | 大目录赛道 |
+|---|---|---|
+| 任务数 | 200 | 60 |
+| 商业家族/能力 | 10家族/80能力 | 4家族/18能力 |
+| Buyer/Merchant任务 | 116/84 | 45/15 |
+| 目录规模 | 1,082个公开商品快照 | 785,022个可交易商品（源自791,431条记录） |
+| 谓词数 | 674 | 未单独披露 |
+| 评分方式 | 加权谓词聚合，无语言模型裁判 | 同一评分路径，分阶段报告 |
+| 模型数 | 10 | 10 |
+| 运行数 | 2,000 | 600 |
 
-## 总结
+评分采用加权谓词聚合：$S = \sum w_i c_i / \sum w_i$，其中$c_i \in [0,1]$是谓词$i$的验证值，$w_i>0$是声明权重。满分要求所有必需检查通过，部分分保留已验证进展。评分不使用语言模型裁判，也不奖励确定性环境行为。能力覆盖赛道的674个谓词权重在每个任务内归一化到0.05至1.0；等权设置下模型均值变化最多1.8个百分点且保持排序。大目录赛道中智能体只能通过ACWORLD工具进行过滤、排序、分页和读取单条listing，每次响应有界，但查询与确定性oracle作用于完整匹配空间，因此oracle检查的是全局可接受结果，而非模型看到的第一页。
 
-论文提出ACWORLD，一个面向vibe commerce的可审计、可验证的多对多智能体商业环境。
+| 模型 | 能力覆盖 Overall | Buyer | Merchant | 大目录 Overall | Buyer | Merchant |
+|---|---:|---:|---:|---:|---:|---:|
+| GPT-5.6 Sol | 85.6 | 86.1 | 84.9 | 89.11 | 86.22 | 97.78 |
+| Gemini 3.6 Flash | 85.0 | 83.9 | 86.4 | 91.35 | 88.83 | 98.89 |
+| Gemini 3.5 Flash | 83.7 | 84.9 | 82.1 | 91.36 | 89.22 | 97.78 |
+| Kimi K3 | 83.0 | 80.9 | 85.9 | 87.11 | 84.67 | 94.44 |
+| GPT-5.6 Terra | 80.2 | 78.3 | 82.9 | 83.90 | 80.39 | 94.44 |
+| Claude Sonnet 5 | 78.4 | 73.8 | 84.7 | 79.67 | 78.44 | 83.33 |
+| Qwen3.5 Plus | 73.0 | 69.5 | 77.9 | 60.56 | 61.85 | 56.67 |
+| DeepSeek-V4-Pro | 70.3 | 64.3 | 78.6 | 56.10 | 57.76 | 51.11 |
+| Mistral Medium 3.5 | 67.8 | 66.4 | 69.7 | 83.56 | 85.11 | 78.89 |
+| GPT-5.6 Luna | 65.9 | 59.0 | 75.5 | 79.74 | 80.02 | 78.89 |
+
+能力覆盖赛道2,000次运行中，模型均值从65.9%到85.6%，GPT-5.6 Sol总体与Buyer均值最高，Gemini 3.6 Flash的Merchant均值最高。运行分布为1,139次满分、757次部分分、104次零分。GPT-5.6 Sol在总体均值与满分次数上领先，两个Gemini变体也属于最强之列；每个Gemini变体记录130次满分且仅2次零分，说明其未满分运行几乎都保留了已验证进展。家族层面，Inventory与Lifecycle最强，平均分别为93.3%与90.3%；Timing与Discovery最弱，分别为40.3%与65.9%。GPT-5.6 Sol在Discovery与Multi-item领先，Gemini 3.6 Flash在Lifecycle达到99.4%。有五个模型-家族单元达到100%，但最高总体均值仅85.6%，说明饱和局限于少数家族而非整个基准。
+
+大目录赛道600次运行中，模型均值从56.10%到91.36%。Gemini 3.5 Flash与Gemini 3.6 Flash总体几乎持平，分别为91.36%与91.35%，GPT-5.6 Sol为89.11%。运行分布为365次满分、206次部分分、29次零分。排序与能力覆盖赛道不同，Mistral的差异最明显，因此两个赛道不合并报告。角色划分也解释了较高的Merchant均值：45个Buyer任务要求模型在全目录中查找、比较并组合listing，而15个Merchant任务从已识别listing出发，主要要求回答有依据的问题或生成报价，目录规模对Buyer任务影响更直接。阶段分数显示Validation达94.17%、Evidence达86.75%，而Search为76.11%、Decision为73.67%：多数到达Commerce Intelligence Platform的动作形式良好，但模型在找到并选择全局可接受结果上仍有差距。
+
+失败分析针对能力覆盖赛道。861个未满分运行中，803个（93.3%）可归因到唯一主导组：Evidence 314、Choice 159、Execution 208、Authority 122，其余58个为平局。两个Gemini变体最常在Evidence失分，Mistral的失分则分散在四个组。Choice占104个零分运行中的59个，说明许多完全失败始于偏好或选择错误。按家族看，Grounding失败以缺失或错误Evidence为主，Multi-item未满分运行全部是Choice失败，Inventory未满分率最低但每次失分都在Execution，Timing的失分主要在Execution与Authority之间。
+
+过程证据的必要性由受限视图碰撞直接量化。861个未满分运行中，最终World状态视图下99个（11.5%）与某个被接受的满分运行投影相同，最终VCP动作视图下54个（6.3%），公开VCP动作序列视图下45个（5.2%），完整执行轨迹按设计为0。这组数字衡量的是受限视图丢失的信息，而非某个评分器的经验错误。另一个案例是Claude Sonnet 5的偏好任务：指令要求预算不超过140美元、保修至少12个月，并在合格商品中优先质量；Item A价格91、质量82，Item B价格108、质量96，两者保修均为24个月。模型选择了Item A，交易被授权并结算，状态重建一致，但评分器因未遵循质量优先扣掉0.286，总分0.714。只看“购买完成”的评估器会漏掉这一偏好违规。
+
+多智能体环境研究使用一个固定的5×5市场：Merchant报价，Buyer对两个可行报价排序，确定性清算完成5笔交易，其中一笔是争用后的回退；分配与参考一致，达到全局最优的97.8%，并获得暴露候选的全部福利，重建到相同World状态。持久化案例跨三个episode跟踪一个订单，支付、履约与退款经历数据库重开而记录保持连接；扩展案例在不改核心的情况下加入一个商品域、一个Commerce Intelligence Platform工具与一个World事件；10个完整性案例全部通过。这些结果说明局部决策可以产生一个市场结果，但单一市场、单一模型家族与单一随机种子不足以支持策略比较。
+
+评测有效性由累积门控保证。能力覆盖赛道执行200个参考episode、95个针对性决策变异（覆盖全部80项能力）与18个HTTP一致性episode，共313次验证执行；每个参考episode通过任务评分、World状态重建与重打分。大目录赛道检查60个满分参考、374个针对性变异运行、60次确定性重打分与60个过程分数一致性。门控是累积前提而非可替代指标：后续门控通过不能补偿先前失败。它们的联合成功支持在声明契约下解释模型差异，但不证明任务分类完整、公开任务不可记忆或环境具备形式化安全证明。
+
+## 三、总结
+
+ACWORLD的机制可以概括为“决策—验证—提交”三段分离：VCP把每个动作绑定到已认证的Buyer或Merchant，Commerce Intelligence Platform在World变更前验证，World只提交授权事件，并用链接记录$L_t$把主体、决策、验证、证据与状态变化串成可重建、可重打分的执行轨迹。实验上，能力覆盖赛道10个模型均值65.9%至85.6%，大目录赛道56.10%至91.36%，两个赛道排序不同；861个未满分运行中99个在最终状态视图下与满分运行碰撞，直接说明过程级证据对归因的必要性。
+
+边界同样明确。每个任务只评估一个策略对确定性对手，分数与固定5×5研究都不衡量开放市场中的策略；目录未经独立审计，不代表已部署商业的抽样；重建只保证在声明转移与评分器下的一致性，不保证其语义正确；10个完整性案例不是完整安全证明；公开任务允许直接优化，未来版本将配对未公开的留出测试任务。
+
+可迁移的设计启示是：在多智能体推荐或交易系统中，把“谁提议、谁验证、谁提交”拆成独立层，并让每次提交引用已接受的验证结果，可以在不牺牲交互灵活性的前提下获得可审计的中间信号；这些信号既可用于失败归因，也可作为过程奖励的候选，但其学习效用需要另行验证。
 
 ## References
 
-- AGENTIC COMMERCE WORLD: AN AUDITABLE AND VERIFIABLE ENVIRONMENT FOR VIBE COMMERCE：[arXiv 2608.02441](https://arxiv.org/abs/2608.02441)
-
-- [代码：GitHub](https://github.com/google-agentic-commerce/AP2)
-- [PDF源文件](/papers/2608.02441.pdf)
+- Shicheng Fan, Mingdai Yang, Duohao Wang, Canyu Chen, Yongfeng Zhang, Hua Wei, Manling Li, Julian McAuley, Kun Zhang, Philip S. Yu, Kejing Yu, Zhiwei Liu. *Agentic Commerce World: An Auditable and Verifiable Environment for Vibe Commerce.* arXiv:2608.02441. [https://arxiv.org/abs/2608.02441](https://arxiv.org/abs/2608.02441) · 代码：[https://github.com/google-agentic-commerce/AP2](https://github.com/google-agentic-commerce/AP2)
+- OpenAI. *Agentic Commerce Protocol (ACP).* 2026a.
+- Google. *Universal Commerce Protocol (UCP).* 2026d.
+- Google. *AP2: Agent Payments Protocol.* 2026a.
+- Liu et al. *AgenticPay.* 2026.
+- Bansal et al. *Magentic Marketplace.* 2025.

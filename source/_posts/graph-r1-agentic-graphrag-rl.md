@@ -4,6 +4,9 @@ date: 2025-07-29
 year: 2026
 venue_type: 会议
 venue_name: ICML 2026
+location_type: Affiliation
+affil_city: [Beijing]
+affiliation_name: "Beijing University of Posts and Telecommunications"
 updated: 2026-06-02
 categories: [AI, 检索增强生成]
 tags: [论文速读, 检索增强生成, 强化学习, 知识图谱]

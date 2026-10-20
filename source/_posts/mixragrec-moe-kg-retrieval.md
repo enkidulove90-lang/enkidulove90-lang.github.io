@@ -4,6 +4,9 @@ date: 2026-05-27
 year: 2026
 venue_type: 会议
 venue_name: KDD 2026
+location_type: Affiliation
+affil_city: [Hong Kong]
+affiliation_name: "The Hong Kong Polytechnic University"
 updated: 2026-05-29
 categories: [推荐系统, 知识图谱]
 tags: [论文速读, 知识图谱, 混合专家, 多智能体]

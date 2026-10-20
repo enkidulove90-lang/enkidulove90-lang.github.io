@@ -1,5 +1,5 @@
 ---
-title: "融合逐层出口赋能紧凑LLM推荐"
+title: "FLEXRec：用逐层出口融合为紧凑 LLM 推荐器补容量"
 date: 2026-08-01
 year: 2026
 venue_type: "arXiv预印本"
@@ -8,67 +8,143 @@ categories: [推荐系统, 论文速递]
 tags: [论文速递]
 slug: paper-2608.17316
 arxiv_id: "2608.17316"
-description: "论文提出FLEXRec，一种基于判别式LLM推荐范式的逐层出口融合框架，旨在解决紧凑LLM在序列推荐中表达能力不足的问题。"
+description: "FLEXRec 在紧凑 LLM 每层后插入预测出口，用自适应连续路由器按序列复杂度动态融合多层评分分布，在三个数据集上以不到 1ms 额外延迟取得紧凑骨干方法中的最优精度。"
 ---
 
 > 论文：[arXiv 2608.17316](https://arxiv.org/abs/2608.17316) · 代码：[GitHub](https://github.com/xurong-liang/FLEXRec) · PDF：[本地阅读](/papers/2608.17316.pdf)
 
-论文提出FLEXRec，一种基于判别式LLM推荐范式的逐层出口融合框架，旨在解决紧凑LLM在序列推荐中表达能力不足的问题。FLEXRec在LLM每一层后插入预测头（出口），将各层用户偏好嵌入生成的评分分布进行融合，以补偿小模型参数容量的限制。同时设计自适应连续路由器（AC-Router），根据用户序列复杂度动态选择激活的出口数量与身份，并引入target-k hinge loss等联合优化目标控制路由稀疏性。在三个真实数据集上，使用Qwen 3 1.7B和Llama 3.2 3B紧凑骨干，FLEXRec在紧凑骨干方法中达到最优精度，且推理延迟仅比E4SRec增加不到1ms。
+基于大语言模型的推荐系统（LLM-RS）在文本上下文建模与用户偏好学习之间形成了互惠关系，但主流方案往往依赖 7B 甚至 13B 级别的骨干，计算上难以持续扩展。一个直接的替代思路是换用 3B 以下的紧凑 LLM，然而模型容量下降会直接削弱语义理解能力，使推荐器难以捕捉细粒度的用户行为模式。为了弥补这一差距，已有工作要么引入思维链等复杂推理步骤，要么依赖更大的教师模型做知识蒸馏；前者显著拉长推理延迟，后者需要昂贵的离线训练与教师托管，两者都难以支撑真实系统所要求的全语料 Top-N 排序。
 
-## 研究问题
+判别式 LLM 推荐范式提供了另一条路径：把用户和物品投影到 LLM 语义空间，仅用嵌入相似度完成排序，从而完全绕开自回归解码。E4SRec 是这一范式的代表框架，它从交互记录中抽取用户偏好嵌入并计算用户—物品亲和度。但判别式范式在紧凑骨干下暴露了两个结构性限制：其一，按缩放律，上下文嵌入质量随参数量缩小而退化；其二，无论用户序列简单还是复杂，所有输入都经过完全相同的网络路径，缺乏结构上的自适应性。
 
-论文提出FLEXRec，一种基于判别式LLM推荐范式的逐层出口融合框架，旨在解决紧凑LLM在序列推荐中表达能力不足的问题。FLEXRec在LLM每一层后插入预测头（出口），将各层用户偏好嵌入生成的评分分布进行融合，以补偿小模型参数容量的限制。同时设计自适应连续路由器（AC-Router），根据用户序列复杂度动态选择激活的出口数量与身份，并引入target-k hinge loss等联合优化目标控制路由稀疏性。在三个真实数据集上，使用Qwen 3 1.7B和Llama 3.2 3B紧凑骨干，FLEXRec在紧凑骨干方法中达到最优精度，且推理延迟仅比E4SRec增加不到1ms。
+FLEXRec 的出发点正是这两个限制的交汇处。它保留判别式范式的高吞吐优势，但打破“只取最后一层输出”的静态单出口设计：在 LLM 的每个 transformer 层后插入预测头，把每一层都视为一个独立的出口，再将各出口产生的评分分布融合起来。这一设计的依据是不同网络深度编码了不同粒度的语义模式——浅层偏向局部、短期的物品转移，深层偏向抽象、长期的用户意图，二者恰好对应序列推荐需要同时建模的两类信号。
 
-## 方法：核心思路与整体框架
+仅有融合还不够。如果对所有用户都固定融合全部出口，计算开销和冗余信号都会上升；如果固定融合 k 个出口，又会对简单序列造成浪费、对复杂序列形成人为限制。FLEXRec 因此引入自适应连续路由器（AC-Router），以第一层响应 token 嵌入为条件，同时决定激活哪些出口以及激活多少个出口，并用一种新的 target-k hinge loss 把激活数量软性约束在 [1, k] 区间内。
 
-FLEXRec采用判别式LLM推荐范式，以E4SRec为基座，在LLM每层后插入预测头形成多层出口。AC-Router基于第一层响应token嵌入计算路由logits，经条件偏移约束和ReLU激活生成稀疏门控权重，归一化后融合激活出口的评分分布。训练分三阶段：Stage 1用交叉熵损失微调LoRA和最终出口；Stage 2冻结骨干训练中间出口；Stage 3冻结全部骨干和出口，仅训练路由器投影矩阵，联合优化推荐损失、负载均衡损失、target-k hinge损失和Z-loss。
+部署层面，FLEXRec 采用三阶段训练：先训练 LLM 推荐骨干，再独立预热中间出口，最后冻结骨干与全部出口、只训练路由器的投影矩阵。由于最后阶段极轻量，同一套冻结骨干可以共享给多个不同 target-k 的路由器，分别适配不同设备的算力与精度要求。这一训练顺序也保证了路由器的梯度只反映融合策略本身，而不受出口评分分布漂移的干扰。
 
-![图 3：Overview of the FLEXRec framework and its three-stage training. Stage 1 trains the base components via $\mathcal{L}_{rec}$. Stage 2 warms up intermediate exits $\mathcal{H}_{inter}$ via $\mathcal{L}_{inter}$. Stage 3 optimizes the AC-Router using $\mathcal{L}_{rec}$ alongside router-specific loss terms ($\mathcal{L}_{LB}$, $\mathcal{L}_{Hinge}$, $\mathcal{L}_Z$). In the given sequence example, solid green arrows depict active routing weights assigned by the AC-Router, whereas dotted arrows indicate unselected exits that do not contribute to the final fused distribution $\mathbf{O}^{fused}$.](/images/papers/2608.17316/figure_017_framework_overview-crop.png)
+## 一、方法：逐层出口、连续路由与三阶段训练
 
-*图 3 · 原图说明：Overview of the FLEXRec framework and its three-stage training. Stage 1 trains the base components via $\mathcal{L}_{rec}$. Stage 2 warms up intermediate exits $\mathcal{H}_{inter}$ via $\mathcal{L}_{inter}$. Stage 3 optimizes the AC-Router using $\mathcal{L}_{rec}$ alongside router-specific loss terms ($\mathcal{L}_{LB}$, $\mathcal{L}_{Hinge}$, $\mathcal{L}_Z$). In the given sequence example, solid green arrows depict active routing weights assigned by the AC-Router, whereas dotted arrows indicate unselected exits that do not contribute to the final fused distribution $\mathbf{O}^{fused}$.*
+### 1. 从单出口到多层出口
 
-**图示解释：** FLEXRec采用判别式LLM推荐范式，以E4SRec为基座，在LLM每层后插入预测头形成多层出口。
+FLEXRec 沿用 E4SRec 的判别式基座。首先预训练一个 ID 类序列模型 SASRec，得到物品协同嵌入，再经单层 MLP 投影到 LLM 隐藏维度，与任务指令嵌入、响应 token 嵌入拼接后送入 LLM。原版 E4SRec 只取最后一层的响应 token 表示，经单层 MLP 预测头输出全物品亲和度分数，再经 Softmax 得到评分分布。
 
-## 创新点
+FLEXRec 在第 l 层后立即插入预测头 h_l，对每一层都计算 Softmax(h_l(e^l))，其中 e^l 是该层输出序列中响应 token 对应的行向量。这样得到一组出口 H = {h_1, …, h_L}，它们构成后续自适应路由与融合的候选池。
 
-1. 提出从静态单出口LLM推荐器向动态多层融合范式的转变，通过自适应集成不同LLM传播深度的预测评分分布，有效补偿紧凑LLM骨干有限的语义建模能力。
-2. 设计自适应连续路由器（AC-Router），采用连续ReLU路由机制，根据每个用户序列的复杂度动态决定激活哪些出口以及激活多少个出口，实现输入自适应的计算深度分配。
-3. 提出target-k hinge loss，通过连续Sigmoid代理和不对称双侧铰链损失，软性惩罚激活出口数量偏离目标范围[1, k]的情况，在无额外参数开销下实现路由稀疏性控制。
-4. 设计三阶段训练流程：先训练LLM推荐骨干，再独立训练中间出口，最后冻结骨干仅训练AC-Router，使路由器梯度纯粹反映融合策略，支持灵活部署不同target-k的路由器共享同一冻结骨干。
+![FLEXRec 框架与三阶段训练总览](/images/papers/2608.17316/figure_017_framework_overview-crop.png)
 
-## 实验：数据、基线与结果
+读这张框架图时，可以沿三条横向带从上往下看：最上方是 Stage 1，只训练物品 ID 投影、LoRA 组件与最终出口，损失为推荐交叉熵；中间是 Stage 2，骨干被冻结，中间出口逐个学习把本层表示映射为有效的物品排序分布；最下方是 Stage 3，骨干与所有出口都不再更新，唯一可训练的是 AC-Router 的投影矩阵。图中绿色实线箭头表示路由器为当前序列实际分配的激活权重，虚线箭头表示未被选中的出口，它们不参与最终融合分布 O^fused。这张图支撑的核心主张是：融合发生在评分分布层面而非隐藏表示层面，且路由决策与出口训练在时间上被解耦。
 
-### 数据集与设置
+### 2. AC-Router：连续 ReLU 路由与条件偏移
 
-序列推荐任务，目标是给定用户历史交互序列预测下一物品并生成Top-N排序。使用Toys（19,412用户，11,924物品，167,597交互，稀疏度99.93%）、Beauty（22,363用户，12,101物品，198,502交互，99.93%）、Yelp（30,431用户，20,033物品，316,354交互，99.95%）三个数据集。采用5-core物品过滤，leave-one-out划分：最后一项为测试，倒数第二项为验证，其余为训练。
+AC-Router 取第一层后的响应 token 嵌入 e^1，经可学习矩阵 W_z 映射为 L 维路由 logits z。传统 MoE 常用的 Top-k 路由要求每个输入恰好融合 k 个专家，既对简单序列造成多余计算，又对复杂序列限制了组合多样性，且其不可微性会干扰端到端训练。FLEXRec 改用向量级 ReLU 生成稀疏权重：w = ReLU(z)。Top-k 只允许 C(L,k) 种出口组合，而 ReLU 把组合空间扩展到 2^L − 1，使路由器能同时控制出口的身份与数量。
 
-### Benchmark 与结果
+ReLU 带来的风险是 logits 全部为负时权重整体塌缩、没有任何出口被选中。为此，模型在激活前施加条件偏移：先计算 s = min(max(z) − ε, 0)，再用 stop-gradient 把 s 从 z 中减去，保证最大 logit 至少保留 ε 的幅度。随后对权重做归一化得到门控 g_l，若 g_l = 0 则该出口对当前序列禁用。激活出口集合 A = {l | g_l > 0}，模型只向前传播到最深的激活层 l_max，其后所有层与出口被跳过。最终融合分布是激活出口评分分布按门控权重的加权和。
 
-FLEXRec在紧凑骨干方法中一致取得最佳性能，在N=10指标上超越所有对比方法。尽管骨干规模约为Skyline的一半，FLEXRec在Beauty（两种骨干）和Yelp（Qwen骨干）等设置上甚至超越更大骨干的Skyline。FLEXRec的自适应融合在所有评估设置中均优于最佳单出口。与MoE变体相比，SparseToken和DynamicMoE在更稀疏的Yelp数据集上表现不佳。推理效率方面，FLEXRec仅比E4SRec增加不到1ms延迟，远低于生成式方法（如SETRec）。消融实验表明，禁用任一损失项均导致性能下降，验证了三个损失项的必要性。
+### 3. 三个路由损失：基数、均衡与数值稳定
 
-![图 1：Performance distribution (NDCG@20) of all independent exits across datasets and backbones. The red dashed line, with its exact magnitude marked in bold red on the $x$-axis, denotes the performance of FLEXRec.](/images/papers/2608.17316/figure_001_Toys-Qwen_boxplot.png)
+target-k hinge loss 是 AC-Router 区别于传统 MoE 路由的关键。它不硬性规定激活数量等于 k，而是用 Sigmoid 代理估计激活数 C，再施加不对称双侧铰链：当 C > k 时第一项产生梯度压低 logits 幅度，当 C < 1 时第二项以系数 γ 惩罚路由失败。与依赖单纯形投影和额外 MLP 预测阈值边界的连续路由方法相比，这一损失完全通过梯度塑形实现基数调节，不增加任何参数开销。
 
-*图 1 · 原图说明：Performance distribution (NDCG@20) of all independent exits across datasets and backbones. The red dashed line, with its exact magnitude marked in bold red on the $x$-axis, denotes the performance of FLEXRec.*
+负载均衡损失针对路由器塌缩问题。由于 AC-Router 产生的是连续权重而非离散排序，FLEXRec 用 Softmax 代理构造连续版本：先对每个样本的路由 logits 做 Softmax 并在 batch 内平均，再最小化该代理分布的平方和，从而鼓励各出口被均衡使用。Softmax 的归一化同时堵住了一个优化漏洞——网络无法通过把所有独立 logits 压成负数来平凡地最小化惩罚。
 
-**图示解释：** FLEXRec在紧凑骨干方法中一致取得最佳性能，在N=10指标上超越所有对比方法。
+Z-loss 在连续路由架构中承担的作用比在离散 MoE 中更关键。混合精度训练下路由 logits 容易发散到极端量级，而 target-k hinge 依赖 Sigmoid 代理，极端 logits 会导致梯度消失，使基数惩罚失效。FLEXRec 直接对原始路由 logits 施加简化的 L2 惩罚，把激活前表示约束在零附近，既保持数值稳定，也保住基数估计器所需的陡峭梯度。
 
-![图 2：Performance distribution (NDCG@20) of all independent exits across datasets and backbones. The red dashed line, with its exact magnitude marked in bold red on the $x$-axis, denotes the performance of FLEXRec.](/images/papers/2608.17316/figure_002_Toys-Llama_boxplot.png)
+### 4. 三阶段训练
 
-*图 2 · 原图说明：Performance distribution (NDCG@20) of all independent exits across datasets and backbones. The red dashed line, with its exact magnitude marked in bold red on the $x$-axis, denotes the performance of FLEXRec.*
+Stage 1 执行标准 E4SRec 微调，只训练物品 ID 投影层、LoRA 组件与最终出口 h_L，使用交叉熵损失。Stage 2 冻结投影层、LoRA 与最终出口，实例化除最后一层外的全部中间出口，逐层前向并以所有中间出口的平均交叉熵为损失，迫使每个出口独立学会把本层上下文嵌入映射为有效的物品排序分布。Stage 3 冻结全部骨干参数、投影层与所有出口，唯一可训练的是 W_z，优化目标为推荐损失（此时评分分布换为融合分布）与三个路由损失的加权和。由于出口此时已是合格的排序器，路由器的梯度纯粹反映融合策略，且这一阶段计算轻量，天然支持“一套骨干、多个 target-k 路由器”的部署方式。
 
-**图示解释：** FLEXRec在紧凑骨干方法中一致取得最佳性能，在N=10指标上超越所有对比方法。
+## 二、实验：三个数据集上的精度与效率
 
-### 消融实验
+### 1. 数据、基线、指标与实现条件
 
-传统序列模型：SASRec、BERT4Rec。LLM-based推荐器：E4SRec（静态单出口对照）、SPRec、SETRec、LLM-SRec、HUM。MoE路由替代方案：SparseToken（离散Top-k路由）、DynamicMoE（阈值动态路由）、LD-MoLE（单纯形投影连续路由）。Skyline：E4SRec使用更大骨干（Qwen 3 4B、Llama 3.1 8B）。消融实验：分别禁用L_Hinge、L_LB、L_Z三个损失项。
+| 项目 | 设置 |
+|---|---|
+| 数据集 | Toys（19,412 用户 / 11,924 物品 / 167,597 交互 / 稀疏度 99.93%）；Beauty（22,363 / 12,101 / 198,502 / 99.93%）；Yelp（30,431 / 20,033 / 316,354 / 99.95%） |
+| 预处理与划分 | 5-core 物品过滤；leave-one-out，最后一项测试、倒数第二项验证、其余训练 |
+| 传统基线 | SASRec、BERT4Rec |
+| LLM 基线 | E4SRec（静态单出口对照）、SPRec、SETRec、LLM-SRec、HUM |
+| MoE 路由替代 | SparseToken（离散 Top-k）、DynamicMoE（阈值动态）、LD-MoLE（单纯形投影连续路由） |
+| Skyline | E4SRec 换用更大骨干（Qwen 3 4B、Llama 3.1 8B） |
+| 紧凑骨干 | Qwen 3 1.7B、Llama 3.2 3B |
+| 指标 | NDCG@{10,20}、Recall@{10,20}，另记录平均用户推理时间 |
+| 硬件 | 单张 NVIDIA H100 PCIe (80GB) |
+| 关键超参 | target k=3，ξ=1e-9，ε=0.1，τ=10，γ=2；全局 batch 128，微 batch Toys/Yelp 为 32、Beauty 为 64；AdamW，余弦调度，初始学习率 3e-4 |
+| 损失权重搜索范围 | α ∈ {0.005, 0.01, 0.05, 0.1, 0.15}；β ∈ {1e-5, 1e-4, 1e-3, 1e-2, 1e-1}；λ ∈ {0.5, 1, 1.5, 2, 2.5} |
 
-## 总结
+### 2. 主结果：紧凑骨干下的精度与延迟
 
-论文提出FLEXRec，一种基于判别式LLM推荐范式的逐层出口融合框架，旨在解决紧凑LLM在序列推荐中表达能力不足的问题。
+| 骨干 | 方法 | Toys N@10 | Toys N@20 | Beauty N@10 | Beauty N@20 | Yelp N@10 | Yelp N@20 | 延迟 (ms) |
+|---|---|---|---|---|---|---|---|---|
+| Qwen | E4SRec | 0.0452 | 0.0515 | 0.0391 | 0.0470 | 0.0188 | 0.0248 | 6.89 / 7.00 / 6.98 |
+| Qwen | SparseToken | 0.0499 | 0.0561 | 0.0445 | 0.0526 | 0.0180 | 0.0239 | 7.31 / 7.40 / 7.69 |
+| Qwen | DynamicMoE | 0.0497 | 0.0560 | 0.0426 | 0.0506 | 0.0191 | 0.0251 | 7.35 / 7.37 / 7.87 |
+| Qwen | LD-MoLE | 0.0516 | 0.0578 | 0.0438 | 0.0513 | 0.0184 | 0.0242 | 7.60 / 6.63 / 6.68 |
+| Qwen | FLEXRec | 0.0521 | 0.0584 | 0.0451 | 0.0530 | 0.0207 | 0.0271 | 7.53 / 7.10 / 7.49 |
+| Qwen | Skyline（4B） | 0.0539 | 0.0616 | 0.0435 | 0.0510 | 0.0199 | 0.0260 | 9.51 / 9.49 / 9.83 |
+| Llama | E4SRec | 0.0481 | 0.0546 | 0.0470 | 0.0549 | 0.0182 | 0.0243 | 6.48 / 6.57 / 6.78 |
+| Llama | SparseToken | 0.0521 | 0.0592 | 0.0488 | 0.0563 | 0.0181 | 0.0241 | 7.31 / 8.42 / 7.55 |
+| Llama | DynamicMoE | 0.0492 | 0.0557 | 0.0476 | 0.0548 | 0.0167 | 0.0227 | 7.36 / 7.87 / 7.07 |
+| Llama | LD-MoLE | 0.0512 | 0.0581 | 0.0488 | 0.0564 | 0.0182 | 0.0247 | 7.38 / 7.51 / 7.14 |
+| Llama | FLEXRec | 0.0524 | 0.0603 | 0.0498 | 0.0574 | 0.0188 | 0.0249 | 7.43 / 8.12 / 7.31 |
+| Llama | Skyline（8B） | 0.0526 | 0.0595 | 0.0471 | 0.0556 | 0.0206 | 0.0268 | 10.66 / 10.19 / 10.84 |
+
+注：延迟列按 Toys / Beauty / Yelp 顺序给出；表中只列出与路由机制直接相关的对照，完整基线见论文表 II。
+
+从主结果看，FLEXRec 在两种紧凑骨干、三个数据集上均取得 N@10 与 N@20 的最优值。与最强的连续路由基线 LD-MoLE 相比，Qwen 骨干下 Toys N@10 从 0.0516 升至 0.0521，Beauty 从 0.0438 升至 0.0451，Yelp 从 0.0184 升至 0.0207；Llama 骨干下 Toys 从 0.0512 升至 0.0524，Beauty 从 0.0488 升至 0.0498，Yelp 从 0.0182 升至 0.0188。提升幅度不大但方向一致，说明增益来自融合策略而非某个数据集的特例。
+
+与更大骨干的 Skyline 相比，FLEXRec 在 Beauty 的两种骨干下均超过 Skyline（Qwen：0.0451 对 0.0435；Llama：0.0498 对 0.0471），在 Yelp 的 Qwen 骨干下也以 0.0207 对 0.0199 领先；但在 Toys 上两种骨干都仍低于 Skyline，Llama 骨干下的 Yelp 也以 0.0188 对 0.0206 落后。这说明逐层融合能部分补偿容量，但并未在所有场景中消除参数规模差距。
+
+MoE 替代方案的对比揭示了一个边界：SparseToken 与 DynamicMoE 在 Toys 和 Beauty 上普遍优于 E4SRec，但在更稀疏的 Yelp 上失效，Qwen 骨干下 SparseToken 的 N@10 为 0.0180、DynamicMoE 为 0.0191，均未明显超过 E4SRec 的 0.0188；Llama 骨干下两者分别为 0.0181 与 0.0167。FLEXRec 在同样稀疏的 Yelp 上仍保持 0.0207（Qwen）与 0.0188（Llama），说明连续路由加基数约束对稀疏数据更稳健。
+
+效率方面，FLEXRec 相对 E4SRec 的额外延迟在 1ms 以内：Qwen 骨干下 Toys 为 7.53 对 6.89、Beauty 为 7.10 对 7.00、Yelp 为 7.49 对 6.98；Llama 骨干下分别为 7.43 对 6.48、8.12 对 6.57、7.31 对 6.78。作为对照，生成式方法 SETRec 的延迟在百毫秒量级（Qwen 骨干下 Toys 130.94、Beauty 141.49、Yelp 139.81），SPRec 更高。这一差距来自判别式范式单次前向即可完成全语料排序，而生成式方法必须自回归解码。
+
+### 3. 融合是否优于最佳单出口
+
+![Toys 数据集上 Qwen 骨干的各独立出口 NDCG@20 分布](/images/papers/2608.17316/figure_001_Toys-Qwen_boxplot.png)
+
+这张箱线图把每个独立出口的 NDCG@20 分布画在一起，红色虚线标出 FLEXRec 的实际取值。阅读时先看箱体的离散程度：各出口之间存在明显性能差异，说明不同深度确实捕捉到不同质量的排序信号；再看红色虚线的位置——它位于分布的上方而非箱体内部，表明自适应融合的收益不是简单挑一个最好的出口就能复现。这正是论文主张“融合而非选择”的直接证据。
+
+![Toys 数据集上 Llama 骨干的各独立出口 NDCG@20 分布](/images/papers/2608.17316/figure_002_Toys-Llama_boxplot.png)
+
+换到 Llama 骨干后，出口分布的形态发生变化，但红色虚线仍高于各独立出口的集中区域。两张图并置的意义在于：融合优势不依赖特定骨干的层间表示结构，而是在两种紧凑模型上都成立。论文进一步指出，FLEXRec 的自适应融合在所有评估设置中均优于表现最好的单个出口。
+
+### 4. 消融：三个路由损失都不可省
+
+| 骨干 | 变体 | Toys N@10 | Toys N@20 | Beauty N@10 | Beauty N@20 | Yelp N@10 | Yelp N@20 |
+|---|---|---|---|---|---|---|---|
+| Qwen | Default | 0.0521 | 0.0584 | 0.0451 | 0.0530 | 0.0207 | 0.0271 |
+| Qwen | w/o L_LB | 0.0476 | 0.0540 | 0.0447 | 0.0528 | 0.0177 | 0.0235 |
+| Qwen | w/o L_Hinge | 0.0504 | 0.0564 | 0.0444 | 0.0523 | 0.0190 | 0.0249 |
+| Qwen | w/o L_Z | 0.0471 | 0.0536 | 0.0445 | 0.0523 | 0.0183 | 0.0241 |
+| Llama | Default | 0.0524 | 0.0603 | 0.0498 | 0.0574 | 0.0188 | 0.0249 |
+| Llama | w/o L_LB | 0.0486 | 0.0554 | 0.0483 | 0.0559 | 0.0170 | 0.0229 |
+| Llama | w/o L_Hinge | 0.0488 | 0.0553 | 0.0485 | 0.0561 | 0.0166 | 0.0223 |
+| Llama | w/o L_Z | 0.0513 | 0.0592 | 0.0495 | 0.0567 | 0.0169 | 0.0225 |
+
+默认设置在所有数据集与两种骨干上均为最高。去掉负载均衡损失的影响最大：Qwen 骨干下 Toys N@10 从 0.0521 降到 0.0476，Yelp 从 0.0207 降到 0.0177；Llama 骨干下 Toys 从 0.0524 降到 0.0486，Yelp 从 0.0188 降到 0.0170。去掉 Z-loss 在 Qwen 骨干的 Toys 上造成相近幅度的下降（0.0521 到 0.0471），说明数值稳定项并非可有可无的装饰。去掉 hinge 损失的降幅相对温和，但论文的出口使用统计显示，缺少它会导致路由严重不稳定——在 Qwen 骨干的 Beauty 上最大激活出口数一度升至 16，而默认配置把极端激活压回目标容量附近。换言之，hinge 损失的主要贡献是控制稀疏性与稳定性，精度下降只是其副作用之一。
+
+### 5. 超参数敏感性
+
+论文在给定范围内扫描了四个超参数。负载均衡权重 α 的最优值随数据集与骨干变化：Qwen 骨干下 Yelp 在 α=0.05 达到峰值，而 Toys 在同一取值出现明显回落；Llama 骨干下 α=0.05 则是 Toys 的最优值。target-k hinge 权重 λ 整体偏好 1，超过该点后出现边际下降，在 Qwen 的 Toys 与 Llama 的 Yelp 上尤为明显。Z-loss 权重 β=1e-3 在所有场景下达到最优或接近最优，其稳定作用在 Llama 骨干的 Beauty 上最突出：β=1e-4 时性能骤降，提高到 1e-3 后立即恢复并达到峰值。目标出口数 k 在 {1,2,3,4,5} 中扫描，k=3 在全部数据集与两种骨干上一致最优，说明融合约三个出口能在语义丰富度与冗余噪声之间取得平衡。
+
+### 6. 路由案例分析
+
+按序列长度把用户分成五组后统计平均激活出口数，可以看到骨干选择对路由行为影响很大：Llama 骨干下 FLEXRec 平均激活约 3 个出口，Qwen 骨干下约 2 个。这与 k=3 的最优设置一致，也说明路由器确实在按输入调整计算深度，而不是退化为固定融合。
+
+## 三、总结
+
+FLEXRec 的机制可以概括为三层：在架构上把 LLM 的每个 transformer 层变成独立出口，将评分分布而非隐藏表示作为融合对象；在路由上用连续 ReLU 加条件偏移生成稀疏门控，让每个序列自行决定激活哪些出口、激活多少个；在优化上用 target-k hinge、负载均衡与 Z-loss 三个损失分别控制基数、塌缩与数值稳定，并通过三阶段训练把出口预热与路由学习解耦。
+
+实验证据支持这一设计：在 Qwen 3 1.7B 与 Llama 3.2 3B 两种紧凑骨干、三个真实数据集上，FLEXRec 在 N@10 与 N@20 上均取得紧凑骨干方法中的最优值，融合结果一致优于最佳单出口，额外推理延迟控制在 1ms 以内；消融显示三个路由损失缺一不可，其中负载均衡与 Z-loss 的移除带来的精度下降最为明显。
+
+边界同样清楚。FLEXRec 在 Toys 上未能超过更大骨干的 Skyline，Llama 骨干下的 Yelp 也仍落后于 8B Skyline，说明逐层融合是部分补偿而非等价替代参数规模。超参数 α 的最优值随数据集与骨干漂移，意味着实际部署需要重新调参；target-k hinge 的收益主要体现在路由稳定性而非直接精度，评估时若只看 NDCG 容易低估它的作用。此外，实验集中在三个公开基准与两种紧凑骨干上，结论向其他模态或更大规模工业场景的迁移仍需验证。
+
+一个可迁移的设计启示是：当模型容量受限时，不必只在“换更大模型”和“加更多推理步骤”之间二选一，可以把模型内部已有的中间计算显式地组织成候选专家池，再用轻量、可微、带基数约束的路由器按输入复杂度调度。这一思路对需要在延迟预算内做全库排序的推荐 Agent 尤其直接——它把计算深度的分配从训练前的静态选择，变成了推理时的逐样本决策。
 
 ## References
 
-- Empowering Compact LLMs with Fusion of Layer-wise Exits for Recommendation：[arXiv 2608.17316](https://arxiv.org/abs/2608.17316)
-
-- [代码：GitHub](https://github.com/xurong-liang/FLEXRec)
-- [PDF源文件](/papers/2608.17316.pdf)
+- Xurong Liang, Tong Chen, Quoc Viet Hung Nguyen, Jianxin Li, Xiangliang Zhang, Hongzhi Yin. *Empowering Compact LLMs with Fusion of Layer-wise Exits for Recommendation.* arXiv:2608.17316. [arXiv](https://arxiv.org/abs/2608.17316) · [代码](https://github.com/xurong-liang/FLEXRec)
+- Xinyu Lin et al. *E4SRec: An Elegant Effective Efficient Extensible Solution of Large Language Models for Sequential Recommendation.* 判别式 LLM 推荐基座，FLEXRec 的单出口对照。
+- Jiaju Chen et al. *LLM-SRec: Bridging Language Models and Sequential Recommendation via Knowledge Distillation.* 知识蒸馏路线的代表基线。
+- Noam Shazeer et al. *Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-Experts Layer.* MoE 路由的经典起点，AC-Router 的连续路由思想来源之一。
+- Wang-Cheng Kang, Julian McAuley. *Self-Attentive Sequential Recommendation (SASRec).* 物品 ID 嵌入的预训练来源与传统序列基线。

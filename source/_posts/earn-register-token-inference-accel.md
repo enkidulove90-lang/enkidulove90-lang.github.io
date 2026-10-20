@@ -4,6 +4,9 @@ date: 2025-07-01
 year: 2025
 venue_type: 会议
 venue_name: KDD 2025
+location_type: Affiliation
+affil_city: [Beijing]
+affiliation_name: "Tsinghua University"
 categories: [推荐系统, 生成式推荐]
 tags: [论文速读, 生成式推荐, 大模型微调]
 slug: earn-register-token-inference-accel

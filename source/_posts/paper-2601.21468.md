@@ -1,5 +1,5 @@
 ---
-title: "MemOCR：面向高效长程推理的布局感知视觉记忆"
+title: "MemOCR：把长程记忆画成图，16 token 下仍保住关键证据"
 date: 2026-01-01
 year: 2026
 venue_type: "arXiv预印本"
@@ -8,59 +8,85 @@ categories: [推荐系统, 论文速递]
 tags: [论文速递]
 slug: paper-2601.21468
 arxiv_id: "2601.21468"
-description: "论文提出 MemOCR，一种多模态记忆智能体，将智能体的历史记忆从一维文本流转变为二维视觉画布，通过视觉布局实现自适应信息密度。"
+description: "MemOCR 将智能体历史从一维文本流改为二维视觉画布，用布局分配记忆预算，在 16 token 极端预算下平均准确率 62.2%，相对下降仅 16.6%。"
 ---
 
 > 论文：[arXiv 2601.21468](https://arxiv.org/abs/2601.21468) · PDF：[本地阅读](/papers/2601.21468.pdf)
 
-论文提出 MemOCR，一种多模态记忆智能体，将智能体的历史记忆从一维文本流转变为二维视觉画布，通过视觉布局实现自适应信息密度。MemOCR 包含两个阶段：文本域的记忆草稿（用 Markdown 等富文本格式标注视觉优先级）和视觉域的记忆阅读（将富文本渲染为图像，以视觉 patch token 作为记忆预算）。通过 GRPO 强化学习与预算感知训练目标，MemOCR 在极端记忆预算下仍能保持关键证据可读，在多个长上下文 QA 基准上显著优于文本记忆基线，并在 16 token 预算下实现约 8 倍的有效上下文利用率提升。
+长程智能体在持续交互中积累的历史会迅速撑爆上下文窗口，记忆管理因此成为有限预算下的分配问题：哪些过去信息值得保留、以什么形式保留、在回答时占用多少 token。主流做法把历史序列化为文本，无论是检索原始片段还是维护增量摘要，token 成本都与字数线性绑定，辅助细节和关键证据争夺同一份预算。
 
-## 研究问题
+MemOCR 的出发点是把记忆从一维 token 流搬到二维画布上。它让智能体先以富文本形式起草记忆，用标题、加粗、字号等格式显式标注视觉优先级，再由轻量渲染器编译成一张图像，以视觉 patch token 数作为记忆预算。这样，信息密度与 token 成本被解耦：关键证据可以放大、加粗、放在显眼位置，辅助细节则缩小到低优先级区域，整体预算通过调整渲染分辨率来控制。
 
-论文提出 MemOCR，一种多模态记忆智能体，将智能体的历史记忆从一维文本流转变为二维视觉画布，通过视觉布局实现自适应信息密度。MemOCR 包含两个阶段：文本域的记忆草稿（用 Markdown 等富文本格式标注视觉优先级）和视觉域的记忆阅读（将富文本渲染为图像，以视觉 patch token 作为记忆预算）。通过 GRPO 强化学习与预算感知训练目标，MemOCR 在极端记忆预算下仍能保持关键证据可读，在多个长上下文 QA 基准上显著优于文本记忆基线，并在 16 token 预算下实现约 8 倍的有效上下文利用率提升。
+这一思路并非简单地把文本转成图片。已有视觉文本压缩方法通常只做渲染，不学习内容选择与空间分配；MemOCR 的关键在于用强化学习训练布局策略，让智能体在极端压缩下仍把关键证据放在可读区域。论文在 HotpotQA、2Wiki、NQ、TriviaQA 上评估，并补充了 RAG 记忆方法对比、布局消融、训练目标消融、更大骨干模型对比和失败案例分析。
 
-## 方法：核心思路与整体框架
+需要前置说明的是，MemOCR 依赖一个视觉语言骨干（Qwen2.5-VL-7B-Instruct）和一个确定性渲染器，训练使用 GRPO 与三种预算感知任务。评估遵循 Yu et al. 的做法，将四个长上下文 QA 基准随机下采样至 128 个样本，使用 subword exact match 作为准确率，报告三次独立运行的平均分。这些条件决定了结论的适用范围：它验证的是预算受限下的记忆布局策略，而非通用长上下文能力的全面提升。
 
-MemOCR 将长程智能体记忆管理形式化为有限上下文下的预算分配问题。方法上，智能体在文本域增量维护富文本记忆（Markdown 格式），通过标题、加粗、字号等格式显式编码视觉优先级；随后轻量渲染器将富文本渲染为 2D 记忆图像，以视觉 patch token 数量作为记忆预算。训练采用 GRPO 强化学习，结合三种预算感知任务（标准 QA、增强记忆 QA、增强问题 QA），阅读行为使用任务特定优势更新，草稿行为使用聚合优势更新，从而学习在极端压缩下保持关键证据可见的布局策略。
+## 一、方法：两阶段记忆生命周期与预算感知训练
 
-![图 1：Figure 7. Case study at an extreme memory budget (16 tokens). (Left) The textual baseline fails due to hard truncation of the context. (Middle) MemOCR without layout control fails because uniform text becomes unreadable after down-sampling. (Right) MemOCR preserves the crucial evidence “Gene MacLellan” through adaptive layout, enabling correct reasoning even at low resolution.](/images/papers/2601.21468/8ded92beebf30e4c851ff408a0e4e69922a0cba01fb8b0b5c34ee0ad13d08b4a.jpg)
+MemOCR 把长程记忆管理拆成两个阶段。第一阶段是文本域的记忆草稿：智能体在每一步接收新文本块 $C_t$，增量更新一份持久化的富文本记忆 $M_t^{\mathrm{RT}}$，载体格式为 Markdown。与普通摘要不同，这份记忆不仅决定保留什么内容，还通过标题层级、缩进、加粗和字号显式编码视觉优先级。重要证据被写成高优先级结构，辅助细节被放在低优先级区域。草稿过程本身不感知运行时预算，它只产出一份带有内在显著性结构的富文本。
 
-*图 1 · 原图说明：Figure 7. Case study at an extreme memory budget (16 tokens). (Left) The textual baseline fails due to hard truncation of the context. (Middle) MemOCR without layout control fails because uniform text becomes unreadable after down-sampling. (Right) MemOCR preserves the crucial evidence “Gene MacLellan” through adaptive layout, enabling correct reasoning even at low resolution.*
+第二阶段是视觉域的记忆阅读。轻量渲染器 $\mathcal{R}$ 把最终富文本 $M_T^{\mathrm{RT}}$ 编译为二维记忆图像 $V_T$，这张图像成为回答问题时唯一的工作上下文。渲染后，记忆成本不再按文本长度计算，而按视觉 patch token 数计算。对于长度为 $L$、字号缩放为 $s$ 的文本段，其占用面积近似按 $\mathcal{O}(L \cdot s^2)$ 增长，因此放大关键证据、缩小辅助细节，就能在不增加 token 预算的前提下改变信息密度。预算控制通过下采样调整图像分辨率实现，使视觉 token 数不超过给定预算 $B$。
 
-**图示解释：** 在 10K 上下文全预算下，MemOCR 平均准确率达 74.6%，超过最强基线 MemAgent 的 67.8%。
+训练阶段的核心障碍是捷径策略：如果没有约束，智能体会把所有内容写成均匀的中等字号，让所有信息在画布上同样可见，从而绕开关键证据与辅助细节之间的取舍，自适应密度退化为均匀密度。为阻止这种退化，MemOCR 使用 GRPO，并构造三种互补的 QA 任务。标准 QA 使用原始问题和 512 token 记忆预算，保证全局正确性；增强记忆 QA 将渲染图像每个维度下采样 4 倍（像素数减少 16 倍），迫使草稿阶段给关键证据足够高的视觉优先级，使其在分辨率衰减后仍可读；增强问题 QA 针对最新记忆中的辅助细节提问，并提供未压缩图像，防止智能体把所有细节都丢弃。
 
-## 创新点
+在优化上，阅读行为按任务分别使用各自优势更新，因为三种场景需要不同的视觉推理行为；草稿行为则使用聚合优势更新，因为同一份布局要同时服务三种场景。聚合优势按预定义任务权重对三个任务的优势加权平均。这样，布局策略在极端压缩下保持关键证据可见，同时在预算充足时保留恢复细节的能力。
 
-1. 提出从一维文本记忆到二维视觉记忆的范式转变，将历史表示为图像而非 token 流，通过视觉显著性（标题、加粗、字号）实现非均匀预算分配，解耦信息密度与 token 成本。
-2. 设计两阶段记忆生命周期：文本域的记忆草稿（增量维护富文本记忆并分配视觉优先级）和视觉域的记忆阅读（轻量渲染器将富文本编译为 2D 图像，作为唯一工作上下文），并通过分辨率调整灵活控制预算。
-3. 提出预算感知的强化学习训练目标，构建标准 QA、增强记忆 QA（4× 下采样）和增强问题 QA 三种互补任务，防止智能体采用均匀中等字号的捷径策略，迫使关键证据在极端压缩下仍保持可见。
+![图 1：16 token 预算下的案例对比。左侧文本基线因上下文硬截断失败；中间无布局控制的 MemOCR 在降采样后均匀文本不可读；右侧 MemOCR 通过自适应布局保留关键证据“Gene MacLellan”，在低分辨率下仍能正确推理。](/images/papers/2601.21468/8ded92beebf30e4c851ff408a0e4e69922a0cba01fb8b0b5c34ee0ad13d08b4a.jpg)
 
-## 实验：数据、基线与结果
+这张图把三种记忆形态放在同一极端预算下对照。左侧是文本摘要基线，预算耗尽时上下文被硬截断，关键实体直接丢失；中间是去掉布局控制的 MemOCR 变体，虽然保留了视觉模态，但所有文字以均匀字号渲染，降采样后整体变成不可读的噪声；右侧是完整 MemOCR，标题和关键实体被放大加粗，降采样后仍能辨认出“Gene MacLellan”，从而支撑正确答案。它支撑的主张很直接：低预算下的鲁棒性来自布局引导的预算分配，而不仅仅是把文本换成图像。
 
-### 数据集与设置
+## 二、实验：预算收紧时的准确率与失效边界
 
-训练使用 HotpotQA，并用干扰文档填充至约 30K token。评估使用多跳 HotpotQA 和 2Wiki，以及单跳 NQ 和 TriviaQA，上下文填充至 10K/30K/100K token。由于长上下文 QA 耗时，遵循 Yu et al. 将四个基准随机下采样至 128 个样本。评估时使用固定干扰文档采样种子以保证可比性。LOCOMO 用于零样本对话记忆评估。
+实验设置如下表所示。训练使用 HotpotQA，并用干扰文档填充至约 30K token；评估覆盖多跳 HotpotQA、2Wiki 和单跳 NQ、TriviaQA，上下文填充至 10K/30K/100K token。文本基线默认使用 Qwen2.5-7B-Instruct，MemOCR 使用 Qwen2.5-VL-7B-Instruct。记忆预算 $B \in \{16, 64, 256, 1024\}$，文本基线通过截断最新记忆状态的前 $B$ 个 token 控制预算，MemOCR 通过调整渲染分辨率使视觉 patch token 数不超过 $B$。评估使用随机解码（temperature=0.7, top-p=0.95），四个基准随机下采样至 128 个样本，固定干扰文档采样种子。
 
-### Benchmark 与结果
+| 项目 | 设置 |
+|---|---|
+| 训练数据 | HotpotQA，干扰文档填充至约 30K token |
+| 评估数据 | HotpotQA、2Wiki、NQ、TriviaQA；上下文 10K/30K/100K token |
+| 评估规模 | 每个基准随机下采样至 128 个样本 |
+| 文本基线骨干 | Qwen2.5-7B-Instruct |
+| MemOCR 骨干 | Qwen2.5-VL-7B-Instruct |
+| 记忆预算 | 16 / 64 / 256 / 1024 token |
+| 文本预算控制 | 截断最新记忆状态的前 B 个 token |
+| 视觉预算控制 | 调整渲染分辨率使视觉 patch token 数不超过 B |
+| 评价指标 | subword exact match，三次运行平均 |
+| 解码参数 | temperature=0.7, top-p=0.95 |
 
-在 10K 上下文全预算下，MemOCR 平均准确率达 74.6%，超过最强基线 MemAgent 的 67.8%。在 16 token 极端预算下，MemOCR 保持 62.2% 平均准确率，仅相对下降 16.6%，而 MemAgent 从 67.8% 降至 31.6%（下降 53.3%）。在 TriviaQA 10K 上下文下，MemOCR 在 16 token 时达到 80.8%，甚至高于 1024 token 时的 79.6%。与无限存储的 RAG 方法相比，MemOCR 在 10K 上下文 B=1024 时达 74.6%，超过最佳无限预算基线 HyMem 的 56.4% 达 18.2 个百分点。跨模型迁移中，GPT-4o 读取 MemOCR 记忆在 HotpotQA 10K 下达 87.7%，超过原生 Qwen2.5-VL 的 84.8%。LOCOMO 零样本评估中，MemOCR 在所有预算下均优于 Mem-α。
+主结果方面，10K 上下文全预算下 MemOCR 平均准确率 74.6%，最强文本摘要基线 MemAgent 为 67.8%。预算收紧到 16 token 时，MemOCR 平均准确率 62.2%，相对 1024 token 设置下降 16.6%；MemAgent 从 67.8% 降至 31.6%，相对下降 53.3%。在 30K 和 100K 上下文下，MemOCR 在 1024 token 预算的平均准确率分别为 69.8% 和 66.6%，同样高于 MemAgent 的 66.7% 和 65.7%。
 
-![图 2：Figure 8. Failure Mode Analysis under Resource Constraints (16-token budget). (Top) In comparative reasoning (i.e., to choose among two candidates), while the layout successfully highlights entity headers, the body text containing crucial attributes is compressed into unreadable noise during downsampling. (Bottom) When the rich-text memory length exceeds the visual canvas capacity, the forced font scaling drops below the visual encoder’s resolution threshold, resulting in information loss.](/images/papers/2601.21468/1b434ef24e833e7fbb912a55d8efdf1100c56a17b852f0b3ddae450c8dbff5e8.jpg)
+| 方法 | 预算 | 10K 平均 | 30K 平均 | 100K 平均 | 相对 1024 下降（10K） |
+|---|---|---|---|---|---|
+| MemAgent | 1024 | 67.8 | 66.7 | 65.7 | — |
+| MemAgent | 256 | 67.3 | 65.3 | 63.9 | -0.7% |
+| MemAgent | 64 | 50.7 | 50.3 | 48.7 | -25.3% |
+| MemAgent | 16 | 31.6 | 32.3 | 27.2 | -53.3% |
+| MemOCR | 1024 | 74.6 | 69.8 | 66.6 | — |
+| MemOCR | 256 | 72.6 | 69.5 | 67.1 | -2.7% |
+| MemOCR | 64 | 67.3 | 64.7 | 60.7 | -9.8% |
+| MemOCR | 16 | 62.2 | 55.5 | 52.8 | -16.6% |
 
-*图 2 · 原图说明：Figure 8. Failure Mode Analysis under Resource Constraints (16-token budget). (Top) In comparative reasoning (i.e., to choose among two candidates), while the layout successfully highlights entity headers, the body text containing crucial attributes is compressed into unreadable noise during downsampling. (Bottom) When the rich-text memory length exceeds the visual canvas capacity, the forced font scaling drops below the visual encoder’s resolution threshold, resulting in information loss.*
+单跳任务上出现一个值得注意的例外：TriviaQA 10K 上下文下，MemOCR 在 16 token 时达到 80.8%，反而高于 1024 token 时的 79.6%。论文将其归因于单跳问题依赖原子证据，较低分辨率仍能保留关键线索并过滤背景噪声；文本基线没有出现这一现象。这说明预算并非越紧越差，关键在于证据是否被布局保留在可读区域。
 
-**图示解释：** 在 10K 上下文全预算下，MemOCR 平均准确率达 74.6%，超过最强基线 MemAgent 的 67.8%。
+与无限存储的 RAG 记忆方法相比，MemOCR 在 10K 上下文 $B=1024$ 时平均 74.6%，超过最佳无限预算基线 HyMem 的 56.4% 达 18.2 个百分点；即使 $B=64$，MemOCR 仍达 67.3%，高于所有无限预算基线。30K 上下文下，MemOCR 在 $B=256$ 时达 69.5%，最强竞争者为 59.0%。
 
-### 消融实验
+布局消融直接检验鲁棒性来源。在 HotpotQA 10K 上下文下，去掉视觉布局（保留视觉模态但移除格式线索）的变体在预算收紧时出现明显额外下降，说明 MemOCR 的低预算优势主要来自布局引导的预算分配，而非视觉模态本身。论文还报告，在极端预算下，MemOCR 在 8 token 时的准确率与基线在 64 token 时相当，对应约 8 倍的有效 token 效率提升。
 
-对比两类基线：(1) 原始历史记忆，包括 Qwen2.5-Instruct、R1-Distill Qwen、Qwen2.5-1M-Instruct；(2) 文本摘要记忆，包括 Mem0、Mem-α、MemAgent。此外还与 RAG 记忆方法（SimpleMem、LightMem、HyMem）对比。消融设置包括 MemOCR w/o Visual Layout（保留视觉模态但移除格式线索）和 w/o Layout 变体。
+训练目标消融显示，去掉全部训练信号后性能大幅下降，说明期望的布局行为不会自发出现；仅用标准 QA 训练时低预算鲁棒性最弱；加入增强问题 QA 后低预算表现改善；再加入增强记忆 QA 后低预算区间提升更大。更大骨干模型的对照进一步表明，7B 加预算感知强化学习在多数长上下文设置下匹配或超过 32B/72B 的非 RL 骨干，且在 16 token 极端预算下退化更小。
 
-## 总结
+![图 2：16 token 预算下的两类失败模式。上方比较推理中，实体标题被保留，但包含关键属性的正文在降采样后变成不可读噪声；下方富文本记忆超出画布容量时，强制缩小字号低于视觉编码器分辨率阈值，导致信息丢失。](/images/papers/2601.21468/1b434ef24e833e7fbb912a55d8efdf1100c56a17b852f0b3ddae450c8dbff5e8.jpg)
 
-论文提出 MemOCR，一种多模态记忆智能体，将智能体的历史记忆从一维文本流转变为二维视觉画布，通过视觉布局实现自适应信息密度。
+这张图给出方法边界。上方失败模式发生在比较推理中：布局成功把两个实体名渲染成标题，但用于比较的具体属性仍是正文，低分辨率下标题可读、正文塌缩成像素噪声，最终答错。下方失败模式发生在富文本记忆过长时：模型有时重复生成相同词语，渲染器被迫把字号压到视觉编码器可读阈值以下，关键日期等信息完全丢失。它支撑的主张是，布局控制能保护被显式标记的证据，但无法自动判断哪些正文属性在比较任务中同样关键，也无法在记忆长度超出画布容量时保住全部细节。
+
+## 三、总结
+
+MemOCR 的机制可以概括为：用富文本草稿显式编码视觉优先级，用渲染器把优先级转成二维画布上的空间分配，再用预算感知的 GRPO 训练阻止均匀字号捷径，使关键证据在极端压缩下仍可读。实验上，10K 上下文全预算平均 74.6%，16 token 预算下仍保持 62.2%，相对下降 16.6%，而最强文本基线 MemAgent 在同样条件下下降 53.3%；布局消融和训练目标消融分别确认了布局与多任务训练信号的贡献。
+
+边界同样清楚。评估样本下采样至 128 个，结论的统计粒度有限；方法依赖视觉语言骨干和渲染器，富文本记忆过长时会因字号低于编码器阈值而整体失效；比较推理中正文属性仍可能被压缩成噪声。一个可迁移的设计启示是：当记忆预算成为硬约束时，与其在 token 层面均匀压缩，不如把“重要性”变成一种可渲染的空间信号，让预算分配策略本身成为学习目标。
 
 ## References
 
-- MemOCR: Layout-Aware Visual Memory for Efficient Long-Horizon Reasoning：[arXiv 2601.21468](https://arxiv.org/abs/2601.21468)
-
-- [PDF源文件](/papers/2601.21468.pdf)
+- MemOCR: Layout-Aware Visual Memory for Efficient Long-Horizon Reasoning：[arXiv 2601.21468](https://arxiv.org/abs/2601.21468) · 代码：https://github.com/meituan/MemOCR
+- MemAgent: Reshaping Long-Context LLM with Multi-Conv RL-based Memory Agent（Yu et al., 2025）
+- Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory（Chhikara et al., 2025）
+- Mem-α: Learning Memory Construction via Reinforcement Learning（Wang et al., 2025）
+- HotpotQA: A Dataset for Diverse, Explainable Multi-hop Question Answering（Yang et al., 2018）

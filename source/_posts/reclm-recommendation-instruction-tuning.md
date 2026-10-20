@@ -4,6 +4,9 @@ date: 2024-12-26
 year: 2025
 venue_type: 会议
 venue_name: ACL 2025
+location_type: Affiliation
+affil_city: [Hong Kong]
+affiliation_name: "The University of Hong Kong"
 updated: 2025-06-01
 categories: [推荐系统, 生成式推荐]
 tags: [论文速读, 生成式推荐, 大模型微调, 冷启动]

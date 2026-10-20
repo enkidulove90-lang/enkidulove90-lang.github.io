@@ -1,0 +1,56 @@
+name: Migrate site content to Notion
+
+on:
+  workflow_dispatch:
+    inputs:
+      write:
+        description: "Write to Notion (leave off for inventory only)"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    env:
+      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+      NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install migration dependencies
+        run: python -m pip install --disable-pip-version-check requests Pillow
+
+      - name: Run migration unit tests
+        run: >-
+          python -m unittest
+          tests/test_notion_publish.py
+          tests/test_notion_content_migration.py
+          tests/test_notion_content_audit.py
+
+      - name: Build migration inventory
+        if: ${{ ! inputs.write }}
+        run: python tools/notion_content_migration.py
+
+      - name: Migrate articles and images
+        if: ${{ inputs.write }}
+        run: python tools/notion_content_migration.py --write
+
+      - name: Read back and audit Notion content
+        if: ${{ inputs.write }}
+        run: python tools/notion_content_audit.py
+
+      - name: Preserve migration reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: notion-content-migration-report
+          path: reports/notion-content-*.json
+          if-no-files-found: warn

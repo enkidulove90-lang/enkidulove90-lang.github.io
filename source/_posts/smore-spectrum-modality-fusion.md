@@ -4,6 +4,9 @@ date: 2024-12-19
 year: 2025
 venue_type: 会议
 venue_name: WSDM 2025
+location_type: Affiliation
+affil_city: [Singapore]
+affiliation_name: "Nanyang Technological University"
 categories: [推荐系统, 多模态推荐]
 tags: [论文速读, 多模态推荐, 图神经网络]
 slug: smore-spectrum-modality-fusion
