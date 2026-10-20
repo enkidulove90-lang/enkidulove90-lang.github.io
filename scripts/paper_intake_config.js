@@ -13,7 +13,10 @@ function normalizeApiBase(value) {
 }
 
 function buildPublicConfig(env = process.env) {
-  return { apiBase: normalizeApiBase(env.PAPER_INTAKE_API_BASE) };
+  return {
+    apiBase: normalizeApiBase(env.PAPER_INTAKE_API_BASE),
+    pdfUploadEnabled: String(env.PAPER_INTAKE_PDF_ENABLED || '').toLowerCase() === 'true'
+  };
 }
 
 if (typeof hexo !== 'undefined') {

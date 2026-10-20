@@ -25,7 +25,10 @@ test('public config exposes only the gateway base URL', () => {
     WORKER_MACHINE_TOKEN: 'must-not-leak-either'
   });
 
-  assert.deepEqual(config, { apiBase: 'https://papers-api.example.workers.dev' });
+  assert.deepEqual(config, {
+    apiBase: 'https://papers-api.example.workers.dev',
+    pdfUploadEnabled: false
+  });
   assert.doesNotMatch(JSON.stringify(config), /token|secret|must-not-leak/i);
 });
 
@@ -61,7 +64,8 @@ test('navigation entry opens one modal with URL and PDF submission modes', () =>
   const app = mountPaperIntake({
     window: dom.window,
     document: dom.window.document,
-    api: { listJobs: async () => [] }
+    api: { listJobs: async () => [] },
+    pdfUploadEnabled: true
   });
 
   const entries = dom.window.document.querySelectorAll('.paper-intake-entry');
@@ -70,6 +74,23 @@ test('navigation entry opens one modal with URL and PDF submission modes', () =>
   assert.equal(app.modal.getAttribute('aria-hidden'), 'false');
   assert.ok(app.modal.querySelector('input[name="paper_url"]'));
   assert.ok(app.modal.querySelector('input[name="paper_pdf"][type="file"]'));
+
+  app.destroy();
+});
+
+test('URL-only deployment hides the unavailable PDF submission mode', () => {
+  const dom = createDom();
+  const app = mountPaperIntake({
+    window: dom.window,
+    document: dom.window.document,
+    api: { listJobs: async () => [] },
+    pdfUploadEnabled: false
+  });
+
+  assert.equal(app.modal.querySelector('[data-mode="pdf"]').hidden, true);
+  assert.equal(app.modal.querySelector('[data-form="pdf"]').hidden, true);
+  assert.match(app.modal.querySelector('.paper-intake-lead').textContent, /链接/);
+  assert.doesNotMatch(app.modal.querySelector('.paper-intake-lead').textContent, /PDF/);
 
   app.destroy();
 });

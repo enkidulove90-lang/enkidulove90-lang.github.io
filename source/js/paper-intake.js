@@ -139,7 +139,7 @@
     return entries;
   }
 
-  function buildModal(doc) {
+  function buildModal(doc, pdfUploadEnabled) {
     const overlay = element(doc, 'div', 'paper-intake-modal');
     overlay.id = 'paper-intake-modal';
     overlay.setAttribute('aria-hidden', 'true');
@@ -178,6 +178,11 @@
         <p class="paper-intake-notice" data-notice role="status" aria-live="polite"></p>
       </section>`;
     doc.body.append(overlay);
+    if (!pdfUploadEnabled) {
+      overlay.querySelector('.paper-intake-lead').textContent = '提交公开论文链接。系统会自动解析、撰写、分类并发布到本站。';
+      overlay.querySelector('[data-mode="pdf"]').hidden = true;
+      overlay.querySelector('[data-form="pdf"]').hidden = true;
+    }
     return overlay;
   }
 
@@ -213,7 +218,7 @@
     const doc = options.document;
     const api = options.api;
     const hoverCloseDelay = Number(options.hoverCloseDelay == null ? 320 : options.hoverCloseDelay);
-    const modal = buildModal(doc);
+    const modal = buildModal(doc, options.pdfUploadEnabled === true);
     const drawer = buildDrawer(doc);
     const tab = drawer.querySelector('.paper-task-tab');
     const panel = drawer.querySelector('.paper-task-panel');
@@ -421,7 +426,12 @@
     if (!response.ok) throw new Error('论文收录配置加载失败。');
     const config = await response.json();
     const api = createPaperIntakeApi({ apiBase: config.apiBase, window: win });
-    return mountPaperIntake({ window: win, document: win.document, api });
+    return mountPaperIntake({
+      window: win,
+      document: win.document,
+      api,
+      pdfUploadEnabled: config.pdfUploadEnabled === true
+    });
   }
 
   return { SESSION_KEY, bootPaperIntake, createPaperIntakeApi, mapJobGroup, mountPaperIntake, normalizeJob };
