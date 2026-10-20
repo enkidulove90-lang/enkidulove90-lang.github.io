@@ -172,6 +172,18 @@ class PaperPipelineTest(unittest.TestCase):
 
         self.assertIn('title: "Hello Rec: 我和推荐系统的故事"', markdown)
 
+    def test_notion_slug_is_the_canonical_post_filename(self):
+        page = {
+            "id": "3ff59581-ebdd-818c-bf08-e804cd52aeb9",
+            "created_time": "2026-10-20T00:00:00Z",
+            "properties": {
+                "title": {"title": [{"plain_text": "离线指标之外：真实工业推荐系统究竟在优化什么"}]},
+                "slug": {"rich_text": [{"plain_text": "paper-2509.06002"}]},
+            },
+        }
+
+        self.assertEqual(notion_sync.page_slug(page), "paper-2509.06002")
+
     def test_empty_notion_body_does_not_overwrite_existing_essay(self):
         destination = self.root / "hello-rec.md"
         existing = "---\ntitle: Hello, Rec\n---\n\n我永远喜欢推荐系统。\n"

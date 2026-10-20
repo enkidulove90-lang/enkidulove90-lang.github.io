@@ -80,6 +80,16 @@ def slugify(title, page_id):
     return (s or "post") + "-" + page_id.replace("-", "")[:8]
 
 
+def page_slug(page):
+    """Use the curated Notion slug as the canonical post filename."""
+    props = page["properties"]
+    title = plain((props.get("title") or props.get("Title") or {}).get("title", []))
+    configured = plain((props.get("slug") or {}).get("rich_text", [])).strip()
+    if configured and re.fullmatch(r"[A-Za-z0-9._-]+", configured):
+        return configured
+    return slugify(title, page["id"])
+
+
 def download_to(url, name, destination, public_prefix):
     """下载 Notion 临时文件到稳定的站点目录。"""
     os.makedirs(destination, exist_ok=True)
@@ -190,7 +200,7 @@ def page_to_md(page):
     tags = [t.get("name", "") for t in (props.get("tags") or {}).get("multi_select", [])]
     sel = (props.get("category") or {}).get("select") or {}
     category = sel.get("name") or "未分类"
-    slug = plain((props.get("slug") or {}).get("rich_text", [])) or slugify(title, page["id"])
+    slug = page_slug(page)
     summary = plain((props.get("summary") or {}).get("rich_text", []))
     date = ((props.get("date") or {}).get("date") or {}).get("start") or page["created_time"][:10]
 
@@ -280,7 +290,7 @@ def main():
             try:
                 md = page_to_md(page)
                 title = re.search(r"title: (.+)", md).group(1)
-                fn = slugify(title, pid) + ".md"
+                fn = page_slug(page) + ".md"
                 destination = os.path.join(POSTS, fn)
                 md = preserve_existing_post_when_remote_body_is_empty(md, destination)
                 open(destination, "w", encoding="utf-8").write(md)
