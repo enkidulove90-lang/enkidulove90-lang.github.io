@@ -33,4 +33,5 @@ test('repository dispatch syncs only its Notion page and persists the incrementa
   assert.match(yaml, /git push origin HEAD:source/);
   assert.match(yaml, /rebuild_site\(\)/);
   assert.match(yaml, /public\/article\/\$TARGET_SLUG\/index\.html/);
+  assert.match(yaml, /force_orphan:\s*false/);
 });
