@@ -4,11 +4,11 @@ title: "别把视频当两路特征：VRAgent-R1 用两个智能体拆开「看�
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
 venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
 categories: [推荐系统, 多模态推荐]
 

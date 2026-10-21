@@ -4,11 +4,11 @@ title: "AstaBench：用可控文献环境与成本感知排行榜严格评测科
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
 venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
 categories: [推荐系统, 论文速递]
 

@@ -4,11 +4,11 @@ title: "LLM增强的推荐去噪框架"
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
-venue_type: arXiv预印本
+venue_type: 会议
 
-venue_name: ""
+venue_name: WWW 2025
 
 categories: [推荐系统, 基础推荐算法]
 

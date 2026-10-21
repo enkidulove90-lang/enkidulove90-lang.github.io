@@ -4,11 +4,11 @@ title: "模态噪声会在融合时被放大：SMORE 把融合搬到频域"
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
-venue_type: arXiv预印本
+venue_type: 会议
 
-venue_name: ""
+venue_name: WSDM 2025
 
 categories: [推荐系统, 多模态推荐]
 

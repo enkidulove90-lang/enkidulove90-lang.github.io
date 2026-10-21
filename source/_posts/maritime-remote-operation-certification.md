@@ -4,11 +4,11 @@ title: "海上远程操作中心高效认证方法"
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
-venue_type: arXiv预印本
+venue_type: 期刊
 
-venue_name: ""
+venue_name: Automatisierungstechnik
 
 categories: [跨学科与基础]
 

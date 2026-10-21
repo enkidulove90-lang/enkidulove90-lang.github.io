@@ -4,11 +4,11 @@ title: "对比视图不必靠随机扰动：LightGCL 用 SVD 抽取图的谱结�
 
 date: 2026-10-19
 
-year: 2026
+year: 2023
 
-venue_type: arXiv预印本
+venue_type: 会议
 
-venue_name: ""
+venue_name: ICLR 2023
 
 categories: [推荐系统, 图对比学习]
 

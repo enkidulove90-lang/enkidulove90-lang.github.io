@@ -4,11 +4,11 @@ title: "BPE 子词级嵌入初始化：用冻结 LLM 破解冷启动推荐"
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
 venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
 categories: [推荐系统, 论文速递]
 

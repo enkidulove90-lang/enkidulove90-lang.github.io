@@ -4,11 +4,11 @@ title: "离线指标之外：真实工业推荐系统究竟在优化什么"
 
 date: 2026-10-20
 
-year: 2026
+year: 2025
 
 venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
 categories: [推荐系统, 论文速递]
 

@@ -4,11 +4,11 @@ title: "从特征到智能体：FM4RecSys 三范式综述如何重新划分推�
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
 venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
 categories: [推荐系统, 论文速递]
 

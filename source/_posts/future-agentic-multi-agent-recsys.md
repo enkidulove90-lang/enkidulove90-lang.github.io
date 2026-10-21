@@ -4,11 +4,11 @@ title: "多智能体推荐系统的未来"
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
 venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
 categories: [推荐系统, 基础推荐算法]
 

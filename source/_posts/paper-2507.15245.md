@@ -4,11 +4,11 @@ title: "SPAR：用五个智能体与单层引用链重构学术检索，F1 最�
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
 venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
 categories: [推荐系统, 论文速递]
 

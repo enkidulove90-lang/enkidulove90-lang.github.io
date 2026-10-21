@@ -6,9 +6,9 @@ date: 2026-10-19
 
 year: 2026
 
-venue_type: arXiv预印本
+venue_type: 期刊
 
-venue_name: ""
+venue_name: ACM TORS
 
 categories: [推荐系统, 多模态推荐]
 

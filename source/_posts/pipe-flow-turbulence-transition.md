@@ -4,11 +4,11 @@ title: "管道流简化随机模型中湍流转变概率"
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
-venue_type: arXiv预印本
+venue_type: 期刊
 
-venue_name: ""
+venue_name: New Journal of Physics
 
 categories: [跨学科与基础]
 

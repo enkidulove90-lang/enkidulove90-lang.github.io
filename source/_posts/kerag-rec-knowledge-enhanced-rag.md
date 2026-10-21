@@ -4,11 +4,11 @@ title: "知识图谱塞进 LLM 塞多少才合适：KERAG_R 的检索-选择-格
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
 venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
 categories: [推荐系统, 知识图谱]
 

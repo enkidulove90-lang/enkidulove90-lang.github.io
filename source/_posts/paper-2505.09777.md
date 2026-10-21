@@ -4,11 +4,11 @@ title: "LLM 如何重塑多模态推荐：一篇以提示、训练与数据适�
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
 venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
 categories: [推荐系统, 论文速递]
 

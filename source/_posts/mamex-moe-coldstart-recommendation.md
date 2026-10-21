@@ -4,11 +4,11 @@ title: "冷启动里的模态融合：MAMEX 用两级混合专家替代固定加
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
-venue_type: arXiv预印本
+venue_type: 会议
 
-venue_name: ""
+venue_name: ACM 会议
 
 categories: [推荐系统, 多模态推荐]
 

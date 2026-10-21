@@ -4,11 +4,11 @@ title: "面向大语言模型生成式推荐的从个体兴趣到群体兴趣的
 
 date: "2026-10-21"
 
-year: "2026"
+year: 2026
 
-venue_type: "arxiv预印本"
+venue_type: 会议
 
-venue_name: "WWW'26 (The ACM Web Conference 2026)"
+venue_name: WWW 2026
 
 categories: ["推荐系统", "生成式推荐"]
 

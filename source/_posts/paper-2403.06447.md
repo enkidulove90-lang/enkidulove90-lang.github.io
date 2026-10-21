@@ -4,11 +4,11 @@ title: "CoRAL：用协同检索对齐LLM推理，破解长尾推荐"
 
 date: 2026-10-19
 
-year: 2026
+year: 2024
 
 venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
 categories: [推荐系统, 论文速递]
 

@@ -4,11 +4,11 @@ title: "VISTA：两阶段注意力把百万级用户历史压进缓存，推理G
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
 venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
 categories: [推荐系统, 论文速递]
 

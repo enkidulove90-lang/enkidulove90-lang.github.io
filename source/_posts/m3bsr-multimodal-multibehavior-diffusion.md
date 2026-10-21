@@ -4,11 +4,11 @@ title: "多模态多行为序列推荐：用条件扩散同时去掉行为噪声
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
-venue_type: arXiv预印本
+venue_type: 会议
 
-venue_name: ""
+venue_name: SIGIR 2025
 
 categories: [推荐系统, 多模态推荐]
 

@@ -4,11 +4,11 @@ title: "冷启动的四条路线：内容、图、跨域、语言模型该怎么
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
 venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
 categories: [推荐系统, 冷启动]
 

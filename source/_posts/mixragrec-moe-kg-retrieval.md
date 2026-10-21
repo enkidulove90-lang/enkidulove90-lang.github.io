@@ -6,9 +6,9 @@ date: 2026-10-19
 
 year: 2026
 
-venue_type: arXiv预印本
+venue_type: 会议
 
-venue_name: ""
+venue_name: KDD 2026
 
 categories: [推荐系统, 知识图谱]
 

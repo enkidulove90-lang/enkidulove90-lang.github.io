@@ -4,11 +4,11 @@ title: "压缩 KV Cache 为什么在推荐上失效：EARN 的 register token"
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
-venue_type: arXiv预印本
+venue_type: 会议
 
-venue_name: ""
+venue_name: KDD 2025
 
 categories: [推荐系统, 生成式推荐]
 

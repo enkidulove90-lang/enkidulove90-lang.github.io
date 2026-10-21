@@ -4,11 +4,11 @@ title: "模态偏好不均的稀疏场景：MMSSL 的多模态自监督学习"
 
 date: 2026-10-19
 
-year: 2026
+year: 2023
 
-venue_type: arXiv预印本
+venue_type: 会议
 
-venue_name: ""
+venue_name: WWW 2023
 
 categories: [推荐系统, 多模态推荐]
 

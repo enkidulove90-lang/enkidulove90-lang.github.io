@@ -4,11 +4,11 @@ title: "用户侧画像比物品侧更值钱：RecLM 的推荐指令微调"
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
-venue_type: arXiv预印本
+venue_type: 会议
 
-venue_name: ""
+venue_name: ACL 2025
 
 categories: [推荐系统, 生成式推荐]
 

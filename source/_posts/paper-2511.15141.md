@@ -4,11 +4,11 @@ title: "ItemRAG：把 RAG 的检索粒度从用户降到物品，让 LLM 推荐�
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
 venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
 categories: [推荐系统, 论文速递]
 

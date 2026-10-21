@@ -4,11 +4,11 @@ title: "Interact-RAG：把检索黑盒拆成可操纵的交互原语"
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
 venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
 categories: [推荐系统, 论文速递]
 

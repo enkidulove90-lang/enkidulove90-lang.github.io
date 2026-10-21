@@ -4,11 +4,11 @@ title: "论文推荐系统现状：63 篇论文统计出的四个真相"
 
 date: 2026-10-19
 
-year: 2026
+year: 2025
 
-venue_type: arXiv预印本
+venue_type: 期刊
 
-venue_name: ""
+venue_name: Applied Sciences
 
 categories: [AI, 学术检索]
 
