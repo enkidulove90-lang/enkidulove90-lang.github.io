@@ -15,7 +15,10 @@ test('homepage exposes a Butterfly-style domain, year, and venue filter above th
   assert.match(script, /data-home-dim="domain"/);
   assert.match(script, /data-home-dim="year"/);
   assert.match(script, /data-home-dim="venue"/);
-  assert.match(script, /insertBefore\(toolbar,\s*originalList\)/);
+  assert.match(script, /originalList\.insertBefore\(toolbar,\s*originalList\.firstChild\)/);
+  assert.doesNotMatch(script, /originalList\.parentNode\.insertBefore\(toolbar/);
+  assert.match(script, /embedded:\s*true/);
+  assert.match(css, /#recent-posts\.md-filtering/);
   assert.match(css, /\.md-home-filter/);
 });
 
