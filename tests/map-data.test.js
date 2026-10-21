@@ -78,9 +78,10 @@ test('map page opens as a full color map with a transparent floating legend', ()
   assert.match(page, /class="map-detail"[^>]*aria-hidden="true"/);
   assert.match(script, /map_data\.json/);
   assert.match(script, /meta\.enabled/);
-  assert.doesNotMatch(script, /World_Physical_Map\/MapServer\/tile/);
-  assert.match(script, /primary:\s*\{[\s\S]*World_Topo_Map/);
-  assert.match(script, /fallback:\s*\{[\s\S]*tile\.openstreetmap\.org/);
+  assert.match(script, /World_Physical_Map\/MapServer\/tile/);
+  assert.match(script, /Reference\/World_Boundaries_and_Places\/MapServer\/tile/);
+  assert.match(script, /World_Topo_Map\/MapServer\/tile/);
+  assert.match(script, /tile\.openstreetmap\.org/);
   assert.match(script, /__PAPER_MAP_CONFIG__/);
   assert.match(script, /function useFallback/);
   assert.match(script, /openstreetmap\.org\/copyright/);
@@ -116,7 +117,8 @@ test('the primary color basemap does not depend on a browser API key', () => {
   assert.equal(fs.existsSync(generatorPath), true);
   assert.match(page, /\/js\/map-carto-config\.js["']/);
   assert.doesNotMatch(script, /\?key=/);
-  assert.match(script, /World_Topo_Map/);
+  assert.match(script, /World_Physical_Map/);
+  assert.match(script, /World_Boundaries_and_Places/);
   assert.doesNotMatch(script, /basemaps\.cartocdn\.com/);
   assert.doesNotMatch(page + script, /cb1_[A-Za-z0-9_]+/);
 });
@@ -353,11 +355,15 @@ test('map data uses a one-hour local cache with stale fallback', () => {
   }
 });
 
-test('the colorful world topographic map is primary and fallback waits for three tile errors', () => {
+test('the vivid physical map keeps a reference overlay and uses staged keyless fallbacks', () => {
   const script = fs.readFileSync(path.join(__dirname, '../source/js/paper-map.js'), 'utf8');
-  assert.match(script, /primary:\s*\{[\s\S]*World_Topo_Map/i);
-  assert.match(script, /fallback:\s*\{[\s\S]*openstreetmap/i);
+  assert.match(script, /id:\s*'physical'[\s\S]*World_Physical_Map/i);
+  assert.match(script, /id:\s*'topographic'[\s\S]*World_Topo_Map/i);
+  assert.match(script, /id:\s*'osm'[\s\S]*openstreetmap/i);
+  assert.match(script, /World_Boundaries_and_Places/i);
+  assert.match(script, /maxNativeZoom:\s*8/);
   assert.match(script, /tileErrorCount\s*>=\s*3/);
+  assert.match(script, /basemapIndex\s*\+=\s*1/);
 });
 
 test('map copy explains the marker meaning instead of using the generic encounter slogan', () => {
