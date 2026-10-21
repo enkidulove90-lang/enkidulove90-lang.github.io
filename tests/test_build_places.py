@@ -147,6 +147,25 @@ class BuildPlacesTests(unittest.TestCase):
             "/images/map/la-jolla-4.jpg",
         ])
 
+    def test_unknown_city_copy_describes_an_academic_location_without_generic_slogan(self):
+        presentation = build_places.city_presentation("Bari", {"cities": {}})
+
+        self.assertIn("学术地点", presentation["description"])
+        self.assertNotIn("论文、机构与城市在这里相遇", presentation["description"])
+
+    def test_local_gallery_prefers_webp_and_discovers_numbered_images(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            image_dir = root / "source" / "images" / "map"
+            image_dir.mkdir(parents=True)
+            (image_dir / "bari.webp").write_bytes(b"webp-one")
+            (image_dir / "bari-2.webp").write_bytes(b"webp-two")
+            (image_dir / "bari.jpg").write_bytes(b"jpg-one")
+
+            result = build_places.local_gallery_urls("bari", root)
+
+            self.assertEqual(result, ["/images/map/bari.webp", "/images/map/bari-2.webp"])
+
     def test_local_gallery_deduplicates_identical_file_content(self):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)

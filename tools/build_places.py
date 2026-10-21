@@ -105,12 +105,12 @@ def select_coordinates(record: dict, city: str, dictionaries: dict, cached: dict
 
 def city_description(city: str, dictionaries: dict) -> str:
     value = dictionaries.get("cities", {}).get(normalized_name(city), {})
-    return str(value.get("description") or f"{city}：论文、机构与城市在这里相遇。")
+    return str(value.get("description") or f"{city} 的学术地点，展示与此地直接相关的论文与研究机构。")
 
 
 def city_presentation(city: str, dictionaries: dict, image_count: int = 0) -> dict:
     value = dictionaries.get("cities", {}).get(normalized_name(city), {})
-    description = str(value.get("description") or f"{city}：论文、机构与城市在这里相遇。")
+    description = str(value.get("description") or f"{city} 的学术地点，展示与此地直接相关的论文与研究机构。")
     images = [str(item) for item in value.get("city_images", []) if str(item).startswith("/images/map/")]
     target_count = max(image_count, len(images))
     if target_count and len(images) < target_count:
@@ -312,6 +312,20 @@ def unique_local_images(paths: list[pathlib.Path]) -> list[pathlib.Path]:
     return unique
 
 
+def local_gallery_urls(place_slug: str, root: pathlib.Path = ROOT) -> list[str]:
+    image_dir = root / "source" / "images" / "map"
+    webp_candidates = [*image_dir.glob(f"{place_slug}.webp"), *image_dir.glob(f"{place_slug}-*.webp")]
+    if webp_candidates:
+        webp_candidates.sort(key=lambda path: (path.stem != place_slug, path.name))
+        return ["/images/map/" + path.name for path in unique_local_images(webp_candidates)]
+    candidates = []
+    for extension in ("webp", "avif", "jpg", "jpeg", "png"):
+        candidates.extend(image_dir.glob(f"{place_slug}.{extension}"))
+        candidates.extend(image_dir.glob(f"{place_slug}-*.{extension}"))
+    candidates.sort(key=lambda path: (path.suffix.lower() != ".webp", path.name))
+    return ["/images/map/" + path.name for path in unique_local_images(candidates)]
+
+
 def load_location_records(dictionaries: dict | None = None) -> list[dict]:
     dictionaries = dictionaries or load_dictionaries()
     overrides = load_affiliation_overrides()
@@ -396,7 +410,10 @@ def build_places(dry_run: bool = False, resolve_missing: bool = False, refresh_g
                     if refresh_gallery or not target.exists():
                         download_image(session, image_url, target)
                 time.sleep(1.1)
-        candidate_images = list(dict.fromkeys([image, *presentation["city_images"]]))
+        local_gallery = list(dict.fromkeys([
+            *local_gallery_urls(place_id), *local_gallery_urls(slugify_city(record["city"]))
+        ]))
+        candidate_images = list(dict.fromkeys([image, *(local_gallery or presentation["city_images"])]))
         candidate_paths = [ROOT / "source" / item.lstrip("/").replace("/", os.sep) for item in candidate_images]
         unique_paths = unique_local_images(candidate_paths)
         city_images = ["/" + path.relative_to(ROOT / "source").as_posix() for path in unique_paths]

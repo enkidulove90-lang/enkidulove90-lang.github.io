@@ -11,7 +11,7 @@
   var hoverCard = document.getElementById('map-hover-card');
   var hoverImage = document.getElementById('map-hover-image');
   var hoverText = document.getElementById('map-hover-text');
-  var runtimeConfig = window.__PAPER_MAP_CONFIG__ || {};
+  var runtimeConfig = window.__PAPER_MAP_CONFIG__ || {}; // Backward compatibility; public tiles need no key.
   var carouselTimer = null;
   var hoverHideTimer = null;
   var activeHoverPlace = null;
@@ -61,34 +61,72 @@
   }
 
   function createCarousel(place) {
-    var images = Array.from(new Set((place.city_images || [place.image]).filter(Boolean)));
+    var images = Array.from(new Set([place.image].concat(place.city_images || []).filter(Boolean)));
     var frame = document.createElement('figure');
     var image = document.createElement('img');
     var count = document.createElement('figcaption');
     var active = 0;
+    var loading = false;
+    var failed = {};
     frame.className = 'map-place-carousel';
-    image.src = images[0] || place.image;
     image.alt = place.name + '城市图景';
     image.decoding = 'async';
     count.className = 'map-place-carousel__count';
     count.textContent = '1 / ' + Math.max(images.length, 1);
     frame.append(image, count);
+
+    function loadNextCarouselImage(requestedIndex) {
+      if (loading || !images.length) return;
+      var attempts = 0;
+      var next = requestedIndex;
+      while (attempts < images.length && failed[images[next]]) {
+        next = (next + 1) % images.length;
+        attempts += 1;
+      }
+      if (attempts >= images.length) return;
+      loading = true;
+      var nextImage = new Image();
+      nextImage.decoding = 'async';
+      nextImage.onload = function () {
+        loading = false;
+        active = next;
+        image.classList.add('is-switching');
+        image.src = nextImage.src;
+        count.textContent = (active + 1) + ' / ' + images.length;
+        requestAnimationFrame(function () { image.classList.remove('is-switching'); });
+      };
+      nextImage.onerror = function () {
+        loading = false;
+        failed[images[next]] = true;
+        loadNextCarouselImage((next + 1) % images.length);
+      };
+      nextImage.src = images[next];
+    }
+
+    image.onerror = function () {
+      failed[images[active]] = true;
+      loadNextCarouselImage((active + 1) % images.length);
+    };
+    loadNextCarouselImage(0);
     if (images.length > 1) {
       carouselTimer = setInterval(function () {
-        var next = (active + 1) % images.length;
-        var nextImage = new Image();
-        nextImage.decoding = 'async';
-        nextImage.onload = function () {
-          active = next;
-          image.classList.add('is-switching');
-          image.src = nextImage.src;
-          count.textContent = (active + 1) + ' / ' + images.length;
-          requestAnimationFrame(function () { image.classList.remove('is-switching'); });
-        };
-        nextImage.src = images[next];
+        loadNextCarouselImage((active + 1) % images.length);
       }, 1000);
     }
     return frame;
+  }
+
+  function semanticPlaceCopy(place, papers) {
+    var meaning = LOCATION_META[place.location_type] || LOCATION_META.affiliation;
+    var raw = String(place.description || '');
+    var generic = !raw || /论文.*机构.*城市.*相遇|研究发生之地/.test(raw);
+    return {
+      title: place.name + ' · ' + meaning.label,
+      description: generic
+        ? meaning.label + '标记，收录 ' + papers.length + ' 篇与此地直接相关的论文。'
+        : raw,
+      hover: place.name + ' · ' + meaning.label + ' · ' + papers.length + ' 篇论文'
+    };
   }
 
   function createInstitutionList(institutions) {
@@ -113,9 +151,10 @@
     var description = document.createElement('p');
     card.className = 'map-place-card';
     body.className = 'map-place-card__body';
-    title.textContent = place.name + '：' + (CITY_TAGLINES[place.name] || '研究发生之地');
+    var copy = semanticPlaceCopy(place, papers);
+    title.textContent = copy.title;
     description.className = 'map-place-card__description';
-    description.textContent = place.description || '';
+    description.textContent = copy.description;
     body.append(title, description);
     if ((place.institutions || []).length) body.appendChild(createInstitutionList(place.institutions));
     body.appendChild(createPaperList(papers));
@@ -145,7 +184,7 @@
     var top = Math.max(14, originalEvent.clientY - stage.top - 112);
     hoverImage.src = place.hover_image || place.image;
     hoverImage.alt = place.name + '城市图景';
-    hoverText.textContent = place.hover_text || place.description || place.name;
+    hoverText.textContent = semanticPlaceCopy(place, activeHoverPapers || []).hover;
     hoverCard.style.transform = 'translate3d(' + Math.max(14, left) + 'px,' + top + 'px,0) scale(1)';
     hoverCard.classList.add('is-visible');
     hoverCard.setAttribute('aria-hidden', 'false');
@@ -168,19 +207,18 @@
     var map = L.map('paper-map', { zoomControl: true, worldCopyJump: true, minZoom: 2 }).setView([25, 15], 2);
     var BASEMAPS = {
       primary: {
-        url: 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png' +
-          (runtimeConfig.cartoApiKey ? '?key=' + encodeURIComponent(runtimeConfig.cartoApiKey) : ''),
-        maxZoom: 20
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+        maxZoom: 19
       },
-      fallback: { url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', maxZoom: 17 }
+      fallback: { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', maxZoom: 19 }
     };
     var osmAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-    var cartoAttribution = osmAttribution + ', &copy; <a href="https://carto.com/attribution/">CARTO</a>';
-    var topoAttribution = 'Map data ' + osmAttribution + ' · Map style &copy; OpenTopoMap';
+    var esriAttribution = 'Tiles &copy; Esri — Sources: Esri, HERE, Garmin, FAO, NOAA, USGS, OpenStreetMap contributors';
+    var fallbackAttribution = osmAttribution;
     var tileMode = 'primary';
     var tileErrorCount = 0;
     var tiles = L.tileLayer(BASEMAPS.primary.url, {
-      maxZoom: BASEMAPS.primary.maxZoom, attribution: cartoAttribution,
+      maxZoom: BASEMAPS.primary.maxZoom, attribution: esriAttribution,
       updateWhenIdle: true, keepBuffer: 2
     });
 
@@ -195,7 +233,7 @@
       tileMode = 'fallback';
       tileErrorCount = 0;
       tiles = L.tileLayer(BASEMAPS.fallback.url, {
-        maxZoom: BASEMAPS.fallback.maxZoom, attribution: topoAttribution,
+        maxZoom: BASEMAPS.fallback.maxZoom, attribution: fallbackAttribution,
         updateWhenIdle: true, keepBuffer: 2
       });
       tiles.on('tileerror', useFallback);

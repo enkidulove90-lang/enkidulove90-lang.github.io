@@ -6,6 +6,26 @@ const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 
+test('homepage exposes a Butterfly-style domain, year, and venue filter above the first article', () => {
+  const script = fs.readFileSync(path.join(root, 'source/js/multidim-filter.js'), 'utf8');
+  const css = fs.readFileSync(path.join(root, 'source/css/filter.css'), 'utf8');
+
+  assert.match(script, /function buildHomeToolbar/);
+  assert.match(script, /md-home-filter/);
+  assert.match(script, /data-home-dim="domain"/);
+  assert.match(script, /data-home-dim="year"/);
+  assert.match(script, /data-home-dim="venue"/);
+  assert.match(script, /insertBefore\(toolbar,\s*originalList\)/);
+  assert.match(css, /\.md-home-filter/);
+});
+
+test('Butterfly author card uses the requested local avatar asset', () => {
+  const config = fs.readFileSync(path.join(root, '_config.butterfly.yml'), 'utf8');
+  const avatar = path.join(root, 'source/img/avatar-kurisu.jpg');
+  assert.match(config, /avatar:[\s\S]*img:\s*\/img\/avatar-kurisu\.jpg/);
+  assert.equal(fs.existsSync(avatar), true);
+});
+
 function createElement(registry) {
   const element = {
     className: '',

@@ -79,8 +79,8 @@ test('map page opens as a full color map with a transparent floating legend', ()
   assert.match(script, /map_data\.json/);
   assert.match(script, /meta\.enabled/);
   assert.doesNotMatch(script, /World_Physical_Map\/MapServer\/tile/);
-  assert.match(script, /tile\.opentopomap\.org/);
-  assert.match(script, /basemaps\.cartocdn\.com\/rastertiles\/voyager/);
+  assert.match(script, /primary:\s*\{[\s\S]*World_Topo_Map/);
+  assert.match(script, /fallback:\s*\{[\s\S]*tile\.openstreetmap\.org/);
   assert.match(script, /__PAPER_MAP_CONFIG__/);
   assert.match(script, /function useFallback/);
   assert.match(script, /openstreetmap\.org\/copyright/);
@@ -107,7 +107,7 @@ test('map page opens as a full color map with a transparent floating legend', ()
   assert.match(css, /font-family:\s*SimSun/);
 });
 
-test('CARTO key is injected at build time without committing it to map source', () => {
+test('the primary color basemap does not depend on a browser API key', () => {
   const root = path.resolve(__dirname, '..');
   const generatorPath = path.join(root, 'scripts/map_carto_config.js');
   const page = fs.readFileSync(path.join(root, 'source/map/index.md'), 'utf8');
@@ -115,8 +115,9 @@ test('CARTO key is injected at build time without committing it to map source', 
 
   assert.equal(fs.existsSync(generatorPath), true);
   assert.match(page, /\/js\/map-carto-config\.js["']/);
-  assert.match(script, /\?key=/);
-  assert.match(script, /OpenStreetMap[\s\S]+CARTO/);
+  assert.doesNotMatch(script, /\?key=/);
+  assert.match(script, /World_Topo_Map/);
+  assert.doesNotMatch(script, /basemaps\.cartocdn\.com/);
   assert.doesNotMatch(page + script, /cb1_[A-Za-z0-9_]+/);
 });
 
@@ -194,6 +195,8 @@ test('map UI uses one hover card, managed carousel lifecycle, and optional clust
   assert.match(script, /carouselTimer/);
   assert.match(script, /clearInterval\(carouselTimer\)/);
   assert.match(script, /new Image\(\)/);
+  assert.match(script, /onerror/);
+  assert.match(script, /loadNextCarouselImage/);
   assert.match(script, /mouseover/);
   assert.match(script, /markerClusterGroup/);
   assert.match(script, /setInterval\([\s\S]*?,\s*1000\)/);
@@ -350,11 +353,18 @@ test('map data uses a one-hour local cache with stale fallback', () => {
   }
 });
 
-test('CARTO is primary and fallback waits for three tile errors', () => {
+test('the colorful world topographic map is primary and fallback waits for three tile errors', () => {
   const script = fs.readFileSync(path.join(__dirname, '../source/js/paper-map.js'), 'utf8');
-  assert.match(script, /primary:\s*\{[\s\S]*cartocdn/i);
-  assert.match(script, /fallback:\s*\{[\s\S]*opentopomap/i);
+  assert.match(script, /primary:\s*\{[\s\S]*World_Topo_Map/i);
+  assert.match(script, /fallback:\s*\{[\s\S]*openstreetmap/i);
   assert.match(script, /tileErrorCount\s*>=\s*3/);
+});
+
+test('map copy explains the marker meaning instead of using the generic encounter slogan', () => {
+  const script = fs.readFileSync(path.join(__dirname, '../source/js/paper-map.js'), 'utf8');
+  assert.match(script, /function semanticPlaceCopy/);
+  assert.match(script, /meaning\.label/);
+  assert.doesNotMatch(script, /论文、机构与城市在这里相遇/);
 });
 
 test('map image conversion tool rewrites gallery references and can remove originals', () => {

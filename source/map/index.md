@@ -41,4 +41,4 @@ top_img: false
 <script defer src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script defer src="/js/map-carto-config.js"></script>
 <script defer src="/js/map-data-cache.js?v=20261021-cache-v1"></script>
-<script defer src="/js/paper-map.js?v=20261021-color-map"></script>
+<script defer src="/js/paper-map.js?v=20261021-color-osm-gallery"></script>
