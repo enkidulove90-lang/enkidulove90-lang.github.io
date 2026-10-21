@@ -74,6 +74,25 @@
       win.sessionStorage.removeItem(SESSION_KEY);
     }
 
+    function retryOperationKey(jobId) {
+      const storageKey = `paper-intake-retry:${jobId}`;
+      let value = win.localStorage.getItem(storageKey);
+      if (!value) {
+        if (win.crypto && typeof win.crypto.randomUUID === 'function') {
+          value = win.crypto.randomUUID();
+        } else {
+          const bytes = new Uint8Array(16);
+          win.crypto.getRandomValues(bytes);
+          bytes[6] = (bytes[6] & 0x0f) | 0x40;
+          bytes[8] = (bytes[8] & 0x3f) | 0x80;
+          const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+          value = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+        }
+        win.localStorage.setItem(storageKey, value);
+      }
+      return { storageKey, value };
+    }
+
     function expiresSoon(value) {
       try {
         const payload = value.split('.')[0].replace(/-/g, '+').replace(/_/g, '/');
@@ -155,7 +174,15 @@
         return Array.isArray(payload.jobs) ? payload.jobs.map(normalizeJob) : [];
       },
       jobLog: id => request(`/v1/jobs/${encodeURIComponent(id)}/log`),
-      retry: id => request(`/v1/jobs/${encodeURIComponent(id)}/retry`, { method: 'POST' })
+      async retry(id) {
+        const operation = retryOperationKey(id);
+        const payload = await request(`/v1/jobs/${encodeURIComponent(id)}/retry`, {
+          method: 'POST',
+          headers: { 'Idempotency-Key': operation.value }
+        });
+        win.localStorage.removeItem(operation.storageKey);
+        return payload;
+      }
     };
   }
 
