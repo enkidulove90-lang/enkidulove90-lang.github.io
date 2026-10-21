@@ -223,6 +223,28 @@ test('API keeps the owner session across tabs and removes legacy tab storage', a
   assert.equal(calls[1].options.headers.get('Authorization'), 'Bearer session-token');
 });
 
+test('API reuses one retry idempotency key after an ambiguous network failure', async () => {
+  const dom = createDom();
+  dom.window.localStorage.setItem('paper-intake-session', 'session-token');
+  const calls = [];
+  const api = createPaperIntakeApi({
+    apiBase: 'https://papers-api.example.workers.dev',
+    window: dom.window,
+    fetch: async (_url, options) => {
+      calls.push(options.headers.get('Idempotency-Key'));
+      if (calls.length === 1) throw new TypeError('network connection lost');
+      return { ok: true, status: 200, json: async () => ({ job_id: 'job-7', status: 'queued' }) };
+    }
+  });
+
+  await assert.rejects(api.retry('job-7'), /network connection lost/);
+  await api.retry('job-7');
+
+  assert.match(calls[0], /^[0-9a-f-]{36}$/i);
+  assert.equal(calls[1], calls[0]);
+  assert.equal(dom.window.localStorage.getItem('paper-intake-retry:job-7'), null);
+});
+
 test('API silently refreshes a session near expiry and clears it on 401', async () => {
   const dom = createDom();
   const soon = Math.floor(Date.now() / 1000) + 60;
