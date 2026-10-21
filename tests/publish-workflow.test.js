@@ -35,3 +35,23 @@ test('repository dispatch syncs only its Notion page and persists the incrementa
   assert.match(yaml, /public\/article\/\$TARGET_SLUG\/index\.html/);
   assert.match(yaml, /force_orphan:\s*false/);
 });
+
+test('source mirror is committed only after the build has passed', () => {
+  const yaml = fs.readFileSync(workflowPath, 'utf8');
+  const build = yaml.indexOf('name: Build');
+  const persist = yaml.indexOf('name: Persist incremental Notion mirror');
+
+  assert.ok(build >= 0, 'Build step must exist');
+  assert.ok(persist > build, 'Notion mirror must not be pushed before build validation');
+});
+
+test('deployment is gated by tests and followed by public smoke checks', () => {
+  const yaml = fs.readFileSync(workflowPath, 'utf8');
+  const gate = yaml.indexOf('name: Quality gate');
+  const publish = yaml.indexOf('name: Publish to main');
+  const smoke = yaml.indexOf('name: Post-deploy smoke test');
+  assert.ok(gate >= 0 && gate < publish);
+  assert.ok(smoke > publish);
+  assert.match(yaml, /npm test/);
+  assert.match(yaml, /post_deploy_smoke\.py/);
+});

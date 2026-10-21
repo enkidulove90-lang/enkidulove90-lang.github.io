@@ -13,4 +13,5 @@ comments: false
   </label>
   <div class="map-catalog__groups"></div>
 </section>
+<script defer src="/js/map-data-cache.js?v=20261021-cache-v1"></script>
 <script defer src="/js/map-catalog.js?v=20261021-company-pages"></script>

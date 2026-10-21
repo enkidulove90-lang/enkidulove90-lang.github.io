@@ -22,4 +22,5 @@ comments: false
   </div>
   <p class="map-catalog__empty company-paper-library__empty" data-company-paper-empty hidden>没有找到匹配的论文。</p>
 </section>
+<script defer src="/js/map-data-cache.js?v=20261021-cache-v1"></script>
 <script defer src="/js/company-papers.js?v=20261021-company-pages"></script>

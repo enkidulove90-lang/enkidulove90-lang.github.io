@@ -74,7 +74,31 @@
       win.sessionStorage.removeItem(SESSION_KEY);
     }
 
+    function expiresSoon(value) {
+      try {
+        const payload = value.split('.')[0].replace(/-/g, '+').replace(/_/g, '/');
+        const claims = JSON.parse(win.atob(payload));
+        return Number(claims.exp || 0) * 1000 - Date.now() <= 5 * 60 * 1000;
+      } catch { return false; }
+    }
+
+    async function refreshSessionIfNeeded() {
+      const current = token();
+      if (!current || !expiresSoon(current)) return;
+      const response = await fetchImpl(`${apiBase}/v1/session/refresh`, {
+        method: 'POST', headers: { Authorization: `Bearer ${current}` }
+      });
+      let payload = {};
+      try { payload = await response.json(); } catch { /* handled below */ }
+      if (!response.ok || !payload.token) {
+        if (response.status === 401) clearToken();
+        throw Object.assign(new Error(payload.message || '授权续期失败，请重新登录。'), payload);
+      }
+      win.localStorage.setItem(SESSION_KEY, payload.token);
+    }
+
     async function request(path, init = {}, authenticated = true) {
+      if (authenticated && path !== '/v1/session/refresh') await refreshSessionIfNeeded();
       const headers = new win.Headers(init.headers || {});
       if (authenticated) {
         const current = token();
@@ -85,7 +109,10 @@
       let payload = {};
       try { payload = await response.json(); } catch { /* non-JSON gateway response */ }
       if (!response.ok) {
-        if (response.status === 401) clearToken();
+        if (response.status === 401) {
+          clearToken();
+          win.dispatchEvent(new win.CustomEvent('paper-intake:unauthorized'));
+        }
         throw Object.assign(new Error(payload.message || `请求失败（${response.status}）`), payload);
       }
       return payload;
@@ -95,6 +122,7 @@
       apiBase,
       hasSession: () => Boolean(token()),
       clearSession: clearToken,
+      refreshSessionIfNeeded,
       loginUrl: returnOrigin => `${apiBase}/v1/session/start?return_origin=${encodeURIComponent(returnOrigin)}`,
       async exchangeCode(code) {
         const payload = await request('/v1/session/exchange', {
@@ -272,6 +300,14 @@
     let closeTimer = null;
     let pollTimer = null;
     let destroyed = false;
+    const unauthorizedHandler = () => {
+      syncAuth();
+      const toast = element(doc, 'div', 'paper-intake-toast is-error', '授权已过期，请重新点击 GitHub 登录');
+      toast.setAttribute('role', 'alert');
+      doc.body.appendChild(toast);
+      win.setTimeout(() => toast.remove(), 5000);
+    };
+    win.addEventListener('paper-intake:unauthorized', unauthorizedHandler);
 
     function setDrawerState(state) {
       drawer.dataset.state = state;
@@ -509,6 +545,7 @@
         cancelClose();
         if (pollTimer != null) win.clearTimeout(pollTimer);
         win.removeEventListener('message', messageHandler);
+        win.removeEventListener('paper-intake:unauthorized', unauthorizedHandler);
         navigationEntries.forEach(node => node.remove());
         modal.remove();
         drawer.remove();

@@ -8,6 +8,8 @@ const {
   mountPaperIntake
 } = require('../source/js/paper-intake');
 const { buildPublicConfig } = require('../scripts/paper_intake_config');
+const fs = require('node:fs');
+const path = require('node:path');
 
 function createDom() {
   return new JSDOM(`<!doctype html><html><body>
@@ -17,6 +19,18 @@ function createDom() {
     url: 'https://enkidulove90-lang.github.io/'
   });
 }
+
+test('paper intake follows Butterfly cards instead of an editorial paper treatment', () => {
+  const css = fs.readFileSync(path.join(__dirname, '../source/css/paper-intake.css'), 'utf8');
+  const js = fs.readFileSync(path.join(__dirname, '../source/js/paper-intake.js'), 'utf8');
+
+  assert.match(css, /--intake-accent:\s*#49b1f5/i);
+  assert.match(css, /--intake-card:\s*var\(--card-bg/);
+  assert.match(css, /--intake-text:\s*var\(--font-color/);
+  assert.match(css, /var\(--card-box-shadow/);
+  assert.doesNotMatch(css, /repeating-linear-gradient|Noto Serif SC|Songti SC|SimSun/);
+  assert.doesNotMatch(js, /PAPER INTAKE|TASK LEDGER|OWNER ONLY/);
+});
 
 test('public config exposes only the gateway base URL', () => {
   const config = buildPublicConfig({
@@ -119,6 +133,54 @@ test('failed cards say unpublished and expose retry', async () => {
   app.destroy();
 });
 
+test('successful URL submission closes the modal and opens the live task drawer', async () => {
+  const dom = createDom();
+  const api = {
+    hasSession: () => true,
+    submitUrl: async () => ({ job_id: 'job-new', message: 'queued' }),
+    listJobs: async () => [{
+      id: 'job-new', paperId: 'paper-new', status: 'processing', stage: 'mineru_parse'
+    }]
+  };
+  const app = mountPaperIntake({ window: dom.window, document: dom.window.document, api });
+  app.openModal();
+  app.modal.querySelector('[name="paper_url"]').value = 'https://arxiv.org/abs/2602.05663';
+  app.modal.querySelector('[data-form="url"]').dispatchEvent(
+    new dom.window.Event('submit', { bubbles: true, cancelable: true })
+  );
+  await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+
+  assert.equal(app.modal.getAttribute('aria-hidden'), 'true');
+  assert.equal(app.drawer.dataset.state, 'locked');
+  assert.match(app.processing.textContent, /解析论文/);
+  assert.ok(app.processing.querySelector('[role="progressbar"]'));
+  app.destroy();
+});
+
+test('task overflow menu exports the owner-visible diagnostic log', async () => {
+  const dom = createDom();
+  let requested = '';
+  let downloaded = '';
+  const app = mountPaperIntake({
+    window: dom.window,
+    document: dom.window.document,
+    api: {
+      hasSession: () => true,
+      listJobs: async () => [],
+      jobLog: async id => { requested = id; return { job: { job_id: id }, events: [] }; }
+    },
+    downloadText: (_name, text) => { downloaded = text; }
+  });
+  app.renderJobs([{ id: 'job-log', status: 'failed', stage: 'publishing', errorCode: 'deploy_failed' }]);
+  app.completed.querySelector('[data-action="task-menu"]').click();
+  app.completed.querySelector('[data-action="export-log"]').click();
+  await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+
+  assert.equal(requested, 'job-log');
+  assert.match(downloaded, /job-log/);
+  app.destroy();
+});
+
 test('published article links bypass the pre-build browser cache', () => {
   const dom = createDom();
   const app = mountPaperIntake({
@@ -140,7 +202,7 @@ test('published article links bypass the pre-build browser cache', () => {
   app.destroy();
 });
 
-test('API stores owner bearer only in sessionStorage', async () => {
+test('API keeps the owner session across tabs and removes legacy tab storage', async () => {
   const dom = createDom();
   const calls = [];
   const fetch = async (url, options) => {
@@ -153,11 +215,34 @@ test('API stores owner bearer only in sessionStorage', async () => {
     fetch
   });
 
+  dom.window.sessionStorage.setItem('paper-intake-session', 'legacy-token');
   await api.exchangeCode('one-time-code');
-  assert.equal(dom.window.sessionStorage.getItem('paper-intake-session'), 'session-token');
-  assert.equal(dom.window.localStorage.getItem('paper-intake-session'), null);
+  assert.equal(dom.window.localStorage.getItem('paper-intake-session'), 'session-token');
+  assert.equal(dom.window.sessionStorage.getItem('paper-intake-session'), null);
   await api.listJobs();
   assert.equal(calls[1].options.headers.get('Authorization'), 'Bearer session-token');
+});
+
+test('API silently refreshes a session near expiry and clears it on 401', async () => {
+  const dom = createDom();
+  const soon = Math.floor(Date.now() / 1000) + 60;
+  const payload = Buffer.from(JSON.stringify({ sub: 'github:owner', exp: soon })).toString('base64url');
+  dom.window.localStorage.setItem('paper-intake-session', `${payload}.signature`);
+  const calls = [];
+  const api = createPaperIntakeApi({
+    apiBase: 'https://papers-api.example.workers.dev',
+    window: dom.window,
+    fetch: async (url) => {
+      calls.push(url);
+      if (url.endsWith('/v1/session/refresh')) {
+        return { ok: true, status: 200, json: async () => ({ token: 'refreshed-token' }) };
+      }
+      return { ok: false, status: 401, json: async () => ({ code: 'auth_required', message: 'expired' }) };
+    }
+  });
+  await assert.rejects(api.listJobs(), /expired/);
+  assert.equal(calls[0], 'https://papers-api.example.workers.dev/v1/session/refresh');
+  assert.equal(dom.window.localStorage.getItem('paper-intake-session'), null);
 });
 
 test('login message is accepted only from the configured gateway origin', async () => {

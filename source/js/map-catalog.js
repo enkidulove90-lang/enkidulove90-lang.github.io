@@ -1,5 +1,6 @@
 (function () {
   'use strict';
+  // /map_data.json is shared through the one-hour MapDataCache.
 
   var root = document.querySelector('[data-map-catalog]');
   if (!root) return;
@@ -89,7 +90,7 @@
       paper.description || '这篇文章从问题背景、方法设计与实验结果三个层面整理这项工作。');
     link.href = paper.url;
     link.setAttribute('aria-label', paper.title);
-    image.src = chooseUniqueImage(group.images, paper);
+    image.dataset.src = chooseUniqueImage(group.images, paper);
     image.alt = group.city + '城市图景';
     image.loading = 'lazy';
     image.decoding = 'async';
@@ -143,7 +144,7 @@
       lead ? '代表论文：' + lead.title + (leadSummary ? ' — ' + leadSummary : '') : '查看企业论文');
     var action = element('span', 'map-catalog__company-action', '查看全部论文 →');
 
-    image.src = group.images[0] || '';
+    image.dataset.src = group.images[0] || '';
     image.alt = group.name + '相关城市与机构图景';
     image.loading = 'lazy';
     image.decoding = 'async';
@@ -182,13 +183,10 @@
     visibleGroups.forEach(function (group) {
       groupsRoot.appendChild(type === 'company' ? companySection(group) : institutionSection(group));
     });
+    window.MapDataCache.observeImages(groupsRoot);
   }
 
-  fetch('/map_data.json', { cache: 'default' })
-    .then(function (response) {
-      if (!response.ok) throw new Error('map catalog request failed');
-      return response.json();
-    })
+  window.MapDataCache.load()
     .then(function (payload) {
       var groups = collectGroups(payload);
       var searchRoot = document.querySelector('[data-company-search]');

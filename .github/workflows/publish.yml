@@ -34,6 +34,13 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Quality gate
+        run: |
+          npm ci || npm install
+          npm test
+          pip install --quiet requests Pillow pyyaml
+          python -m unittest discover -s tests -p 'test_*.py'
+
       - name: Sync Notion -> Markdown
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
@@ -45,16 +52,6 @@ jobs:
 
       - name: Build cached paper-map places
         run: python tools/build_places.py
-
-      - name: Persist incremental Notion mirror
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A -- tools/.notion_state.json source/_posts source/images source/papers source/_data/places.json
-          if ! git diff --cached --quiet; then
-            git commit -m "content: sync Notion incrementally"
-            git push origin HEAD:source
-          fi
 
       - name: Install deps
         run: npm ci || npm install
@@ -75,6 +72,16 @@ jobs:
           }
           rebuild_site
 
+      - name: Persist incremental Notion mirror
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- tools/.notion_state.json source/_posts source/images source/papers source/_data/places.json
+          if ! git diff --cached --quiet; then
+            git commit -m "content: sync Notion incrementally"
+            git push origin HEAD:source
+          fi
+
       - name: Keep .nojekyll
         run: touch public/.nojekyll
 
@@ -86,6 +93,12 @@ jobs:
           publish_dir: ./public
           force_orphan: false
           commit_message: "Publish: ${{ github.event_name }} @ ${{ github.sha }}"
+
+      - name: Post-deploy smoke test
+        env:
+          SITE_BASE_URL: https://enkidulove90-lang.github.io
+          PAPER_INTAKE_API_BASE: ${{ secrets.PAPER_INTAKE_API_BASE }}
+        run: python tools/post_deploy_smoke.py
 
       - name: Report paper intake deployment
         if: ${{ always() && github.event_name == 'repository_dispatch' && github.event.client_payload.job_id != '' }}

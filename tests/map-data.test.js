@@ -78,12 +78,12 @@ test('map page opens as a full color map with a transparent floating legend', ()
   assert.match(page, /class="map-detail"[^>]*aria-hidden="true"/);
   assert.match(script, /map_data\.json/);
   assert.match(script, /meta\.enabled/);
-  assert.match(script, /World_Physical_Map\/MapServer\/tile/);
-  assert.doesNotMatch(script, /tile\.opentopomap\.org/);
+  assert.doesNotMatch(script, /World_Physical_Map\/MapServer\/tile/);
+  assert.match(script, /tile\.opentopomap\.org/);
   assert.match(script, /basemaps\.cartocdn\.com\/rastertiles\/voyager/);
   assert.match(script, /__PAPER_MAP_CONFIG__/);
   assert.match(script, /function useFallback/);
-  assert.match(script, /tile\.openstreetmap\.org/);
+  assert.match(script, /openstreetmap\.org\/copyright/);
   assert.match(script, /tileerror/);
   assert.match(script, /L\.tileLayer/);
   assert.match(script, /L\.divIcon/);
@@ -335,6 +335,33 @@ test('map avoids cache-busting data requests and eager gallery preloading', () =
   assert.doesNotMatch(catalogScript, /map_data\.json\?v=['"]?\s*\+\s*Date\.now/);
   assert.doesNotMatch(mapScript, /preloadImages\(images\)/);
   assert.match(mapScript, /image\.decoding\s*=\s*['"]async['"]/);
+});
+
+test('map data uses a one-hour local cache with stale fallback', () => {
+  const cacheScript = fs.readFileSync(path.join(__dirname, '../source/js/map-data-cache.js'), 'utf8');
+  assert.match(cacheScript, /60\s*\*\s*60\s*\*\s*1000/);
+  assert.match(cacheScript, /localStorage\.getItem/);
+  assert.match(cacheScript, /localStorage\.setItem/);
+  assert.match(cacheScript, /stale/i);
+  for (const scriptName of ['paper-map.js', 'map-catalog.js', 'company-papers.js']) {
+    const script = fs.readFileSync(path.join(__dirname, '../source/js', scriptName), 'utf8');
+    assert.match(script, /MapDataCache\.load/);
+    assert.doesNotMatch(script, /fetch\(['"]\/map_data\.json/);
+  }
+});
+
+test('CARTO is primary and fallback waits for three tile errors', () => {
+  const script = fs.readFileSync(path.join(__dirname, '../source/js/paper-map.js'), 'utf8');
+  assert.match(script, /primary:\s*\{[\s\S]*cartocdn/i);
+  assert.match(script, /fallback:\s*\{[\s\S]*opentopomap/i);
+  assert.match(script, /tileErrorCount\s*>=\s*3/);
+});
+
+test('map image conversion tool rewrites gallery references and can remove originals', () => {
+  const script = fs.readFileSync(path.join(__dirname, '../tools/convert_map_images.py'), 'utf8');
+  assert.match(script, /\.webp/);
+  assert.match(script, /--remove-originals/);
+  assert.match(script, /places\.json/);
 });
 
 test('map pages version their JavaScript assets so deployments replace stale browser code', () => {
