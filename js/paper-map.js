@@ -205,43 +205,68 @@
     if (!window.L) throw new Error('Leaflet failed to load');
     var L = window.L;
     var map = L.map('paper-map', { zoomControl: true, worldCopyJump: true, minZoom: 2 }).setView([25, 15], 2);
-    var BASEMAPS = {
-      primary: {
+    var BASEMAPS = [
+      {
+        id: 'physical',
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/{z}/{y}/{x}',
+        maxNativeZoom: 8, maxZoom: 19
+      },
+      {
+        id: 'topographic',
         url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
         maxZoom: 19
       },
-      fallback: { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', maxZoom: 19 }
+      { id: 'osm', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', maxZoom: 19 }
+    ];
+    var REFERENCE_LAYER = {
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+      maxZoom: 19
     };
     var osmAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
     var esriAttribution = 'Tiles &copy; Esri — Sources: Esri, HERE, Garmin, FAO, NOAA, USGS, OpenStreetMap contributors';
-    var fallbackAttribution = osmAttribution;
-    var tileMode = 'primary';
+    var basemapIndex = 0;
     var tileErrorCount = 0;
-    var tiles = L.tileLayer(BASEMAPS.primary.url, {
-      maxZoom: BASEMAPS.primary.maxZoom, attribution: esriAttribution,
-      updateWhenIdle: true, keepBuffer: 2
-    });
+
+    function createBasemap(definition) {
+      var options = {
+        maxZoom: definition.maxZoom,
+        attribution: definition.id === 'osm' ? osmAttribution : esriAttribution,
+        updateWhenIdle: true, keepBuffer: 2, zIndex: 100
+      };
+      if (definition.maxNativeZoom) options.maxNativeZoom = definition.maxNativeZoom;
+      return L.tileLayer(definition.url, options);
+    }
+
+    var tiles = createBasemap(BASEMAPS[basemapIndex]);
 
     function useFallback() {
       tileErrorCount += 1;
       if (!(tileErrorCount >= 3)) return;
-      if (tileMode === 'fallback') {
+      if (basemapIndex >= BASEMAPS.length - 1) {
         setStatus('error', '底图暂时不可用', '论文坐标仍然完整，请稍后刷新。');
         return;
       }
       map.removeLayer(tiles);
-      tileMode = 'fallback';
+      basemapIndex += 1;
       tileErrorCount = 0;
-      tiles = L.tileLayer(BASEMAPS.fallback.url, {
-        maxZoom: BASEMAPS.fallback.maxZoom, attribution: fallbackAttribution,
-        updateWhenIdle: true, keepBuffer: 2
-      });
+      tiles = createBasemap(BASEMAPS[basemapIndex]);
       tiles.on('tileerror', useFallback);
       tiles.addTo(map);
     }
 
     tiles.on('tileerror', useFallback);
     tiles.addTo(map);
+    var referenceTileErrorCount = 0;
+    var referenceTiles = L.tileLayer(REFERENCE_LAYER.url, {
+      maxZoom: REFERENCE_LAYER.maxZoom,
+      attribution: esriAttribution,
+      updateWhenIdle: true, keepBuffer: 2, zIndex: 200
+    });
+    referenceTiles.on('tileerror', function () {
+      referenceTileErrorCount += 1;
+      if (referenceTileErrorCount >= 3 && map.hasLayer(referenceTiles)) map.removeLayer(referenceTiles);
+    });
+    referenceTiles.addTo(map);
     var ignoreNextMapClick = false;
     map.on('click', function () {
       if (ignoreNextMapClick) {
