@@ -275,21 +275,55 @@ test('map catalog follows institution-group then paper-card hierarchy', () => {
   assert.match(css, /grid-template-columns:\s*1fr/);
 });
 
-test('company catalog starts with enterprise cards and reveals paper cards on demand', () => {
+test('company catalog links enterprise cards to a dedicated papers page', () => {
   const root = path.resolve(__dirname, '..');
   const script = fs.readFileSync(path.join(root, 'source/js/map-catalog.js'), 'utf8');
   const css = fs.readFileSync(path.join(root, 'source/css/map-catalog.css'), 'utf8');
+  const page = fs.readFileSync(path.join(root, 'source/map/company/index.md'), 'utf8');
 
   assert.match(script, /type === 'company'/);
   assert.match(script, /map-catalog__company-card/);
-  assert.match(script, /aria-expanded/);
-  assert.match(script, /map-catalog__company-papers/);
+  assert.match(script, /\/map\/company\/papers\/\?company=/);
+  assert.doesNotMatch(script, /map-catalog__company-papers/);
   assert.match(script, /group\.description/);
   assert.match(script, /group\.images/);
   assert.match(script, /lead\.description/);
+  assert.match(page, /data-company-search/);
   assert.match(css, /\.map-catalog__company-grid/);
   assert.match(css, /\.map-catalog__company-card/);
-  assert.match(css, /\.map-catalog__company-papers\[hidden\]/);
+});
+
+test('company papers page uses a searchable virtual list instead of rendering every paper', () => {
+  const root = path.resolve(__dirname, '..');
+  const pagePath = path.join(root, 'source/map/company/papers/index.md');
+  const scriptPath = path.join(root, 'source/js/company-papers.js');
+
+  assert.equal(fs.existsSync(pagePath), true);
+  assert.equal(fs.existsSync(scriptPath), true);
+  const page = fs.readFileSync(pagePath, 'utf8');
+  const script = fs.readFileSync(scriptPath, 'utf8');
+  assert.match(page, /data-company-paper-search/);
+  assert.match(page, /data-company-paper-viewport/);
+  assert.match(script, /URLSearchParams/);
+  assert.match(script, /computeVirtualRange/);
+  assert.match(script, /overscan/);
+  assert.match(script, /scrollTop/);
+  assert.match(script, /translateY/);
+  assert.match(script, /loading\s*=\s*['"]lazy['"]/);
+});
+
+test('virtual company paper range renders only the viewport plus overscan', () => {
+  const { computeVirtualRange } = require('../source/js/company-papers');
+  const range = computeVirtualRange({
+    scrollTop: 1320,
+    viewportHeight: 660,
+    rowHeight: 330,
+    itemCount: 100,
+    overscan: 2
+  });
+
+  assert.deepEqual(range, { start: 2, end: 8 });
+  assert.ok(range.end - range.start < 100);
 });
 
 test('map avoids cache-busting data requests and eager gallery preloading', () => {
