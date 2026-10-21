@@ -12,9 +12,10 @@
 (function () {
   'use strict';
 
-  var state = { domain: '', year: '', month: '', venueType: '', venue: '' };
+  var state = { domain: '', year: '', month: '', venueType: '', venue: '', heading: '' };
   var INDEX = [];
   var MOUNTED = false;
+  var ORIGINAL_TITLE = '';
 
   function ready(fn) {
     if (document.readyState !== 'loading') fn();
@@ -45,7 +46,7 @@
       if (d2) domains[d1].subs[d2] = (domains[d1].subs[d2] || 0) + 1;
 
       var y = p.year || String(p.date).slice(0, 4);
-      var m = String(p.date).slice(5, 7);
+      var m = p.month || String(p.date).slice(5, 7);
       (years[y] = years[y] || { n: 0, months: {} });
       years[y].n++;
       years[y].months[m] = (years[y].months[m] || 0) + 1;
@@ -90,8 +91,10 @@
         '" data-parent="' + esc(name) + '"' + month + '><span class="md-sub-name">' +
         esc(kv[0]) + '</span><span class="md-count">' + kv[1] + '</span></div>';
     }).join('');
-    return '<div class="md-group" data-group="' + esc(name) + '">' +
-      '<div class="md-group-head"><span class="md-caret">▶</span>' +
+    var leaf = !subHtml;
+    return '<div class="md-group' + (leaf ? ' is-leaf' : '') + '" data-group="' + esc(name) + '"' +
+      (leaf ? ' data-leaf-dim="' + esc(dim) + '" data-leaf-val="' + esc(name) + '"' : '') + '>' +
+      '<div class="md-group-head"><span class="md-caret">' + (leaf ? '•' : '▶') + '</span>' +
       '<span class="md-group-name">' + esc(name) + '</span>' +
       '<span class="md-count">' + count + '</span></div>' +
       (subHtml ? '<div class="md-sub-wrap">' + subHtml + '</div>' : '') +
@@ -146,7 +149,21 @@
     if (tab) { switchTab(tab); return; }
 
     var head = e.target.closest ? e.target.closest('.md-group-head') : null;
-    if (head) { head.parentNode.classList.toggle('is-open'); return; }
+    if (head) {
+      var group = head.parentNode;
+      var leafDim = group.getAttribute('data-leaf-dim');
+      if (leafDim) {
+        var leafValue = group.getAttribute('data-leaf-val') || group.getAttribute('data-group') || '';
+        var leafActive = group.classList.contains('is-active');
+        group.classList[leafActive ? 'remove' : 'add']('is-active');
+        state[leafDim] = leafActive ? '' : leafValue;
+        state.heading = leafActive ? '' : leafValue;
+        render();
+      } else {
+        group.classList.toggle('is-open');
+      }
+      return;
+    }
 
     var sub = e.target.closest ? e.target.closest('.md-sub') : null;
     if (sub) {
@@ -160,11 +177,15 @@
         if (dim === 'venueType') { state.venueType = ''; state.venue = ''; }
         else if (dim === 'year') { state.year = ''; state.month = ''; }
         else state[dim] = '';
+        state.heading = '';
       } else {
         sub.classList.add('is-active');
-        if (dim === 'venueType') { state.venueType = parent || val; state.venue = val; }
-        else if (dim === 'year') { state.year = val; state.month = month; }
-        else state[dim] = val;
+        if (dim === 'venueType') { state.venueType = parent || val; state.venue = val; state.heading = val; }
+        else if (dim === 'year') {
+          state.year = val;
+          state.month = month;
+          state.heading = val + (month ? ' 年 ' + monthLabel(month) : ' 年');
+        } else { state[dim] = val; state.heading = val; }
       }
       render();
     }
@@ -184,7 +205,7 @@
   function match(p) {
     if (state.domain && p.cats.indexOf(state.domain) < 0) return false;
     if (state.year && String(p.year || String(p.date).slice(0, 4)) !== state.year) return false;
-    if (state.month && String(p.date).slice(5, 7) !== state.month) return false;
+    if (state.month && String(p.month || String(p.date).slice(5, 7)) !== state.month) return false;
     if (state.venueType && (p.venue_type || '未标注') !== state.venueType) return false;
     if (state.venue && p.venue_name !== state.venue) return false;
     return true;
@@ -230,6 +251,21 @@
       '</div></div>';
   }
 
+  function fallbackHeading() {
+    if (state.venue) return state.venue;
+    if (state.year) return state.year + (state.month ? ' 年 ' + monthLabel(state.month) : ' 年');
+    if (state.domain) return state.domain;
+    if (state.venueType) return state.venueType;
+    return '';
+  }
+
+  function updateHeading() {
+    var title = document.getElementById('site-title');
+    if (!title) return;
+    if (!ORIGINAL_TITLE) ORIGINAL_TITLE = title.textContent || '';
+    title.textContent = activeCount() ? (state.heading || fallbackHeading()) : ORIGINAL_TITLE;
+  }
+
   function mount(main, bar, list) {
     if (!bar.isConnected) main.insertBefore(bar, main.firstChild);
     if (!list.isConnected) main.insertBefore(list, bar.nextSibling);
@@ -265,6 +301,7 @@
       list.className = 'recent-posts md-results';
     }
 
+    updateHeading();
     if (activeCount() === 0) {
       // 恢复原状
       if (bar.isConnected) bar.remove();
@@ -288,11 +325,12 @@
       if (rm) {
         if (rm === 'venueType') { state.venueType = ''; state.venue = ''; } else state[rm] = '';
         if (rm === 'year') state.month = '';
+        state.heading = '';
         syncCard(); render();
         return;
       }
       if (e.target.getAttribute && e.target.getAttribute('data-clear')) {
-        state = { domain: '', year: '', month: '', venueType: '', venue: '' };
+        state = { domain: '', year: '', month: '', venueType: '', venue: '', heading: '' };
         syncCard(); render();
       }
     };
@@ -310,6 +348,10 @@
                (dim === 'venueType' && state.venueType === parent && state.venue === val);
       n.classList.toggle('is-active', !!on);
     });
+    card.querySelectorAll('.md-group[data-leaf-dim]').forEach(function (n) {
+      var dim = n.getAttribute('data-leaf-dim');
+      n.classList.toggle('is-active', state[dim] === n.getAttribute('data-leaf-val'));
+    });
   }
 
   /** 支持从 URL 带入条件：/archives/?f_domain=推荐系统&f_year=2026 */
@@ -318,7 +360,7 @@
     var any = false;
     ['domain', 'year', 'month', 'venueType', 'venue'].forEach(function (k) {
       var v = q.get('f_' + k);
-      if (v) { state[k] = v; any = true; }
+      if (v) { state[k] = v; state.heading = v; any = true; }
     });
     if (!any) return;
     syncCard();
