@@ -277,6 +277,12 @@ test('a domain without children is a selectable leaf instead of an empty accordi
   assert.equal(title, '随笔');
 });
 
+test('filter assets are versioned so GitHub Pages does not reuse stale behavior', () => {
+  const config = fs.readFileSync(path.join(root, '_config.butterfly.yml'), 'utf8');
+  assert.match(config, /filter\.css\?v=[a-z0-9-]+/i);
+  assert.match(config, /multidim-filter\.js\?v=[a-z0-9-]+/i);
+});
+
 test('desktop pointer navigation is a retractable left-edge drawer', () => {
   const css = fs.readFileSync(path.join(root, 'source/css/left-nav.css'), 'utf8');
 
