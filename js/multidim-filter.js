@@ -29,6 +29,7 @@
         INDEX = (d && d.posts) || [];
         if (!INDEX.length) return;
         buildCard();
+        buildHomeToolbar();
         applyFromQuery();
       })
       .catch(function () { /* 索引不可用时静默降级，不影响站点其它功能 */ });
@@ -142,6 +143,67 @@
 
     card.addEventListener('click', onClick);
     MOUNTED = true;
+  }
+
+  function optionHtml(value, label) {
+    return '<option value="' + esc(value) + '">' + esc(label || value) + '</option>';
+  }
+
+  function uniqueValues(getter) {
+    var values = {};
+    INDEX.forEach(function (post) {
+      var value = getter(post);
+      if (value) values[value] = true;
+    });
+    return Object.keys(values).sort(function (a, b) { return String(a).localeCompare(String(b), 'zh'); });
+  }
+
+  function buildHomeToolbar() {
+    if (!location.pathname || location.pathname !== '/') return;
+    var originalList = document.getElementById('recent-posts');
+    if (!originalList || !originalList.parentNode || document.getElementById('md-home-filter')) return;
+    var domains = uniqueValues(function (post) { return post.cats[0] || '未分类'; });
+    var years = uniqueValues(function (post) { return String(post.year || String(post.date).slice(0, 4)); }).reverse();
+    var venues = uniqueValues(function (post) { return post.venue_name || ''; });
+    var toolbar = document.createElement('section');
+    toolbar.id = 'md-home-filter';
+    toolbar.className = 'md-home-filter card-widget';
+    toolbar.setAttribute('aria-label', '文章筛选');
+    toolbar.innerHTML =
+      '<div class="md-home-filter__intro"><strong>筛选文章</strong><span>从领域、年份与刊物快速找到论文</span></div>' +
+      '<label><span>领域</span><select data-home-dim="domain"><option value="">全部领域</option>' + domains.map(function (v) { return optionHtml(v); }).join('') + '</select></label>' +
+      '<label><span>年份</span><select data-home-dim="year"><option value="">全部年份</option>' + years.map(function (v) { return optionHtml(v); }).join('') + '</select></label>' +
+      '<label><span>刊物</span><select data-home-dim="venue"><option value="">全部刊物</option>' + venues.map(function (v) { return optionHtml(v); }).join('') + '</select></label>' +
+      '<button type="button" data-home-clear="1">重置</button>';
+    originalList.parentNode.insertBefore(toolbar, originalList);
+    toolbar.addEventListener('change', function (event) {
+      var dim = event.target.getAttribute && event.target.getAttribute('data-home-dim');
+      if (!dim) return;
+      state[dim] = event.target.value || '';
+      if (dim === 'venue') {
+        var sample = INDEX.find(function (post) { return post.venue_name === state.venue; });
+        state.venueType = sample ? (sample.venue_type || '未标注') : '';
+      }
+      state.month = '';
+      state.heading = state[dim];
+      syncCard();
+      render();
+    });
+    toolbar.addEventListener('click', function (event) {
+      if (!(event.target.getAttribute && event.target.getAttribute('data-home-clear'))) return;
+      state = { domain: '', year: '', month: '', venueType: '', venue: '', heading: '' };
+      syncCard();
+      syncHomeToolbar();
+      render();
+    });
+  }
+
+  function syncHomeToolbar() {
+    var toolbar = document.getElementById('md-home-filter');
+    if (!toolbar || !toolbar.querySelectorAll) return;
+    toolbar.querySelectorAll('[data-home-dim]').forEach(function (select) {
+      select.value = state[select.getAttribute('data-home-dim')] || '';
+    });
   }
 
   function onClick(e) {
@@ -352,6 +414,7 @@
       var dim = n.getAttribute('data-leaf-dim');
       n.classList.toggle('is-active', state[dim] === n.getAttribute('data-leaf-val'));
     });
+    syncHomeToolbar();
   }
 
   /** 支持从 URL 带入条件：/archives/?f_domain=推荐系统&f_year=2026 */
