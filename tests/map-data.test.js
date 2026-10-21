@@ -303,6 +303,16 @@ test('map avoids cache-busting data requests and eager gallery preloading', () =
   assert.match(mapScript, /image\.decoding\s*=\s*['"]async['"]/);
 });
 
+test('map pages version their JavaScript assets so deployments replace stale browser code', () => {
+  const root = path.resolve(__dirname, '..');
+  const mapPage = fs.readFileSync(path.join(root, 'source/map/index.md'), 'utf8');
+  const companyPage = fs.readFileSync(path.join(root, 'source/map/company/index.md'), 'utf8');
+
+  assert.match(mapPage, /paper-map\.js\?v=[a-z0-9-]+/i);
+  assert.match(companyPage, /map-catalog\.css\?v=[a-z0-9-]+/i);
+  assert.match(companyPage, /map-catalog\.js\?v=[a-z0-9-]+/i);
+});
+
 test('map terminology is precise and the navigation stays above the map canvas', () => {
   const root = path.resolve(__dirname, '..');
   const page = fs.readFileSync(path.join(root, 'source/map/index.md'), 'utf8');
