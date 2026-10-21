@@ -116,9 +116,18 @@
     return section;
   }
 
-  function companySection(group, index) {
+  function companySlug(value) {
+    return String(value || 'company')
+      .trim()
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[^a-z0-9\u4e00-\u9fff]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'company';
+  }
+
+  function companySection(group) {
     var section = element('section', 'map-catalog__institution map-catalog__company');
-    var card = element('button', 'map-catalog__company-card');
+    var card = element('a', 'map-catalog__company-card');
     var cover = element('span', 'map-catalog__company-cover');
     var image = element('img');
     var body = element('span', 'map-catalog__company-body');
@@ -132,9 +141,7 @@
       : '';
     var featured = element('span', 'map-catalog__company-featured',
       lead ? '代表论文：' + lead.title + (leadSummary ? ' — ' + leadSummary : '') : '查看企业论文');
-    var action = element('span', 'map-catalog__company-action', '展开论文列表 ↓');
-    var papers = element('div', 'map-catalog__company-papers map-catalog__papers');
-    var panelId = 'company-papers-' + index;
+    var action = element('span', 'map-catalog__company-action', '查看全部论文 →');
 
     image.src = group.images[0] || '';
     image.alt = group.name + '相关城市与机构图景';
@@ -142,29 +149,39 @@
     image.decoding = 'async';
     cover.appendChild(image);
     body.append(eyebrow, title, description, featured, action);
-    card.type = 'button';
-    card.setAttribute('aria-expanded', 'false');
-    card.setAttribute('aria-controls', panelId);
+    card.href = '/map/company/papers/?company=' + encodeURIComponent(companySlug(group.name));
+    card.setAttribute('aria-label', '查看 ' + group.name + ' 的全部论文');
     card.append(cover, body);
-    papers.id = panelId;
-    papers.hidden = true;
-    group.papers.sort(function (a, b) { return b.date.localeCompare(a.date); })
-      .forEach(function (paper) { papers.appendChild(paperCard(paper, group)); });
-    card.addEventListener('click', function () {
-      var willOpen = card.getAttribute('aria-expanded') !== 'true';
-      groupsRoot.querySelectorAll('.map-catalog__company-card[aria-expanded="true"]').forEach(function (openCard) {
-        openCard.setAttribute('aria-expanded', 'false');
-        openCard.closest('.map-catalog__company').classList.remove('is-open');
-        var openPanel = document.getElementById(openCard.getAttribute('aria-controls'));
-        if (openPanel) openPanel.hidden = true;
-      });
-      card.setAttribute('aria-expanded', String(willOpen));
-      section.classList.toggle('is-open', willOpen);
-      papers.hidden = !willOpen;
-      action.textContent = willOpen ? '收起论文列表 ↑' : '展开论文列表 ↓';
-    });
-    section.append(card, papers);
+    section.appendChild(card);
     return section;
+  }
+
+  function matchesCompany(group, query) {
+    if (!query) return true;
+    var searchable = [group.name, group.city, group.description]
+      .concat(group.papers.map(function (paper) { return paper.title; }))
+      .join(' ')
+      .toLowerCase();
+    return searchable.indexOf(query.toLowerCase()) !== -1;
+  }
+
+  function renderGroups(groups) {
+    var queryRoot = document.querySelector('[data-company-search]');
+    var query = queryRoot ? queryRoot.value.trim() : '';
+    var visibleGroups = type === 'company'
+      ? groups.filter(function (group) { return matchesCompany(group, query); })
+      : groups;
+    var paperCount = visibleGroups.reduce(function (sum, group) { return sum + group.papers.length; }, 0);
+    countRoot.textContent = visibleGroups.length + ' 个分组 · ' + paperCount + ' 篇论文';
+    groupsRoot.replaceChildren();
+    if (!visibleGroups.length) {
+      groupsRoot.appendChild(element('p', 'map-catalog__empty', query ? '没有找到匹配的企业或论文。' : '这一类暂时还没有可展示的论文。'));
+      return;
+    }
+    groupsRoot.classList.toggle('map-catalog__company-grid', type === 'company');
+    visibleGroups.forEach(function (group) {
+      groupsRoot.appendChild(type === 'company' ? companySection(group) : institutionSection(group));
+    });
   }
 
   fetch('/map_data.json', { cache: 'default' })
@@ -174,17 +191,9 @@
     })
     .then(function (payload) {
       var groups = collectGroups(payload);
-      var paperCount = groups.reduce(function (sum, group) { return sum + group.papers.length; }, 0);
-      countRoot.textContent = groups.length + ' 个分组 · ' + paperCount + ' 篇论文';
-      groupsRoot.replaceChildren();
-      if (!groups.length) {
-        groupsRoot.appendChild(element('p', 'map-catalog__empty', '这一类暂时还没有可展示的论文。'));
-        return;
-      }
-      groupsRoot.classList.toggle('map-catalog__company-grid', type === 'company');
-      groups.forEach(function (group, index) {
-        groupsRoot.appendChild(type === 'company' ? companySection(group, index) : institutionSection(group));
-      });
+      var searchRoot = document.querySelector('[data-company-search]');
+      renderGroups(groups);
+      if (searchRoot) searchRoot.addEventListener('input', function () { renderGroups(groups); });
     })
     .catch(function () {
       groupsRoot.replaceChildren(element('p', 'map-catalog__empty', '列表数据暂时没有加载成功，请刷新后重试。'));
