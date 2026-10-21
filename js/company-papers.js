@@ -1,5 +1,6 @@
 (function (root, factory) {
   'use strict';
+  // /map_data.json is shared through the one-hour MapDataCache.
   var api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (root && root.document) api.boot(root.document, root);
@@ -88,7 +89,7 @@
 
     cover.href = paper.url;
     cover.setAttribute('aria-label', paper.title);
-    image.src = images.length ? images[index % images.length] : '';
+    image.dataset.src = images.length ? images[index % images.length] : '';
     image.alt = company.city + '城市图景';
     image.loading = 'lazy';
     image.decoding = 'async';
@@ -144,6 +145,7 @@
         fragment.appendChild(row);
       }
       itemsRoot.appendChild(fragment);
+      window.MapDataCache.observeImages(itemsRoot);
       emptyRoot.hidden = filteredPapers.length !== 0;
       viewport.hidden = filteredPapers.length === 0;
     }
@@ -167,11 +169,7 @@
     searchRoot.addEventListener('input', applySearch);
     window.addEventListener('resize', scheduleRender, { passive: true });
 
-    fetch('/map_data.json', { cache: 'default' })
-      .then(function (response) {
-        if (!response.ok) throw new Error('company papers request failed');
-        return response.json();
-      })
+    window.MapDataCache.load()
       .then(function (payload) {
         company = collectCompanies(payload).find(function (candidate) {
           return companySlug(candidate.name) === requestedCompany;

@@ -1,5 +1,6 @@
 (function () {
   'use strict';
+  // /map_data.json is fetched once through MapDataCache and retained for one hour.
 
   var root = document.getElementById('paper-map');
   if (!root) return;
@@ -165,38 +166,43 @@
     if (!window.L) throw new Error('Leaflet failed to load');
     var L = window.L;
     var map = L.map('paper-map', { zoomControl: true, worldCopyJump: true, minZoom: 2 }).setView([25, 15], 2);
-    var physicalUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/{z}/{y}/{x}';
-    var osmUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    var BASEMAPS = {
+      primary: {
+        url: 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png' +
+          (runtimeConfig.cartoApiKey ? '?key=' + encodeURIComponent(runtimeConfig.cartoApiKey) : ''),
+        maxZoom: 20
+      },
+      fallback: { url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', maxZoom: 17 }
+    };
     var osmAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-    var physicalAttribution = 'Powered by <a href="https://www.esri.com/">Esri</a> · Source: US National Park Service';
     var cartoAttribution = osmAttribution + ', &copy; <a href="https://carto.com/attribution/">CARTO</a>';
-    var tileMode = 'physical';
-    var tiles = L.tileLayer(physicalUrl, {
-      maxNativeZoom: 8, maxZoom: 12, attribution: physicalAttribution,
-      updateWhenIdle: true, keepBuffer: 2, detectRetina: false
+    var topoAttribution = 'Map data ' + osmAttribution + ' · Map style &copy; OpenTopoMap';
+    var tileMode = 'primary';
+    var tileErrorCount = 0;
+    var tiles = L.tileLayer(BASEMAPS.primary.url, {
+      maxZoom: BASEMAPS.primary.maxZoom, attribution: cartoAttribution,
+      updateWhenIdle: true, keepBuffer: 2
     });
 
     function useFallback() {
-      map.removeLayer(tiles);
-      if (tileMode === 'physical' && runtimeConfig.cartoApiKey) {
-        tileMode = 'carto';
-        tiles = L.tileLayer(
-          'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=' +
-            encodeURIComponent(runtimeConfig.cartoApiKey),
-          { maxZoom: 20, attribution: cartoAttribution, updateWhenIdle: true, keepBuffer: 2 }
-        );
-      } else if (tileMode !== 'osm') {
-        tileMode = 'osm';
-        tiles = L.tileLayer(osmUrl, { maxZoom: 19, attribution: osmAttribution, updateWhenIdle: true, keepBuffer: 2 });
-      } else {
+      tileErrorCount += 1;
+      if (!(tileErrorCount >= 3)) return;
+      if (tileMode === 'fallback') {
         setStatus('error', '底图暂时不可用', '论文坐标仍然完整，请稍后刷新。');
         return;
       }
-      tiles.once('tileerror', useFallback);
+      map.removeLayer(tiles);
+      tileMode = 'fallback';
+      tileErrorCount = 0;
+      tiles = L.tileLayer(BASEMAPS.fallback.url, {
+        maxZoom: BASEMAPS.fallback.maxZoom, attribution: topoAttribution,
+        updateWhenIdle: true, keepBuffer: 2
+      });
+      tiles.on('tileerror', useFallback);
       tiles.addTo(map);
     }
 
-    tiles.once('tileerror', useFallback);
+    tiles.on('tileerror', useFallback);
     tiles.addTo(map);
     var ignoreNextMapClick = false;
     map.on('click', function () {
@@ -276,11 +282,7 @@
   hideDetail();
   hideHover();
 
-  fetch('/map_data.json', { cache: 'default' })
-    .then(function (response) {
-      if (!response.ok) throw new Error('map data request failed');
-      return response.json();
-    })
+  window.MapDataCache.load()
     .then(function (payload) {
       if (!payload.meta.enabled) {
         setStatus('disabled', '地图正在积累可信坐标', '现有坐标尚未达到开放标准。');
