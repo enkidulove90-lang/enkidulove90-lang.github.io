@@ -68,7 +68,7 @@ test('map page opens as a full color map with a transparent floating legend', ()
   const root = path.resolve(__dirname, '..');
   const page = fs.readFileSync(path.join(root, 'source/map/index.md'), 'utf8');
   const script = fs.readFileSync(path.join(root, 'source/js/paper-map.js'), 'utf8');
-  assert.match(script, /cache:\s*['"]no-store['"]/);
+  assert.doesNotMatch(script, /cache:\s*['"]no-store['"]/);
   const css = fs.readFileSync(path.join(root, 'source/css/paper-map.css'), 'utf8');
 
   assert.match(page, /id="paper-map"/);
@@ -78,7 +78,8 @@ test('map page opens as a full color map with a transparent floating legend', ()
   assert.match(page, /class="map-detail"[^>]*aria-hidden="true"/);
   assert.match(script, /map_data\.json/);
   assert.match(script, /meta\.enabled/);
-  assert.match(script, /tile\.opentopomap\.org/);
+  assert.match(script, /World_Physical_Map\/MapServer\/tile/);
+  assert.doesNotMatch(script, /tile\.opentopomap\.org/);
   assert.match(script, /basemaps\.cartocdn\.com\/rastertiles\/voyager/);
   assert.match(script, /__PAPER_MAP_CONFIG__/);
   assert.match(script, /function useFallback/);
@@ -267,11 +268,39 @@ test('map catalog follows institution-group then paper-card hierarchy', () => {
   assert.match(script, /place\.city_images/);
   assert.match(script, /paper\.description/);
   assert.match(script, /chooseUniqueImage/);
-  assert.match(script, /cache:\s*['"]no-store['"]/);
+  assert.doesNotMatch(script, /cache:\s*['"]no-store['"]/);
   assert.match(script, /sessionStorage/);
   assert.match(css, /\.map-catalog__institution/);
   assert.match(css, /\.map-catalog__paper-card/);
   assert.match(css, /grid-template-columns:\s*1fr/);
+});
+
+test('company catalog starts with enterprise cards and reveals paper cards on demand', () => {
+  const root = path.resolve(__dirname, '..');
+  const script = fs.readFileSync(path.join(root, 'source/js/map-catalog.js'), 'utf8');
+  const css = fs.readFileSync(path.join(root, 'source/css/map-catalog.css'), 'utf8');
+
+  assert.match(script, /type === 'company'/);
+  assert.match(script, /map-catalog__company-card/);
+  assert.match(script, /aria-expanded/);
+  assert.match(script, /map-catalog__company-papers/);
+  assert.match(script, /group\.description/);
+  assert.match(script, /group\.images/);
+  assert.match(script, /lead\.description/);
+  assert.match(css, /\.map-catalog__company-grid/);
+  assert.match(css, /\.map-catalog__company-card/);
+  assert.match(css, /\.map-catalog__company-papers\[hidden\]/);
+});
+
+test('map avoids cache-busting data requests and eager gallery preloading', () => {
+  const root = path.resolve(__dirname, '..');
+  const mapScript = fs.readFileSync(path.join(root, 'source/js/paper-map.js'), 'utf8');
+  const catalogScript = fs.readFileSync(path.join(root, 'source/js/map-catalog.js'), 'utf8');
+
+  assert.doesNotMatch(mapScript, /map_data\.json\?v=['"]?\s*\+\s*Date\.now/);
+  assert.doesNotMatch(catalogScript, /map_data\.json\?v=['"]?\s*\+\s*Date\.now/);
+  assert.doesNotMatch(mapScript, /preloadImages\(images\)/);
+  assert.match(mapScript, /image\.decoding\s*=\s*['"]async['"]/);
 });
 
 test('map terminology is precise and the navigation stays above the map canvas', () => {

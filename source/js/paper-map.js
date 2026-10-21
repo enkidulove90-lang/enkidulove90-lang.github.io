@@ -59,13 +59,6 @@
     carouselTimer = null;
   }
 
-  function preloadImages(images) {
-    images.forEach(function (url) {
-      var preload = new Image();
-      preload.src = url;
-    });
-  }
-
   function createCarousel(place) {
     var images = Array.from(new Set((place.city_images || [place.image]).filter(Boolean)));
     var frame = document.createElement('figure');
@@ -75,19 +68,23 @@
     frame.className = 'map-place-carousel';
     image.src = images[0] || place.image;
     image.alt = place.name + '城市图景';
+    image.decoding = 'async';
     count.className = 'map-place-carousel__count';
     count.textContent = '1 / ' + Math.max(images.length, 1);
     frame.append(image, count);
-    preloadImages(images);
     if (images.length > 1) {
       carouselTimer = setInterval(function () {
-        active = (active + 1) % images.length;
-        image.classList.add('is-switching');
-        setTimeout(function () {
-          image.src = images[active];
+        var next = (active + 1) % images.length;
+        var nextImage = new Image();
+        nextImage.decoding = 'async';
+        nextImage.onload = function () {
+          active = next;
+          image.classList.add('is-switching');
+          image.src = nextImage.src;
           count.textContent = (active + 1) + ' / ' + images.length;
-          image.classList.remove('is-switching');
-        }, 90);
+          requestAnimationFrame(function () { image.classList.remove('is-switching'); });
+        };
+        nextImage.src = images[next];
       }, 1000);
     }
     return frame;
@@ -168,26 +165,29 @@
     if (!window.L) throw new Error('Leaflet failed to load');
     var L = window.L;
     var map = L.map('paper-map', { zoomControl: true, worldCopyJump: true, minZoom: 2 }).setView([25, 15], 2);
-    var topoUrl = 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png';
+    var physicalUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/{z}/{y}/{x}';
     var osmUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
     var osmAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
-    var topoAttribution = osmAttribution + ', SRTM | map style &copy; <a href="https://opentopomap.org/">OpenTopoMap</a> (CC-BY-SA)';
+    var physicalAttribution = 'Powered by <a href="https://www.esri.com/">Esri</a> · Source: US National Park Service';
     var cartoAttribution = osmAttribution + ', &copy; <a href="https://carto.com/attribution/">CARTO</a>';
-    var tileMode = 'topo';
-    var tiles = L.tileLayer(topoUrl, { maxZoom: 17, attribution: topoAttribution });
+    var tileMode = 'physical';
+    var tiles = L.tileLayer(physicalUrl, {
+      maxNativeZoom: 8, maxZoom: 12, attribution: physicalAttribution,
+      updateWhenIdle: true, keepBuffer: 2, detectRetina: false
+    });
 
     function useFallback() {
       map.removeLayer(tiles);
-      if (tileMode === 'topo' && runtimeConfig.cartoApiKey) {
+      if (tileMode === 'physical' && runtimeConfig.cartoApiKey) {
         tileMode = 'carto';
         tiles = L.tileLayer(
           'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=' +
             encodeURIComponent(runtimeConfig.cartoApiKey),
-          { maxZoom: 20, attribution: cartoAttribution }
+          { maxZoom: 20, attribution: cartoAttribution, updateWhenIdle: true, keepBuffer: 2 }
         );
       } else if (tileMode !== 'osm') {
         tileMode = 'osm';
-        tiles = L.tileLayer(osmUrl, { maxZoom: 19, attribution: osmAttribution });
+        tiles = L.tileLayer(osmUrl, { maxZoom: 19, attribution: osmAttribution, updateWhenIdle: true, keepBuffer: 2 });
       } else {
         setStatus('error', '底图暂时不可用', '论文坐标仍然完整，请稍后刷新。');
         return;
@@ -276,7 +276,7 @@
   hideDetail();
   hideHover();
 
-  fetch('/map_data.json?v=' + Date.now(), { cache: 'no-store' })
+  fetch('/map_data.json', { cache: 'default' })
     .then(function (response) {
       if (!response.ok) throw new Error('map data request failed');
       return response.json();
