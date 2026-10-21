@@ -175,7 +175,9 @@
       '<label><span>年份</span><select data-home-dim="year"><option value="">全部年份</option>' + years.map(function (v) { return optionHtml(v); }).join('') + '</select></label>' +
       '<label><span>刊物</span><select data-home-dim="venue"><option value="">全部刊物</option>' + venues.map(function (v) { return optionHtml(v); }).join('') + '</select></label>' +
       '<button type="button" data-home-clear="1">重置</button>';
-    originalList.parentNode.insertBefore(toolbar, originalList);
+    // #content-inner 是 Butterfly 的横向 Flex 容器。筛选栏必须留在文章列中，
+    // 否则会成为与 #recent-posts、侧栏并列的第三列并挤压论文卡片。
+    originalList.insertBefore(toolbar, originalList.firstChild);
     toolbar.addEventListener('change', function (event) {
       var dim = event.target.getAttribute && event.target.getAttribute('data-home-dim');
       if (!dim) return;
@@ -328,8 +330,8 @@
     title.textContent = activeCount() ? (state.heading || fallbackHeading()) : ORIGINAL_TITLE;
   }
 
-  function mount(main, bar, list) {
-    if (!bar.isConnected) main.insertBefore(bar, main.firstChild);
+  function mount(main, bar, list, anchor) {
+    if (!bar.isConnected) main.insertBefore(bar, anchor ? anchor.nextSibling : main.firstChild);
     if (!list.isConnected) main.insertBefore(list, bar.nextSibling);
   }
 
@@ -341,7 +343,11 @@
       document.getElementById('tag') ||
       document.getElementById('post') ||
       document.getElementById('page');
-    if (original && original.parentNode) return { main: original.parentNode, list: original };
+    var homeToolbar = document.getElementById('md-home-filter');
+    if (original && original.id === 'recent-posts' && homeToolbar && homeToolbar.parentNode === original) {
+      return { main: original, list: original, anchor: homeToolbar, embedded: true };
+    }
+    if (original && original.parentNode) return { main: original.parentNode, list: original, embedded: false };
     return null;
   }
 
@@ -368,7 +374,10 @@
       // 恢复原状
       if (bar.isConnected) bar.remove();
       if (list.isConnected) list.remove();
-      if (h.list) h.list.style.display = '';
+      if (h.list) {
+        h.list.style.display = '';
+        if (h.list.classList) h.list.classList.remove('md-filtering');
+      }
       return;
     }
 
@@ -379,8 +388,11 @@
       ? hits.map(itemHtml).join('')
       : '<div class="md-empty">没有符合当前条件的文章，试试放宽条件。</div>';
 
-    mount(h.main, bar, list);
-    if (h.list) h.list.style.display = 'none';
+    mount(h.main, bar, list, h.anchor);
+    if (h.list) {
+      if (h.embedded && h.list.classList) h.list.classList.add('md-filtering');
+      else h.list.style.display = 'none';
+    }
 
     bar.onclick = function (e) {
       var rm = e.target.getAttribute && e.target.getAttribute('data-remove');
