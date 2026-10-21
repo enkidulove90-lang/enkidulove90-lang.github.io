@@ -27,11 +27,14 @@
     }).forEach(function (place) {
       (place.papers || []).forEach(function (paper) {
         var name = groupKey(paper.location_label || place.name);
+        var institution = (place.institutions || []).find(function (item) {
+          return groupKey(item.name) === name;
+        });
         if (!groups.has(name)) {
           groups.set(name, {
             name: name,
             city: place.city === 'Virtual' ? '坐标待补充' : (place.city || place.name),
-            description: place.description || '',
+            description: (institution && institution.description) || place.description || '',
             images: Array.from(new Set([].concat(place.city_images || [], place.image || []).filter(Boolean))),
             papers: []
           });
@@ -89,6 +92,7 @@
     image.src = chooseUniqueImage(group.images, paper);
     image.alt = group.city + '城市图景';
     image.loading = 'lazy';
+    image.decoding = 'async';
     title.href = paper.url;
     link.appendChild(image);
     body.append(title, meta, description);
@@ -112,7 +116,58 @@
     return section;
   }
 
-  fetch('/map_data.json?v=' + Date.now(), { cache: 'no-store' })
+  function companySection(group, index) {
+    var section = element('section', 'map-catalog__institution map-catalog__company');
+    var card = element('button', 'map-catalog__company-card');
+    var cover = element('span', 'map-catalog__company-cover');
+    var image = element('img');
+    var body = element('span', 'map-catalog__company-body');
+    var eyebrow = element('span', 'map-catalog__company-meta', group.city + ' · ' + group.papers.length + ' 篇论文');
+    var title = element('strong', 'map-catalog__company-title', group.name);
+    var description = element('span', 'map-catalog__company-description',
+      group.description || '该企业研究团队持续参与推荐系统、机器学习与智能信息服务研究。');
+    var lead = group.papers[0];
+    var leadSummary = lead && lead.description
+      ? lead.description.slice(0, 120) + (lead.description.length > 120 ? '…' : '')
+      : '';
+    var featured = element('span', 'map-catalog__company-featured',
+      lead ? '代表论文：' + lead.title + (leadSummary ? ' — ' + leadSummary : '') : '查看企业论文');
+    var action = element('span', 'map-catalog__company-action', '展开论文列表 ↓');
+    var papers = element('div', 'map-catalog__company-papers map-catalog__papers');
+    var panelId = 'company-papers-' + index;
+
+    image.src = group.images[0] || '';
+    image.alt = group.name + '相关城市与机构图景';
+    image.loading = 'lazy';
+    image.decoding = 'async';
+    cover.appendChild(image);
+    body.append(eyebrow, title, description, featured, action);
+    card.type = 'button';
+    card.setAttribute('aria-expanded', 'false');
+    card.setAttribute('aria-controls', panelId);
+    card.append(cover, body);
+    papers.id = panelId;
+    papers.hidden = true;
+    group.papers.sort(function (a, b) { return b.date.localeCompare(a.date); })
+      .forEach(function (paper) { papers.appendChild(paperCard(paper, group)); });
+    card.addEventListener('click', function () {
+      var willOpen = card.getAttribute('aria-expanded') !== 'true';
+      groupsRoot.querySelectorAll('.map-catalog__company-card[aria-expanded="true"]').forEach(function (openCard) {
+        openCard.setAttribute('aria-expanded', 'false');
+        openCard.closest('.map-catalog__company').classList.remove('is-open');
+        var openPanel = document.getElementById(openCard.getAttribute('aria-controls'));
+        if (openPanel) openPanel.hidden = true;
+      });
+      card.setAttribute('aria-expanded', String(willOpen));
+      section.classList.toggle('is-open', willOpen);
+      papers.hidden = !willOpen;
+      action.textContent = willOpen ? '收起论文列表 ↑' : '展开论文列表 ↓';
+    });
+    section.append(card, papers);
+    return section;
+  }
+
+  fetch('/map_data.json', { cache: 'default' })
     .then(function (response) {
       if (!response.ok) throw new Error('map catalog request failed');
       return response.json();
@@ -126,7 +181,10 @@
         groupsRoot.appendChild(element('p', 'map-catalog__empty', '这一类暂时还没有可展示的论文。'));
         return;
       }
-      groups.forEach(function (group) { groupsRoot.appendChild(institutionSection(group)); });
+      groupsRoot.classList.toggle('map-catalog__company-grid', type === 'company');
+      groups.forEach(function (group, index) {
+        groupsRoot.appendChild(type === 'company' ? companySection(group, index) : institutionSection(group));
+      });
     })
     .catch(function () {
       groupsRoot.replaceChildren(element('p', 'map-catalog__empty', '列表数据暂时没有加载成功，请刷新后重试。'));
