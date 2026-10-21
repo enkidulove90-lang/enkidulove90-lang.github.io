@@ -64,7 +64,14 @@
     const fetchImpl = options.fetch || win.fetch.bind(win);
 
     function token() {
-      return win.sessionStorage.getItem(SESSION_KEY) || '';
+      return win.localStorage.getItem(SESSION_KEY)
+        || win.sessionStorage.getItem(SESSION_KEY)
+        || '';
+    }
+
+    function clearToken() {
+      win.localStorage.removeItem(SESSION_KEY);
+      win.sessionStorage.removeItem(SESSION_KEY);
     }
 
     async function request(path, init = {}, authenticated = true) {
@@ -78,7 +85,7 @@
       let payload = {};
       try { payload = await response.json(); } catch { /* non-JSON gateway response */ }
       if (!response.ok) {
-        if (response.status === 401) win.sessionStorage.removeItem(SESSION_KEY);
+        if (response.status === 401) clearToken();
         throw Object.assign(new Error(payload.message || `请求失败（${response.status}）`), payload);
       }
       return payload;
@@ -87,7 +94,7 @@
     return {
       apiBase,
       hasSession: () => Boolean(token()),
-      clearSession: () => win.sessionStorage.removeItem(SESSION_KEY),
+      clearSession: clearToken,
       loginUrl: returnOrigin => `${apiBase}/v1/session/start?return_origin=${encodeURIComponent(returnOrigin)}`,
       async exchangeCode(code) {
         const payload = await request('/v1/session/exchange', {
@@ -97,7 +104,8 @@
         }, false);
         const sessionToken = payload.token || payload.access_token;
         if (!sessionToken) throw new Error('登录成功，但服务端没有返回会话凭据。');
-        win.sessionStorage.setItem(SESSION_KEY, sessionToken);
+        win.localStorage.setItem(SESSION_KEY, sessionToken);
+        win.sessionStorage.removeItem(SESSION_KEY);
         return payload;
       },
       async submitUrl(url) {
