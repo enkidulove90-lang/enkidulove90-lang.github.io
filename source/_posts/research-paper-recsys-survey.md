@@ -10,7 +10,7 @@ venue_type: arXiv预印本
 
 venue_name: ""
 
-categories: [未分类]
+categories: [AI, 学术检索]
 
 tags: [论文速读]
 

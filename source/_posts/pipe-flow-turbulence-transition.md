@@ -10,7 +10,7 @@ venue_type: arXiv预印本
 
 venue_name: ""
 
-categories: [未分类]
+categories: [跨学科与基础]
 
 tags: [论文速读]
 

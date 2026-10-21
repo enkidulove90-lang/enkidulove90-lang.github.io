@@ -22,6 +22,20 @@
     failed: '未发布',
     cancelled: '已关闭'
   };
+  const STAGES = [
+    ['received', '等待领取'],
+    ['validate_input', '校验论文'],
+    ['resolve_metadata', '读取元数据'],
+    ['download_pdf', '下载 PDF'],
+    ['mineru_parse', '解析论文'],
+    ['deepseek_generate', '生成文章'],
+    ['classify', '自动分类'],
+    ['quality_check', '质量校验'],
+    ['write_notion_published', '写入 Notion'],
+    ['publishing', '发布网站'],
+    ['published', '发布完成']
+  ];
+  const STAGE_LABELS = Object.fromEntries(STAGES);
 
   function mapJobGroup(job) {
     return TERMINAL.has(String(job && job.status || '').toLowerCase()) ? 'completed' : 'processing';
@@ -35,6 +49,8 @@
       status: String(raw.status || 'queued').toLowerCase(),
       stage: String(raw.stage || ''),
       retryable: Boolean(raw.retryable),
+      attempt: Number(raw.attempt || 0),
+      errorCode: String(raw.errorCode || raw.error_code || ''),
       errorMessage: String(raw.errorMessage || raw.error_message || ''),
       createdAt: String(raw.createdAt || raw.created_at || ''),
       updatedAt: String(raw.updatedAt || raw.updated_at || ''),
@@ -102,6 +118,7 @@
         const payload = await request('/v1/jobs');
         return Array.isArray(payload.jobs) ? payload.jobs.map(normalizeJob) : [];
       },
+      jobLog: id => request(`/v1/jobs/${encodeURIComponent(id)}/log`),
       retry: id => request(`/v1/jobs/${encodeURIComponent(id)}/retry`, { method: 'POST' })
     };
   }
@@ -156,7 +173,7 @@
     overlay.innerHTML = `
       <section class="paper-intake-dialog" role="dialog" aria-modal="true" aria-labelledby="paper-intake-title">
         <button class="paper-intake-close" type="button" data-action="close-modal" aria-label="关闭">×</button>
-        <p class="paper-intake-kicker">PAPER INTAKE · OWNER ONLY</p>
+        <p class="paper-intake-kicker">论文收录</p>
         <h2 id="paper-intake-title">收录一篇论文</h2>
         <p class="paper-intake-lead">提交链接或 PDF。系统会自动解析、撰写、分类并发布到本站。</p>
         <div class="paper-intake-auth">
@@ -207,7 +224,7 @@
       </button>
       <div class="paper-task-panel" id="paper-task-panel">
         <header class="paper-task-header">
-          <div><p>TASK LEDGER</p><h2>论文处理任务</h2></div>
+          <div><p>收录进度</p><h2>论文处理任务</h2></div>
           <button type="button" data-action="close-drawer" aria-label="收起任务抽屉">×</button>
         </header>
         <div class="paper-task-login" data-task-login>
@@ -228,6 +245,15 @@
     const doc = options.document;
     const api = options.api;
     const hoverCloseDelay = Number(options.hoverCloseDelay == null ? 320 : options.hoverCloseDelay);
+    const downloadText = options.downloadText || ((name, text) => {
+      const blob = new win.Blob([text], { type: 'application/json;charset=utf-8' });
+      const url = win.URL.createObjectURL(blob);
+      const link = doc.createElement('a');
+      link.href = url;
+      link.download = name;
+      link.click();
+      win.URL.revokeObjectURL(url);
+    });
     const modal = buildModal(doc, options.pdfUploadEnabled === true);
     const drawer = buildDrawer(doc);
     const tab = drawer.querySelector('.paper-task-tab');
@@ -281,7 +307,39 @@
 
     function jobCard(job) {
       const card = element(doc, 'article', `paper-task-card is-${job.status}`);
+      const top = element(doc, 'div', 'paper-task-card-top');
       const heading = element(doc, 'h4', '', job.title || `论文 ${job.paperId.slice(0, 8) || job.id.slice(0, 8)}`);
+      const menuWrap = element(doc, 'div', 'paper-task-menu');
+      const menuButton = element(doc, 'button', 'paper-task-menu-button', '•••');
+      menuButton.type = 'button';
+      menuButton.dataset.action = 'task-menu';
+      menuButton.setAttribute('aria-label', '任务操作');
+      menuButton.setAttribute('aria-expanded', 'false');
+      const menu = element(doc, 'div', 'paper-task-menu-popover');
+      menu.hidden = true;
+      const exportButton = element(doc, 'button', '', '导出日志');
+      exportButton.type = 'button';
+      exportButton.dataset.action = 'export-log';
+      menuButton.addEventListener('click', event => {
+        event.stopPropagation();
+        menu.hidden = !menu.hidden;
+        menuButton.setAttribute('aria-expanded', String(!menu.hidden));
+      });
+      exportButton.addEventListener('click', async event => {
+        event.stopPropagation();
+        exportButton.disabled = true;
+        try {
+          const payload = api.jobLog ? await api.jobLog(job.id) : { job, events: [] };
+          downloadText(`paper-task-${job.id}.json`, JSON.stringify(payload, null, 2));
+          menu.hidden = true;
+          menuButton.setAttribute('aria-expanded', 'false');
+        } catch (error) {
+          exportButton.textContent = error.message || '导出失败';
+        } finally { exportButton.disabled = false; }
+      });
+      menu.append(exportButton);
+      menuWrap.append(menuButton, menu);
+      top.append(heading, menuWrap);
       const meta = element(doc, 'p', 'paper-task-card-meta');
       const status = element(doc, 'span', 'paper-task-status', STATUS_LABELS[job.status] || job.status);
       meta.append(status);
@@ -290,7 +348,27 @@
         time.dateTime = job.updatedAt;
         meta.append(time);
       }
-      card.append(heading, meta);
+      card.append(top, meta);
+      const stageIndex = Math.max(0, STAGES.findIndex(([name]) => name === job.stage));
+      const stageLabel = STAGE_LABELS[job.stage] || (job.status === 'queued' ? '等待领取' : '处理中');
+      const terminalProgress = job.status === 'published' ? 100 : null;
+      const progressValue = terminalProgress == null
+        ? Math.max(4, Math.round((stageIndex / (STAGES.length - 1)) * 100))
+        : terminalProgress;
+      const progress = element(doc, 'div', 'paper-task-progress');
+      const progressLabel = element(doc, 'div', 'paper-task-progress-label');
+      progressLabel.append(element(doc, 'span', '', stageLabel), element(doc, 'b', '', `${progressValue}%`));
+      const track = element(doc, 'div', 'paper-task-progress-track');
+      track.setAttribute('role', 'progressbar');
+      track.setAttribute('aria-label', stageLabel);
+      track.setAttribute('aria-valuemin', '0');
+      track.setAttribute('aria-valuemax', '100');
+      track.setAttribute('aria-valuenow', String(progressValue));
+      const fill = element(doc, 'span', 'paper-task-progress-fill');
+      fill.style.width = `${progressValue}%`;
+      track.append(fill);
+      progress.append(progressLabel, track);
+      card.append(progress);
       if (job.errorMessage) card.append(element(doc, 'p', 'paper-task-error', job.errorMessage));
       const actions = element(doc, 'div', 'paper-task-actions');
       if (job.siteUrl && job.status === 'published') {
@@ -375,9 +453,9 @@
       try {
         const input = event.currentTarget.elements.paper_url;
         const result = await api.submitUrl(input.value);
-        notice.textContent = result.message || '论文已进入处理队列。';
-        await refreshJobs();
+        closeModal();
         setDrawerState('locked');
+        await refreshJobs();
       } catch (error) { notice.textContent = error.message || '提交失败，请稍后重试。'; }
       finally { submit.disabled = false; }
     });
@@ -392,9 +470,9 @@
       notice.textContent = '正在上传 PDF…';
       try {
         const result = await api.submitPdf(file);
-        notice.textContent = result.message || 'PDF 已进入处理队列。';
-        await refreshJobs();
+        closeModal();
         setDrawerState('locked');
+        await refreshJobs();
       } catch (error) { notice.textContent = error.message || '上传失败，请稍后重试。'; }
       finally { submit.disabled = false; }
     });

@@ -10,7 +10,7 @@ venue_type: arXiv预印本
 
 venue_name: ""
 
-categories: [未分类]
+categories: [推荐系统, 生成式推荐]
 
 tags: [论文速读]
 

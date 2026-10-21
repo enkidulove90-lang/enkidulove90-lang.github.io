@@ -10,7 +10,7 @@ venue_type: arXiv预印本
 
 venue_name: ""
 
-categories: [未分类]
+categories: [AI, 大模型与智能体]
 
 tags: [论文速读]
 
