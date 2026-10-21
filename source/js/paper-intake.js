@@ -22,6 +22,20 @@
     failed: '未发布',
     cancelled: '已关闭'
   };
+  const STAGES = [
+    ['received', '等待领取'],
+    ['validate_input', '校验论文'],
+    ['resolve_metadata', '读取元数据'],
+    ['download_pdf', '下载 PDF'],
+    ['mineru_parse', '解析论文'],
+    ['deepseek_generate', '生成文章'],
+    ['classify', '自动分类'],
+    ['quality_check', '质量校验'],
+    ['write_notion_published', '写入 Notion'],
+    ['publishing', '发布网站'],
+    ['published', '发布完成']
+  ];
+  const STAGE_LABELS = Object.fromEntries(STAGES);
 
   function mapJobGroup(job) {
     return TERMINAL.has(String(job && job.status || '').toLowerCase()) ? 'completed' : 'processing';
@@ -35,6 +49,8 @@
       status: String(raw.status || 'queued').toLowerCase(),
       stage: String(raw.stage || ''),
       retryable: Boolean(raw.retryable),
+      attempt: Number(raw.attempt || 0),
+      errorCode: String(raw.errorCode || raw.error_code || ''),
       errorMessage: String(raw.errorMessage || raw.error_message || ''),
       createdAt: String(raw.createdAt || raw.created_at || ''),
       updatedAt: String(raw.updatedAt || raw.updated_at || ''),
@@ -48,10 +64,60 @@
     const fetchImpl = options.fetch || win.fetch.bind(win);
 
     function token() {
-      return win.sessionStorage.getItem(SESSION_KEY) || '';
+      return win.localStorage.getItem(SESSION_KEY)
+        || win.sessionStorage.getItem(SESSION_KEY)
+        || '';
+    }
+
+    function clearToken() {
+      win.localStorage.removeItem(SESSION_KEY);
+      win.sessionStorage.removeItem(SESSION_KEY);
+    }
+
+    function retryOperationKey(jobId) {
+      const storageKey = `paper-intake-retry:${jobId}`;
+      let value = win.localStorage.getItem(storageKey);
+      if (!value) {
+        if (win.crypto && typeof win.crypto.randomUUID === 'function') {
+          value = win.crypto.randomUUID();
+        } else {
+          const bytes = new Uint8Array(16);
+          win.crypto.getRandomValues(bytes);
+          bytes[6] = (bytes[6] & 0x0f) | 0x40;
+          bytes[8] = (bytes[8] & 0x3f) | 0x80;
+          const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+          value = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+        }
+        win.localStorage.setItem(storageKey, value);
+      }
+      return { storageKey, value };
+    }
+
+    function expiresSoon(value) {
+      try {
+        const payload = value.split('.')[0].replace(/-/g, '+').replace(/_/g, '/');
+        const claims = JSON.parse(win.atob(payload));
+        return Number(claims.exp || 0) * 1000 - Date.now() <= 5 * 60 * 1000;
+      } catch { return false; }
+    }
+
+    async function refreshSessionIfNeeded() {
+      const current = token();
+      if (!current || !expiresSoon(current)) return;
+      const response = await fetchImpl(`${apiBase}/v1/session/refresh`, {
+        method: 'POST', headers: { Authorization: `Bearer ${current}` }
+      });
+      let payload = {};
+      try { payload = await response.json(); } catch { /* handled below */ }
+      if (!response.ok || !payload.token) {
+        if (response.status === 401) clearToken();
+        throw Object.assign(new Error(payload.message || '授权续期失败，请重新登录。'), payload);
+      }
+      win.localStorage.setItem(SESSION_KEY, payload.token);
     }
 
     async function request(path, init = {}, authenticated = true) {
+      if (authenticated && path !== '/v1/session/refresh') await refreshSessionIfNeeded();
       const headers = new win.Headers(init.headers || {});
       if (authenticated) {
         const current = token();
@@ -62,7 +128,10 @@
       let payload = {};
       try { payload = await response.json(); } catch { /* non-JSON gateway response */ }
       if (!response.ok) {
-        if (response.status === 401) win.sessionStorage.removeItem(SESSION_KEY);
+        if (response.status === 401) {
+          clearToken();
+          win.dispatchEvent(new win.CustomEvent('paper-intake:unauthorized'));
+        }
         throw Object.assign(new Error(payload.message || `请求失败（${response.status}）`), payload);
       }
       return payload;
@@ -71,7 +140,8 @@
     return {
       apiBase,
       hasSession: () => Boolean(token()),
-      clearSession: () => win.sessionStorage.removeItem(SESSION_KEY),
+      clearSession: clearToken,
+      refreshSessionIfNeeded,
       loginUrl: returnOrigin => `${apiBase}/v1/session/start?return_origin=${encodeURIComponent(returnOrigin)}`,
       async exchangeCode(code) {
         const payload = await request('/v1/session/exchange', {
@@ -81,7 +151,8 @@
         }, false);
         const sessionToken = payload.token || payload.access_token;
         if (!sessionToken) throw new Error('登录成功，但服务端没有返回会话凭据。');
-        win.sessionStorage.setItem(SESSION_KEY, sessionToken);
+        win.localStorage.setItem(SESSION_KEY, sessionToken);
+        win.sessionStorage.removeItem(SESSION_KEY);
         return payload;
       },
       async submitUrl(url) {
@@ -102,7 +173,16 @@
         const payload = await request('/v1/jobs');
         return Array.isArray(payload.jobs) ? payload.jobs.map(normalizeJob) : [];
       },
-      retry: id => request(`/v1/jobs/${encodeURIComponent(id)}/retry`, { method: 'POST' })
+      jobLog: id => request(`/v1/jobs/${encodeURIComponent(id)}/log`),
+      async retry(id) {
+        const operation = retryOperationKey(id);
+        const payload = await request(`/v1/jobs/${encodeURIComponent(id)}/retry`, {
+          method: 'POST',
+          headers: { 'Idempotency-Key': operation.value }
+        });
+        win.localStorage.removeItem(operation.storageKey);
+        return payload;
+      }
     };
   }
 
@@ -111,6 +191,16 @@
     if (className) node.className = className;
     if (text != null) node.textContent = text;
     return node;
+  }
+
+  function freshPublicationUrl(siteUrl, updatedAt, baseUrl) {
+    try {
+      const target = new URL(siteUrl, baseUrl);
+      target.searchParams.set('build', updatedAt || String(Date.now()));
+      return target.href;
+    } catch {
+      return siteUrl;
+    }
   }
 
   function icon(doc, className) {
@@ -146,7 +236,7 @@
     overlay.innerHTML = `
       <section class="paper-intake-dialog" role="dialog" aria-modal="true" aria-labelledby="paper-intake-title">
         <button class="paper-intake-close" type="button" data-action="close-modal" aria-label="关闭">×</button>
-        <p class="paper-intake-kicker">PAPER INTAKE · OWNER ONLY</p>
+        <p class="paper-intake-kicker">论文收录</p>
         <h2 id="paper-intake-title">收录一篇论文</h2>
         <p class="paper-intake-lead">提交链接或 PDF。系统会自动解析、撰写、分类并发布到本站。</p>
         <div class="paper-intake-auth">
@@ -197,7 +287,7 @@
       </button>
       <div class="paper-task-panel" id="paper-task-panel">
         <header class="paper-task-header">
-          <div><p>TASK LEDGER</p><h2>论文处理任务</h2></div>
+          <div><p>收录进度</p><h2>论文处理任务</h2></div>
           <button type="button" data-action="close-drawer" aria-label="收起任务抽屉">×</button>
         </header>
         <div class="paper-task-login" data-task-login>
@@ -218,6 +308,15 @@
     const doc = options.document;
     const api = options.api;
     const hoverCloseDelay = Number(options.hoverCloseDelay == null ? 320 : options.hoverCloseDelay);
+    const downloadText = options.downloadText || ((name, text) => {
+      const blob = new win.Blob([text], { type: 'application/json;charset=utf-8' });
+      const url = win.URL.createObjectURL(blob);
+      const link = doc.createElement('a');
+      link.href = url;
+      link.download = name;
+      link.click();
+      win.URL.revokeObjectURL(url);
+    });
     const modal = buildModal(doc, options.pdfUploadEnabled === true);
     const drawer = buildDrawer(doc);
     const tab = drawer.querySelector('.paper-task-tab');
@@ -228,6 +327,14 @@
     let closeTimer = null;
     let pollTimer = null;
     let destroyed = false;
+    const unauthorizedHandler = () => {
+      syncAuth();
+      const toast = element(doc, 'div', 'paper-intake-toast is-error', '授权已过期，请重新点击 GitHub 登录');
+      toast.setAttribute('role', 'alert');
+      doc.body.appendChild(toast);
+      win.setTimeout(() => toast.remove(), 5000);
+    };
+    win.addEventListener('paper-intake:unauthorized', unauthorizedHandler);
 
     function setDrawerState(state) {
       drawer.dataset.state = state;
@@ -271,7 +378,39 @@
 
     function jobCard(job) {
       const card = element(doc, 'article', `paper-task-card is-${job.status}`);
+      const top = element(doc, 'div', 'paper-task-card-top');
       const heading = element(doc, 'h4', '', job.title || `论文 ${job.paperId.slice(0, 8) || job.id.slice(0, 8)}`);
+      const menuWrap = element(doc, 'div', 'paper-task-menu');
+      const menuButton = element(doc, 'button', 'paper-task-menu-button', '•••');
+      menuButton.type = 'button';
+      menuButton.dataset.action = 'task-menu';
+      menuButton.setAttribute('aria-label', '任务操作');
+      menuButton.setAttribute('aria-expanded', 'false');
+      const menu = element(doc, 'div', 'paper-task-menu-popover');
+      menu.hidden = true;
+      const exportButton = element(doc, 'button', '', '导出日志');
+      exportButton.type = 'button';
+      exportButton.dataset.action = 'export-log';
+      menuButton.addEventListener('click', event => {
+        event.stopPropagation();
+        menu.hidden = !menu.hidden;
+        menuButton.setAttribute('aria-expanded', String(!menu.hidden));
+      });
+      exportButton.addEventListener('click', async event => {
+        event.stopPropagation();
+        exportButton.disabled = true;
+        try {
+          const payload = api.jobLog ? await api.jobLog(job.id) : { job, events: [] };
+          downloadText(`paper-task-${job.id}.json`, JSON.stringify(payload, null, 2));
+          menu.hidden = true;
+          menuButton.setAttribute('aria-expanded', 'false');
+        } catch (error) {
+          exportButton.textContent = error.message || '导出失败';
+        } finally { exportButton.disabled = false; }
+      });
+      menu.append(exportButton);
+      menuWrap.append(menuButton, menu);
+      top.append(heading, menuWrap);
       const meta = element(doc, 'p', 'paper-task-card-meta');
       const status = element(doc, 'span', 'paper-task-status', STATUS_LABELS[job.status] || job.status);
       meta.append(status);
@@ -280,12 +419,32 @@
         time.dateTime = job.updatedAt;
         meta.append(time);
       }
-      card.append(heading, meta);
+      card.append(top, meta);
+      const stageIndex = Math.max(0, STAGES.findIndex(([name]) => name === job.stage));
+      const stageLabel = STAGE_LABELS[job.stage] || (job.status === 'queued' ? '等待领取' : '处理中');
+      const terminalProgress = job.status === 'published' ? 100 : null;
+      const progressValue = terminalProgress == null
+        ? Math.max(4, Math.round((stageIndex / (STAGES.length - 1)) * 100))
+        : terminalProgress;
+      const progress = element(doc, 'div', 'paper-task-progress');
+      const progressLabel = element(doc, 'div', 'paper-task-progress-label');
+      progressLabel.append(element(doc, 'span', '', stageLabel), element(doc, 'b', '', `${progressValue}%`));
+      const track = element(doc, 'div', 'paper-task-progress-track');
+      track.setAttribute('role', 'progressbar');
+      track.setAttribute('aria-label', stageLabel);
+      track.setAttribute('aria-valuemin', '0');
+      track.setAttribute('aria-valuemax', '100');
+      track.setAttribute('aria-valuenow', String(progressValue));
+      const fill = element(doc, 'span', 'paper-task-progress-fill');
+      fill.style.width = `${progressValue}%`;
+      track.append(fill);
+      progress.append(progressLabel, track);
+      card.append(progress);
       if (job.errorMessage) card.append(element(doc, 'p', 'paper-task-error', job.errorMessage));
       const actions = element(doc, 'div', 'paper-task-actions');
       if (job.siteUrl && job.status === 'published') {
         const link = element(doc, 'a', '', '阅读文章');
-        link.href = job.siteUrl;
+        link.href = freshPublicationUrl(job.siteUrl, job.updatedAt, win.location.href);
         actions.append(link);
       }
       if (job.status === 'failed' && job.retryable) {
@@ -365,9 +524,9 @@
       try {
         const input = event.currentTarget.elements.paper_url;
         const result = await api.submitUrl(input.value);
-        notice.textContent = result.message || '论文已进入处理队列。';
-        await refreshJobs();
+        closeModal();
         setDrawerState('locked');
+        await refreshJobs();
       } catch (error) { notice.textContent = error.message || '提交失败，请稍后重试。'; }
       finally { submit.disabled = false; }
     });
@@ -382,9 +541,9 @@
       notice.textContent = '正在上传 PDF…';
       try {
         const result = await api.submitPdf(file);
-        notice.textContent = result.message || 'PDF 已进入处理队列。';
-        await refreshJobs();
+        closeModal();
         setDrawerState('locked');
+        await refreshJobs();
       } catch (error) { notice.textContent = error.message || '上传失败，请稍后重试。'; }
       finally { submit.disabled = false; }
     });
@@ -413,6 +572,7 @@
         cancelClose();
         if (pollTimer != null) win.clearTimeout(pollTimer);
         win.removeEventListener('message', messageHandler);
+        win.removeEventListener('paper-intake:unauthorized', unauthorizedHandler);
         navigationEntries.forEach(node => node.remove());
         modal.remove();
         drawer.remove();
@@ -434,5 +594,13 @@
     });
   }
 
-  return { SESSION_KEY, bootPaperIntake, createPaperIntakeApi, mapJobGroup, mountPaperIntake, normalizeJob };
+  return {
+    SESSION_KEY,
+    bootPaperIntake,
+    createPaperIntakeApi,
+    freshPublicationUrl,
+    mapJobGroup,
+    mountPaperIntake,
+    normalizeJob
+  };
 });

@@ -1,5 +1,6 @@
 (function () {
   'use strict';
+  // /map_data.json is shared through the one-hour MapDataCache.
 
   var root = document.querySelector('[data-map-catalog]');
   if (!root) return;
@@ -27,11 +28,14 @@
     }).forEach(function (place) {
       (place.papers || []).forEach(function (paper) {
         var name = groupKey(paper.location_label || place.name);
+        var institution = (place.institutions || []).find(function (item) {
+          return groupKey(item.name) === name;
+        });
         if (!groups.has(name)) {
           groups.set(name, {
             name: name,
             city: place.city === 'Virtual' ? '坐标待补充' : (place.city || place.name),
-            description: place.description || '',
+            description: (institution && institution.description) || place.description || '',
             images: Array.from(new Set([].concat(place.city_images || [], place.image || []).filter(Boolean))),
             papers: []
           });
@@ -86,9 +90,10 @@
       paper.description || '这篇文章从问题背景、方法设计与实验结果三个层面整理这项工作。');
     link.href = paper.url;
     link.setAttribute('aria-label', paper.title);
-    image.src = chooseUniqueImage(group.images, paper);
+    image.dataset.src = chooseUniqueImage(group.images, paper);
     image.alt = group.city + '城市图景';
     image.loading = 'lazy';
+    image.decoding = 'async';
     title.href = paper.url;
     link.appendChild(image);
     body.append(title, meta, description);
@@ -112,21 +117,81 @@
     return section;
   }
 
-  fetch('/map_data.json?v=' + Date.now(), { cache: 'no-store' })
-    .then(function (response) {
-      if (!response.ok) throw new Error('map catalog request failed');
-      return response.json();
-    })
+  function companySlug(value) {
+    return String(value || 'company')
+      .trim()
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[^a-z0-9\u4e00-\u9fff]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'company';
+  }
+
+  function companySection(group) {
+    var section = element('section', 'map-catalog__institution map-catalog__company');
+    var card = element('a', 'map-catalog__company-card');
+    var cover = element('span', 'map-catalog__company-cover');
+    var image = element('img');
+    var body = element('span', 'map-catalog__company-body');
+    var eyebrow = element('span', 'map-catalog__company-meta', group.city + ' · ' + group.papers.length + ' 篇论文');
+    var title = element('strong', 'map-catalog__company-title', group.name);
+    var description = element('span', 'map-catalog__company-description',
+      group.description || '该企业研究团队持续参与推荐系统、机器学习与智能信息服务研究。');
+    var lead = group.papers[0];
+    var leadSummary = lead && lead.description
+      ? lead.description.slice(0, 120) + (lead.description.length > 120 ? '…' : '')
+      : '';
+    var featured = element('span', 'map-catalog__company-featured',
+      lead ? '代表论文：' + lead.title + (leadSummary ? ' — ' + leadSummary : '') : '查看企业论文');
+    var action = element('span', 'map-catalog__company-action', '查看全部论文 →');
+
+    image.dataset.src = group.images[0] || '';
+    image.alt = group.name + '相关城市与机构图景';
+    image.loading = 'lazy';
+    image.decoding = 'async';
+    cover.appendChild(image);
+    body.append(eyebrow, title, description, featured, action);
+    card.href = '/map/company/papers/?company=' + encodeURIComponent(companySlug(group.name));
+    card.setAttribute('aria-label', '查看 ' + group.name + ' 的全部论文');
+    card.append(cover, body);
+    section.appendChild(card);
+    return section;
+  }
+
+  function matchesCompany(group, query) {
+    if (!query) return true;
+    var searchable = [group.name, group.city, group.description]
+      .concat(group.papers.map(function (paper) { return paper.title; }))
+      .join(' ')
+      .toLowerCase();
+    return searchable.indexOf(query.toLowerCase()) !== -1;
+  }
+
+  function renderGroups(groups) {
+    var queryRoot = document.querySelector('[data-company-search]');
+    var query = queryRoot ? queryRoot.value.trim() : '';
+    var visibleGroups = type === 'company'
+      ? groups.filter(function (group) { return matchesCompany(group, query); })
+      : groups;
+    var paperCount = visibleGroups.reduce(function (sum, group) { return sum + group.papers.length; }, 0);
+    countRoot.textContent = visibleGroups.length + ' 个分组 · ' + paperCount + ' 篇论文';
+    groupsRoot.replaceChildren();
+    if (!visibleGroups.length) {
+      groupsRoot.appendChild(element('p', 'map-catalog__empty', query ? '没有找到匹配的企业或论文。' : '这一类暂时还没有可展示的论文。'));
+      return;
+    }
+    groupsRoot.classList.toggle('map-catalog__company-grid', type === 'company');
+    visibleGroups.forEach(function (group) {
+      groupsRoot.appendChild(type === 'company' ? companySection(group) : institutionSection(group));
+    });
+    window.MapDataCache.observeImages(groupsRoot);
+  }
+
+  window.MapDataCache.load()
     .then(function (payload) {
       var groups = collectGroups(payload);
-      var paperCount = groups.reduce(function (sum, group) { return sum + group.papers.length; }, 0);
-      countRoot.textContent = groups.length + ' 个分组 · ' + paperCount + ' 篇论文';
-      groupsRoot.replaceChildren();
-      if (!groups.length) {
-        groupsRoot.appendChild(element('p', 'map-catalog__empty', '这一类暂时还没有可展示的论文。'));
-        return;
-      }
-      groups.forEach(function (group) { groupsRoot.appendChild(institutionSection(group)); });
+      var searchRoot = document.querySelector('[data-company-search]');
+      renderGroups(groups);
+      if (searchRoot) searchRoot.addEventListener('input', function () { renderGroups(groups); });
     })
     .catch(function () {
       groupsRoot.replaceChildren(element('p', 'map-catalog__empty', '列表数据暂时没有加载成功，请刷新后重试。'));

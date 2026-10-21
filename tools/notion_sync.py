@@ -80,6 +80,16 @@ def slugify(title, page_id):
     return (s or "post") + "-" + page_id.replace("-", "")[:8]
 
 
+def page_slug(page):
+    """Use the curated Notion slug as the canonical post filename."""
+    props = page["properties"]
+    title = plain((props.get("title") or props.get("Title") or {}).get("title", []))
+    configured = plain((props.get("slug") or {}).get("rich_text", [])).strip()
+    if configured and re.fullmatch(r"[A-Za-z0-9._-]+", configured):
+        return configured
+    return slugify(title, page["id"])
+
+
 def download_to(url, name, destination, public_prefix):
     """下载 Notion 临时文件到稳定的站点目录。"""
     os.makedirs(destination, exist_ok=True)
@@ -182,15 +192,27 @@ def blocks_children(block_id):
     return out
 
 
-def page_to_md(page):
+def frontmatter_categories(path):
+    """Read an existing Hexo category list without requiring a YAML dependency."""
+    if not path or not os.path.isfile(path):
+        return []
+    with open(path, encoding="utf-8") as handle:
+        match = re.search(r"^categories:\s*\[(.*?)\]\s*$", handle.read(), re.MULTILINE)
+    if not match:
+        return []
+    values = [item.strip().strip('"\'') for item in match.group(1).split(",")]
+    return [item for item in values if item and item != "未分类"]
+
+
+def page_to_md(page, fallback_categories=None):
     props = page["properties"]
     title = plain((props.get("title") or props.get("Title") or {}).get("title", []))
     if not title:
         raise ValueError("标题为空，已跳过（请在 Notion 里填上 title）")
     tags = [t.get("name", "") for t in (props.get("tags") or {}).get("multi_select", [])]
     sel = (props.get("category") or {}).get("select") or {}
-    category = sel.get("name") or "未分类"
-    slug = plain((props.get("slug") or {}).get("rich_text", [])) or slugify(title, page["id"])
+    category = sel.get("name")
+    slug = page_slug(page)
     summary = plain((props.get("summary") or {}).get("rich_text", []))
     date = ((props.get("date") or {}).get("date") or {}).get("start") or page["created_time"][:10]
 
@@ -206,17 +228,21 @@ def page_to_md(page):
 
     # 三维分类落地：Notion 的 category 写「领域大类 / 二级分类」（斜杠或逗号分隔），
     # tags 放「任务场景 + 技术方法」；Hexo 侧 categories 支持两级、tags 为标签云
-    cats = [x.strip() for x in re.split(r"[,/、]", category) if x.strip()]
+    cats = [x.strip() for x in re.split(r"[,/、]", category or "") if x.strip()]
+    if not cats:
+        cats = list(fallback_categories or []) or ["未分类"]
     tags = list(dict.fromkeys(["论文速读"] + tags))
-    md = ["---", f"title: {title}", f"date: {date}",
-          f"year: {year}", f"venue_type: {venue_type}",
+    md = ["---", "title: " + json.dumps(title, ensure_ascii=False),
+          "date: " + json.dumps(str(date), ensure_ascii=False),
+          "year: " + json.dumps(str(year), ensure_ascii=False),
+          "venue_type: " + json.dumps(venue_type, ensure_ascii=False),
           "venue_name: " + (json.dumps(venue_name, ensure_ascii=False) if venue_name else '""'),
-          "categories: [" + ", ".join(cats) + "]",
-          "tags: [" + ", ".join(tags) + "]"]
+          "categories: " + json.dumps(cats, ensure_ascii=False),
+          "tags: " + json.dumps(tags, ensure_ascii=False)]
     if slug:
-        md.append(f"slug: {slug}")
+        md.append("slug: " + json.dumps(slug, ensure_ascii=False))
     if summary:
-        md.append(f"description: {summary}")
+        md.append("description: " + json.dumps(summary, ensure_ascii=False))
     if arxiv_id:
         md.append("arxiv_id: " + json.dumps(arxiv_id, ensure_ascii=False))
     for field in ("location_type", "venue_city", "affil_city", "corresponding_city", "affiliation_name"):
@@ -257,6 +283,57 @@ def published_posts_query():
     }
 
 
+def is_published_post(page):
+    props = page.get("properties") or {}
+    status = ((props.get("status") or {}).get("select") or {}).get("name")
+    content_type = ((props.get("type") or {}).get("select") or {}).get("name")
+    return status == "Published" and content_type == "Post"
+
+
+def validate_unique_page_slugs(pages):
+    """Reject ambiguous identities before any Markdown file can be overwritten."""
+    owners = {}
+    for page in pages:
+        slug = page_slug(page)
+        previous = owners.get(slug)
+        if previous and previous != page["id"]:
+            raise ValueError(
+                f"slug collision: {slug} resolves from both {previous} and {page['id']}"
+            )
+        owners[slug] = page["id"]
+
+
+def can_skip_unchanged_page(page, state, destination):
+    """A timestamp cache hit is valid only while its materialized file exists."""
+    return (
+        state.get(page["id"]) == page["last_edited_time"]
+        and os.path.isfile(destination)
+    )
+
+
+def iter_published_pages(page_id=""):
+    """Yield one intake page when provided, otherwise reconcile database metadata."""
+    if page_id:
+        page = api("GET", f"/pages/{page_id}")
+        if not is_published_post(page):
+            raise ValueError(f"target page is not Published + Post: {page_id}")
+        yield page
+        return
+    body = published_posts_query()
+    cursor = None
+    pages = []
+    while True:
+        if cursor:
+            body["start_cursor"] = cursor
+        data = api("POST", f"/databases/{DB}/query", json=body)
+        pages.extend(data.get("results", []))
+        if not data.get("has_more"):
+            break
+        cursor = data.get("next_cursor")
+    validate_unique_page_slugs(pages)
+    yield from pages
+
+
 def main():
     # 未配置 Secrets 时优雅跳过，保证站点仍能正常构建
     if not TOKEN or not DB:
@@ -264,35 +341,27 @@ def main():
         return 0
     os.makedirs(POSTS, exist_ok=True)
     state = json.load(open(STATE, encoding="utf-8")) if os.path.exists(STATE) else {}
-    body = published_posts_query()
+    target_page_id = os.environ.get("NOTION_PAGE_ID", "").strip()
     n_new = n_skip = 0
-    cur = None
-    while True:
-        if cur:
-            body["start_cursor"] = cur
-        d = api("POST", f"/databases/{DB}/query", json=body)
-        for page in d.get("results", []):
-            pid = page["id"]
-            edited = page["last_edited_time"]
-            if state.get(pid) == edited:
-                n_skip += 1
-                continue
-            try:
-                md = page_to_md(page)
-                title = re.search(r"title: (.+)", md).group(1)
-                fn = slugify(title, pid) + ".md"
-                destination = os.path.join(POSTS, fn)
-                md = preserve_existing_post_when_remote_body_is_empty(md, destination)
-                open(destination, "w", encoding="utf-8").write(md)
-                state[pid] = edited
-                n_new += 1
-                print(f"  + {title}")
-            except Exception as e:
-                print(f"  ! {pid} failed: {e}", file=sys.stderr)
-            time.sleep(0.34)
-        if not d.get("has_more"):
-            break
-        cur = d.get("next_cursor")
+    for page in iter_published_pages(target_page_id):
+        pid = page["id"]
+        edited = page["last_edited_time"]
+        fn = page_slug(page) + ".md"
+        destination = os.path.join(POSTS, fn)
+        if can_skip_unchanged_page(page, state, destination):
+            n_skip += 1
+            continue
+        try:
+            md = page_to_md(page, fallback_categories=frontmatter_categories(destination))
+            title = re.search(r"title: (.+)", md).group(1)
+            md = preserve_existing_post_when_remote_body_is_empty(md, destination)
+            open(destination, "w", encoding="utf-8").write(md)
+            state[pid] = edited
+            n_new += 1
+            print(f"  + {title}")
+        except Exception as e:
+            print(f"  ! {pid} failed: {e}", file=sys.stderr)
+        time.sleep(0.34)
     json.dump(state, open(STATE, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(f"sync done: {n_new} updated, {n_skip} unchanged")
     if n_new + n_skip == 0:

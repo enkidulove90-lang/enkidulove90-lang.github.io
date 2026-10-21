@@ -1,15 +1,23 @@
 ---
+
 title: "冷启动推荐的知识引导检索增强生成"
-date: 2025-05-27
+
+date: 2026-10-19
+
 year: 2025
+
 venue_type: arXiv预印本
+
 venue_name: arXiv
-updated: 2025-11-24
+
 categories: [推荐系统, 知识图谱]
-tags: [论文速读, 冷启动, 检索增强生成]
+
+tags: [论文速读]
+
 slug: kg-guided-rag-cold-start
-description: "提出ColdRAG框架，通过动态构建领域知识图谱和LLM引导的多跳推理，解决了冷启动推荐中静态知识图谱维护成本高、LLM依赖预过滤候选列表的问题。在三个Amazon数据集上，Rec…"
+
 ---
+
 > 论文：[arXiv 2505.20773](https://arxiv.org/abs/2505.20773) · 代码：论文未公开
 
 ## 主要贡献
@@ -19,8 +27,10 @@ description: "提出ColdRAG框架，通过动态构建领域知识图谱和LLM�
 ## 创新点
 
 1. 创新点1：动态知识图谱构建。利用LLM从商品元数据（标题、描述、属性、评论）中自动提取实体和关系，构建可增量更新的结构化语义图，避免了静态图谱的维护成本和过时问题。
-2. 创新点2：LLM引导的自适应候选检索。将候选生成视为目标导向的图遍历，通过LLM对边进行相关性评分（阈值λ=7），实现多跳推理，无需预过滤候选列表，解决了LLM上下文窗口限制。
-3. 创新点3：证据路径驱动的推荐。检索过程中保留实体和关系的自然语言描述作为证据，在最终推荐时作为系统提示提供语义基础，显著降低了LLM的幻觉率（降至3.15%）。
+
+1. 创新点2：LLM引导的自适应候选检索。将候选生成视为目标导向的图遍历，通过LLM对边进行相关性评分（阈值λ=7），实现多跳推理，无需预过滤候选列表，解决了LLM上下文窗口限制。
+
+1. 创新点3：证据路径驱动的推荐。检索过程中保留实体和关系的自然语言描述作为证据，在最终推荐时作为系统提示提供语义基础，显著降低了LLM的幻觉率（降至3.15%）。
 
 ## 方法论
 
@@ -29,14 +39,19 @@ description: "提出ColdRAG框架，通过动态构建领域知识图谱和LLM�
 ## Benchmark 与数据集
 
 - Amazon Review数据集（Games）
+
 - Amazon Review数据集（Toys）
+
 - Amazon Review数据集（Office）
 
 ## 实验条件
 
 - **数据与任务设置**：数据集：Amazon Review数据集（Games）、Amazon Review数据集（Toys）、Amazon Review数据集（Office）；任务：Experiments We conduct comprehensive experiments to evaluate the effectiveness of ColdRAG in item cold-start recommendation.；划分：leave-one-out
+
 - **基线与对照**：For training-based baselines, these 500 cold-item sequences are used for testing, and all remaining sequences form the training set, ensuring consistent evaluation between training-based and training-free settings.；## 4.1.2 Baselines We compare ColdRAG with representative baselines spanning both training-based and trainingfree paradigms.；Among the training-based baselines, UniSRec fine-tunes a pretrained model, whereas CLCRec and TDRO are trained from scratch.
+
 - **评价指标**：RECALL@10、NDCG@10
+
 - **实现环境与关键参数**：原文未披露
 
 > 实验条件由 Summary 2.0 从解析原文提取；证据锚点：ev-experiment-01。

@@ -1,17 +1,24 @@
 ---
+
 title: "PaSa：用双智能体与会话级PPO重塑学术搜索"
-date: 2025-01-01
+
+date: 2026-10-19
+
 year: 2025
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
+
+venue_type: arXiv预印本
+
+venue_name: arXiv
+
 categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+tags: [论文速读]
+
 slug: paper-2501.10120
-arxiv_id: "2501.10120"
-description: "PaSa以Crawler和Selector双智能体协作，结合会话级PPO训练，在AutoScholarQuery和RealScholarQuery上显著超越Google、ChatGPT等基线，7B模型召回率提升超30%。"
+
 ---
 
-> 论文：[arXiv 2501.10120](https://arxiv.org/abs/2501.10120) · 代码：[GitHub](https://github.com/bytedance/pasa) · PDF：[本地阅读](/papers/2501.10120.pdf)
+> 论文：[arXiv 2501.10120](https://arxiv.org/abs/2501.10120) · 代码：[GitHub](https://github.com/bytedance/pasa) · PDF：[本地阅读](https://app.notion.com/papers/2501.10120.pdf)
 
 学术论文搜索是科研工作的核心环节，却也是信息检索中最具挑战性的任务之一。研究者常常需要针对细粒度、长尾的专业问题，从海量文献中找出全面且准确的答案。传统搜索引擎如Google Scholar对一般查询有效，但面对“哪些研究关注基于价值函数、特别是UCB算法的非平稳强化学习”这类复杂查询时，往往力不从心。大语言模型（LLM）的兴起为查询改写和检索增强提供了新思路，但学术搜索远不止一次检索——人类研究者会反复搜索、阅读论文、追溯引用，进行系统性的文献调研。
 
@@ -19,13 +26,13 @@ PaSa正是为了模拟这一完整过程而提出的LLM智能体。它由两个�
 
 然而，训练这样的智能体面临两大矛盾：其一，高质量学术搜索数据稀缺，人工标注成本极高；其二，搜索轨迹可能长达数百篇论文，奖励稀疏且难以直接输入LLM上下文。为此，作者构建了合成数据集AutoScholarQuery（从顶级AI会议论文的Related Work部分自动生成查询-论文对）和真实世界基准RealScholarQuery（50个真实查询，人工标注相关论文），并设计了会话级PPO训练方法，将长轨迹分割为以[Stop]动作结束的会话，引入跨会话折扣因子和Selector作为辅助奖励模型，有效缓解了稀疏奖励和长轨迹问题。
 
-PaSa的部署条件并不苛刻：基于7B参数的Qwen2.5模型，在8张NVIDIA H100 GPU上即可完成训练。搜索工具通过Google API并限定site:arxiv.org和发布时间，论文全文通过ar5iv获取并解析。这些工程选择使得PaSa在有限资源下仍能实现强大的搜索能力。
+PaSa的部署条件并不苛刻：基于7B参数的Qwen2.5模型，在8张NVIDIA H100 GPU上即可完成训练。搜索工具通过Google API并限定site:[arxiv.org](http://arxiv.org/)和发布时间，论文全文通过ar5iv获取并解析。这些工程选择使得PaSa在有限资源下仍能实现强大的搜索能力。
 
 ## 一、方法：双智能体协作与会话级PPO
 
 PaSa的核心是一个双智能体架构，如图1所示。Crawler和Selector各司其职，Crawler负责广泛收集，Selector负责精准判断。
 
-![PaSa架构图](/images/papers/2501.10120/a67325f01522478f16533f58337eb5a36b0c7f424bc94e63ef3c6daa24b8e420.jpg)
+![PaSa架构图](/images/783f0bdcf81a8d30d3e0576d684b0481.png)
 
 图中左侧是Crawler，它接收用户查询，并可以访问论文队列中的论文。Crawler能够自主调用搜索工具、扩展引用或停止处理当前论文，所有收集到的论文被追加到论文队列。右侧是Selector，它阅读队列中的每篇论文，判断其是否满足用户查询的条件。阅读顺序上，先看Crawler的动作循环，再看Selector的筛选环节，就能理解整个数据流：查询进入Crawler，经过多轮搜索和引用扩展形成候选池，再由Selector逐一过滤，最终输出相关论文。这张图支撑了PaSa“先召回后精选”的核心设计主张。
 
@@ -35,7 +42,7 @@ Crawler被建模为token级的马尔可夫决策过程（MDP）。动作空间�
 
 图2展示了一个具体的工作流示例。用户查询是“有没有工作分析多模态模型（如视频-文本、图像-文本模型）的缩放定律”。Crawler首先执行多次[Search]，使用多样且互补的查询。随后，它评估动作的长期价值，决定是否深入引用网络。值得注意的是，即使路径上的中间论文与查询不完全匹配，Crawler也能通过深入探索发现许多相关论文。这张图直观地说明了Crawler如何通过搜索和引用扩展的交替进行，逐步扩大召回范围。
 
-![PaSa工作流示例](/images/papers/2501.10120/cb6b077de4aca2379366536012bce39852066bd069fd4ee82bfaa7364eaf015d.jpg)
+![PaSa工作流示例](/images/5566fceef43abc68d85bf60a01f190f1.png)
 
 Crawler的训练分两阶段：先通过模仿学习初始化策略，再使用会话级PPO进行强化学习。奖励设计如公式(1)所示：每发现一篇匹配查询且未在队列中的论文获得奖励α，同时每个动作有成本c(a_t)。由于AutoScholarQuery中的论文只是真实相关论文的子集（引用往往只强调少数关键文献），仅依赖匹配会导致奖励稀疏。因此，作者引入Selector作为辅助奖励模型：只要Selector判断论文相关，或论文在标注集中，都给予奖励。
 
@@ -55,12 +62,13 @@ Selector接收查询和论文（标题与摘要），输出一个决策token（T
 
 ### 数据集与实现条件
 
-| 数据集 | 规模 | 来源 | 特点 |
-|--------|------|------|------|
-| AutoScholarQuery | 训练33,551 / 开发1,000 / 测试1,000 | ICLR 2023、ICML 2023、NeurIPS 2023、ACL 2024、CVPR 2024的Related Work | 合成查询-论文对，查询日期为源论文出版日期 |
-| RealScholarQuery | 50个查询 | 真实AI研究者查询，人工标注 | 平均每个查询15.82篇答案论文，标注成本约$304/查询 |
+这种设计使得训练可以在会话级别高效采样，同时通过跨会话折扣保持长期回报的连贯性。Selector作为辅助奖励模型，不仅缓解了稀疏奖励，还加速了训练收敛。
 
-实现上，Selector和Crawler均基于Qwen2.5-7B，在8张NVIDIA H100 GPU上训练。Selector进行1个epoch的监督微调，学习率1e-5，batch size 4。Crawler先进行1个epoch的模仿学习（12,989条数据），再进行PPO训练（16,000个查询）。搜索工具使用Google API，限定site:arxiv.org和查询日期之前。
+### Selector：精准筛选与可解释性
+
+
+
+实现上，Selector和Crawler均基于Qwen2.5-7B，在8张NVIDIA H100 GPU上训练。Selector进行1个epoch的监督微调，学习率1e-5，batch size 4。Crawler先进行1个epoch的模仿学习（12,989条数据），再进行PPO训练（16,000个查询）。搜索工具使用Google API，限定site:[arxiv.org](http://arxiv.org/)和查询日期之前。
 
 ### 主结果：7B模型超越GPT-4o智能体
 
@@ -68,16 +76,15 @@ Selector接收查询和论文（标题与摘要），输出一个决策token（T
 
 **AutoScholarQuery测试集**
 
-| 方法 | Crawler召回 | 精确率 | 召回率 | Recall@100 | Recall@50 | Recall@20 |
-|------|------------|--------|--------|------------|------------|------------|
-| Google | - | - | - | 0.2015 | 0.1891 | 0.1568 |
-| Google Scholar | - | - | - | 0.1130 | 0.0970 | 0.0609 |
-| Google with GPT-4o | - | - | - | 0.2683 | 0.2450 | 0.1921 |
-| ChatGPT* | - | 0.0507 | 0.3046 | - | - | - |
-| GPT-o1 | - | 0.0413 | 0.1925 | - | - | - |
-| PaSa-GPT-4o | 0.7565 | 0.1457 | 0.3873 | - | - | - |
-| PaSa-7b | 0.7931 | 0.1448 | 0.4834 | 0.6947 | 0.6334 | 0.5301 |
-| PaSa-7b-ensemble | 0.8265 | 0.1410 | 0.4985 | 0.7099 | 0.6386 | 0.5326 |
+
+
+
+
+
+
+
+
+
 
 *ChatGPT基线在100个随机采样子集上评估。
 
@@ -85,16 +92,15 @@ Selector接收查询和论文（标题与摘要），输出一个决策token（T
 
 **RealScholarQuery**
 
-| 方法 | Crawler召回 | 精确率 | 召回率 | Recall@100 | Recall@50 | Recall@20 |
-|------|------------|--------|--------|------------|------------|------------|
-| Google | - | - | - | 0.2535 | 0.2342 | 0.1834 |
-| Google Scholar | - | - | - | 0.2809 | 0.2155 | 0.1514 |
-| Google with GPT-4o | - | - | - | 0.2946 | 0.2573 | 0.2020 |
-| ChatGPT | - | 0.2280 | 0.2007 | - | - | - |
-| GPT-o1 | - | 0.058 | 0.0134 | - | - | - |
-| PaSa-GPT-4o | 0.5494 | 0.4721 | 0.3075 | - | - | - |
-| PaSa-7b | 0.7071 | 0.5146 | 0.6111 | 0.6929 | 0.6563 | 0.5798 |
-| PaSa-7b-ensemble | 0.7503 | 0.4938 | 0.6488 | 0.7281 | 0.6877 | 0.5986 |
+
+
+
+
+
+
+
+
+
 
 在更真实的RealScholarQuery上，PaSa-7b的优势更加明显。相比PaSa-GPT-4o，召回率提升30.36%（0.6111 vs 0.3075），精确率提升4.25%（0.5146 vs 0.4721）。与Google with GPT-4o相比，Recall@20、Recall@50、Recall@100分别提升37.78%、39.90%和39.83%。集成版本将Crawler召回提升4.32%，最终召回提升3.52%。
 
@@ -102,12 +108,11 @@ Selector接收查询和论文（标题与摘要），输出一个决策token（T
 
 表7展示了消融实验结果。
 
-| 方法 | AutoScholarQuery Crawler召回 | AutoScholarQuery 精确率 | AutoScholarQuery 召回率 | RealScholarQuery Crawler召回 | RealScholarQuery 精确率 | RealScholarQuery 召回率 |
-|------|----------------------------|------------------------|------------------------|----------------------------|------------------------|------------------------|
-| w/o [Expand] | 0.3355 | 0.1445 | 0.2536 | 0.3359 | 0.6738 | 0.2890 |
-| w/o RL training | 0.6556 | 0.1476 | 0.4210 | 0.4847 | 0.5155 | 0.4115 |
-| w/o Selector as RM | 0.7041 | 0.1535 | 0.4458 | 0.5994 | 0.5489 | 0.5148 |
-| PaSa-7b | 0.7931 | 0.1448 | 0.4834 | 0.7071 | 0.5146 | 0.6111 |
+
+
+
+
+
 
 移除[Expand]动作导致召回率大幅下降：AutoScholarQuery上降低22.98%，RealScholarQuery上降低32.21%。这表明引用网络探索是召回的关键。移除RL训练后，召回率分别下降6.24%和19.96%，说明强化学习显著提升了策略性能。移除Selector作为辅助奖励模型，召回率分别下降3.76%和9.63%，验证了辅助奖励对缓解稀疏奖励的有效性。
 
@@ -132,6 +137,9 @@ PaSa通过双智能体架构和会话级PPO训练，将学术搜索分解为召�
 ## References
 
 - He, Y., Huang, G., Feng, P., Lin, Y., Zhang, Y., Li, H., & E, W. (2025). PaSa: An LLM Agent for Comprehensive Academic Paper Search. arXiv:2501.10120. [https://arxiv.org/abs/2501.10120](https://arxiv.org/abs/2501.10120) 代码：[https://github.com/bytedance/pasa](https://github.com/bytedance/pasa)
+
 - Feng, P., et al. (2024). AGILE: A Reinforcement Learning Framework for LLM Agents. （PaSa所基于的RL框架）
+
 - Schulman, J., et al. (2017). Proximal Policy Optimization Algorithms. arXiv:1707.06347.
+
 - Yang, A., et al. (2024). Qwen2.5 Technical Report. arXiv:2412.15115.

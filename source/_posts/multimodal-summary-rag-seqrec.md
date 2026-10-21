@@ -1,14 +1,23 @@
 ---
+
 title: "多模态大模型摘要与检索增强序列推荐"
-date: 2025-12-24
+
+date: 2026-10-19
+
 year: 2025
+
 venue_type: arXiv预印本
+
 venue_name: arXiv
+
 categories: [推荐系统, 多模态推荐]
-tags: [论文速读, 多模态推荐, 序列推荐, 信息检索]
+
+tags: [论文速读]
+
 slug: multimodal-summary-rag-seqrec
-description: "提出MMSRARec，一种基于多模态大语言模型（MLLM）的序列推荐方法。该方法通过三个核心阶段：1）利用强化学习（RLVR）将多模态物品信息自适应摘要为可解释的关键词；2）通过检…"
+
 ---
+
 > 论文：[arXiv 2512.20916](https://arxiv.org/abs/2512.20916) · 代码：论文未公开
 
 ## 主要贡献
@@ -18,8 +27,10 @@ description: "提出MMSRARec，一种基于多模态大语言模型（MLLM）的
 ## 创新点
 
 1. 创新点1：首次将物品多模态信息通过MLLM摘要为自然语言关键词，并采用RLVR（含信息损失、重构难度和长度三重奖励）自适应优化摘要策略，替代了不可解释的向量或语义ID。
-2. 创新点2：受RAG启发，通过传统序列推荐模型（如SASRec）检索行为相似用户，将其后续交互物品的关键词作为协同信号上下文注入MLLM，首次将协同信号以自然语言形式融入语言模型推荐系统。
-3. 创新点3：设计多任务学习框架，通过构建多种推荐指令和正负样本对比训练，结合LoRA参数高效微调，使MLLM仅需单次推理即可完成推荐，大幅降低计算和时延成本。
+
+1. 创新点2：受RAG启发，通过传统序列推荐模型（如SASRec）检索行为相似用户，将其后续交互物品的关键词作为协同信号上下文注入MLLM，首次将协同信号以自然语言形式融入语言模型推荐系统。
+
+1. 创新点3：设计多任务学习框架，通过构建多种推荐指令和正负样本对比训练，结合LoRA参数高效微调，使MLLM仅需单次推理即可完成推荐，大幅降低计算和时延成本。
 
 ## 方法论
 
@@ -28,14 +39,19 @@ description: "提出MMSRARec，一种基于多模态大语言模型（MLLM）的
 ## Benchmark 与数据集
 
 - Microlens
+
 - Amazon Baby
+
 - Amazon Games
 
 ## 实验条件
 
 - **数据与任务设置**：数据集：Microlens、Amazon Baby、Amazon Games；任务：Experiment ## 4.1 Dataset We utilized open-source and real-world datasets from diverse recommendation domains to ensure broad applicability and robust validation: (1) Microlens [18], a micro-video recommendation dataset; (2) Amazon Baby [6], from the ecommerce domain, representing dense purchasing behavior in the baby product category; and (3) Amazon Games [16], which reflects user preferences in the digital goods sector.；划分：8:1:1
+
 - **基线与对照**：Table 3: The Statistics of Datasets <table><tr><td>Dataset</td><td>Microlens</td><td>Amazon Baby</td><td>Amazon Game</td></tr><tr><td>#User</td><td>25411</td><td>41081</td><td>38808</td></tr><tr><td>#Item</td><td>20276</td><td>14393</td><td>13379</td></tr><tr><td>#Interaction</td><td>223263</td><td>400876</td><td>352136</td></tr><tr><td>#Avg Seqlen</td><td>11.35</td><td>13.65</td><td>13.23</td></tr></table> ## 4.2 Experimental Setup To assess the performance of baseline and our proposed method for multimodal sequential recommendations, we utilize HR@5, NDCG@5 and AUC as evaluation metrics.；## 4.3 Baseline To evaluate the efectiveness of our proposed method, we select several mainstream methods for comparison covering four categories of recommendation systems: 1.；## 4.4 Main Results Table 4 presents a comparison between our proposed MMSRARec and baseline methods across three real-world datasets.
+
 - **评价指标**：HR@5、NDCG@5、AUC、HITRATE
+
 - **实现环境与关键参数**：硬件：8×A800；框架：PyTorch
 
 > 实验条件由 Summary 2.0 从解析原文提取；证据锚点：ev-experiment-01。

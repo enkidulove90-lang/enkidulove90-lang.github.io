@@ -1,14 +1,23 @@
 ---
+
 title: "RLMultimodalRec：门控多模态图学习推荐"
-date: 2025-05-30
+
+date: 2026-10-19
+
 year: 2025
+
 venue_type: arXiv预印本
+
 venue_name: arXiv
+
 categories: [推荐系统, 多模态推荐]
-tags: [论文速读, 多模态推荐]
+
+tags: [论文速读]
+
 slug: rlmultimodalrec-gated-fusion
-description: "提出以LightGCN为编码器骨干的轻量级多模态推荐框架，通过门控融合模块动态平衡视觉和文本模态对每个用户-物品对的贡献。与ConfSMoE的置信度门控形成互补——前者用任务信号路…"
+
 ---
+
 > 论文：[arXiv 2506.00107](https://arxiv.org/abs/2506.00107) · 代码：论文未公开
 
 ## 主要贡献
@@ -18,8 +27,10 @@ description: "提出以LightGCN为编码器骨干的轻量级多模态推荐框�
 ## 创新点
 
 1. 创新点1：个性化模态门控——为每个user-item pair学习独立的视觉/文本权重(g_v, g_t)，实现模态重要性的用户级自适应。
-2. 创新点2：LightGCN编码器复用——保持LightGCN的轻量图传播骨干，门控模块作为即插即用的模态融合层。
-3. 创新点3：端到端联合优化——门控权重与推荐损失（BPR）联合训练，门控学习由推荐目标直接驱动。
+
+1. 创新点2：LightGCN编码器复用——保持LightGCN的轻量图传播骨干，门控模块作为即插即用的模态融合层。
+
+1. 创新点3：端到端联合优化——门控权重与推荐损失（BPR）联合训练，门控学习由推荐目标直接驱动。
 
 ## 方法论
 
@@ -40,4 +51,5 @@ description: "提出以LightGCN为编码器骨干的轻量级多模态推荐框�
 ---
 
 ## 基线方法: LightGCN, MMGCN, GRCN | 骨干: LightGCN+门控融合
+
 ## 实验效果: 门控融合优于简单拼接/平均,验证个性化模态权重有效性

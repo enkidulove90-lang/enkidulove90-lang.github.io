@@ -68,7 +68,7 @@ test('map page opens as a full color map with a transparent floating legend', ()
   const root = path.resolve(__dirname, '..');
   const page = fs.readFileSync(path.join(root, 'source/map/index.md'), 'utf8');
   const script = fs.readFileSync(path.join(root, 'source/js/paper-map.js'), 'utf8');
-  assert.match(script, /cache:\s*['"]no-store['"]/);
+  assert.doesNotMatch(script, /cache:\s*['"]no-store['"]/);
   const css = fs.readFileSync(path.join(root, 'source/css/paper-map.css'), 'utf8');
 
   assert.match(page, /id="paper-map"/);
@@ -78,11 +78,12 @@ test('map page opens as a full color map with a transparent floating legend', ()
   assert.match(page, /class="map-detail"[^>]*aria-hidden="true"/);
   assert.match(script, /map_data\.json/);
   assert.match(script, /meta\.enabled/);
+  assert.doesNotMatch(script, /World_Physical_Map\/MapServer\/tile/);
   assert.match(script, /tile\.opentopomap\.org/);
   assert.match(script, /basemaps\.cartocdn\.com\/rastertiles\/voyager/);
   assert.match(script, /__PAPER_MAP_CONFIG__/);
   assert.match(script, /function useFallback/);
-  assert.match(script, /tile\.openstreetmap\.org/);
+  assert.match(script, /openstreetmap\.org\/copyright/);
   assert.match(script, /tileerror/);
   assert.match(script, /L\.tileLayer/);
   assert.match(script, /L\.divIcon/);
@@ -267,11 +268,110 @@ test('map catalog follows institution-group then paper-card hierarchy', () => {
   assert.match(script, /place\.city_images/);
   assert.match(script, /paper\.description/);
   assert.match(script, /chooseUniqueImage/);
-  assert.match(script, /cache:\s*['"]no-store['"]/);
+  assert.doesNotMatch(script, /cache:\s*['"]no-store['"]/);
   assert.match(script, /sessionStorage/);
   assert.match(css, /\.map-catalog__institution/);
   assert.match(css, /\.map-catalog__paper-card/);
   assert.match(css, /grid-template-columns:\s*1fr/);
+});
+
+test('company catalog links enterprise cards to a dedicated papers page', () => {
+  const root = path.resolve(__dirname, '..');
+  const script = fs.readFileSync(path.join(root, 'source/js/map-catalog.js'), 'utf8');
+  const css = fs.readFileSync(path.join(root, 'source/css/map-catalog.css'), 'utf8');
+  const page = fs.readFileSync(path.join(root, 'source/map/company/index.md'), 'utf8');
+
+  assert.match(script, /type === 'company'/);
+  assert.match(script, /map-catalog__company-card/);
+  assert.match(script, /\/map\/company\/papers\/\?company=/);
+  assert.doesNotMatch(script, /map-catalog__company-papers/);
+  assert.match(script, /group\.description/);
+  assert.match(script, /group\.images/);
+  assert.match(script, /lead\.description/);
+  assert.match(page, /data-company-search/);
+  assert.match(css, /\.map-catalog__company-grid/);
+  assert.match(css, /\.map-catalog__company-card/);
+});
+
+test('company papers page uses a searchable virtual list instead of rendering every paper', () => {
+  const root = path.resolve(__dirname, '..');
+  const pagePath = path.join(root, 'source/map/company/papers/index.md');
+  const scriptPath = path.join(root, 'source/js/company-papers.js');
+
+  assert.equal(fs.existsSync(pagePath), true);
+  assert.equal(fs.existsSync(scriptPath), true);
+  const page = fs.readFileSync(pagePath, 'utf8');
+  const script = fs.readFileSync(scriptPath, 'utf8');
+  assert.match(page, /data-company-paper-search/);
+  assert.match(page, /data-company-paper-viewport/);
+  assert.match(script, /URLSearchParams/);
+  assert.match(script, /computeVirtualRange/);
+  assert.match(script, /overscan/);
+  assert.match(script, /scrollTop/);
+  assert.match(script, /translateY/);
+  assert.match(script, /loading\s*=\s*['"]lazy['"]/);
+});
+
+test('virtual company paper range renders only the viewport plus overscan', () => {
+  const { computeVirtualRange } = require('../source/js/company-papers');
+  const range = computeVirtualRange({
+    scrollTop: 1320,
+    viewportHeight: 660,
+    rowHeight: 330,
+    itemCount: 100,
+    overscan: 2
+  });
+
+  assert.deepEqual(range, { start: 2, end: 8 });
+  assert.ok(range.end - range.start < 100);
+});
+
+test('map avoids cache-busting data requests and eager gallery preloading', () => {
+  const root = path.resolve(__dirname, '..');
+  const mapScript = fs.readFileSync(path.join(root, 'source/js/paper-map.js'), 'utf8');
+  const catalogScript = fs.readFileSync(path.join(root, 'source/js/map-catalog.js'), 'utf8');
+
+  assert.doesNotMatch(mapScript, /map_data\.json\?v=['"]?\s*\+\s*Date\.now/);
+  assert.doesNotMatch(catalogScript, /map_data\.json\?v=['"]?\s*\+\s*Date\.now/);
+  assert.doesNotMatch(mapScript, /preloadImages\(images\)/);
+  assert.match(mapScript, /image\.decoding\s*=\s*['"]async['"]/);
+});
+
+test('map data uses a one-hour local cache with stale fallback', () => {
+  const cacheScript = fs.readFileSync(path.join(__dirname, '../source/js/map-data-cache.js'), 'utf8');
+  assert.match(cacheScript, /60\s*\*\s*60\s*\*\s*1000/);
+  assert.match(cacheScript, /localStorage\.getItem/);
+  assert.match(cacheScript, /localStorage\.setItem/);
+  assert.match(cacheScript, /stale/i);
+  for (const scriptName of ['paper-map.js', 'map-catalog.js', 'company-papers.js']) {
+    const script = fs.readFileSync(path.join(__dirname, '../source/js', scriptName), 'utf8');
+    assert.match(script, /MapDataCache\.load/);
+    assert.doesNotMatch(script, /fetch\(['"]\/map_data\.json/);
+  }
+});
+
+test('CARTO is primary and fallback waits for three tile errors', () => {
+  const script = fs.readFileSync(path.join(__dirname, '../source/js/paper-map.js'), 'utf8');
+  assert.match(script, /primary:\s*\{[\s\S]*cartocdn/i);
+  assert.match(script, /fallback:\s*\{[\s\S]*opentopomap/i);
+  assert.match(script, /tileErrorCount\s*>=\s*3/);
+});
+
+test('map image conversion tool rewrites gallery references and can remove originals', () => {
+  const script = fs.readFileSync(path.join(__dirname, '../tools/convert_map_images.py'), 'utf8');
+  assert.match(script, /\.webp/);
+  assert.match(script, /--remove-originals/);
+  assert.match(script, /places\.json/);
+});
+
+test('map pages version their JavaScript assets so deployments replace stale browser code', () => {
+  const root = path.resolve(__dirname, '..');
+  const mapPage = fs.readFileSync(path.join(root, 'source/map/index.md'), 'utf8');
+  const companyPage = fs.readFileSync(path.join(root, 'source/map/company/index.md'), 'utf8');
+
+  assert.match(mapPage, /paper-map\.js\?v=[a-z0-9-]+/i);
+  assert.match(companyPage, /map-catalog\.css\?v=[a-z0-9-]+/i);
+  assert.match(companyPage, /map-catalog\.js\?v=[a-z0-9-]+/i);
 });
 
 test('map terminology is precise and the navigation stays above the map canvas', () => {

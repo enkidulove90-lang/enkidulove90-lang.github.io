@@ -1,14 +1,21 @@
 ---
+
 title: "多智能体推荐系统的未来"
-date: 2025-07-02
+
+date: 2026-10-19
+
 year: 2025
+
 venue_type: arXiv预印本
+
 venue_name: arXiv
-updated: 2026-06-28
+
 categories: [推荐系统, 基础推荐算法]
-tags: [论文速读, 基础推荐算法, 多智能体]
+
+tags: [论文速读]
+
 slug: future-agentic-multi-agent-recsys
-description: "这是一篇视角论文，正式定义了多智能体推荐系统（MARS）为智能体、共享环境和通信协议的三元组。论文提出了一个统一的框架，将LLM智能体、记忆、工具使用和通信协议等概念形式化，并应用…"
+
 ---
 
 > 论文：[arXiv 2507.02097](https://arxiv.org/abs/2507.02097)
@@ -20,8 +27,10 @@ description: "这是一篇视角论文，正式定义了多智能体推荐系统
 ## 创新点
 
 1. 创新点1：形式化定义了多智能体推荐系统（MARS）为智能体集合、共享环境和通信协议的三元组，为系统设计提供了严谨的数学基础。
-2. 创新点2：提出了一个包含记忆更新函数和记忆检索函数的通用框架，将工作记忆、情景记忆、语义记忆和程序记忆统一到推荐系统中，并指出了记忆在推荐中的特有失效模式。
-3. 创新点3：通过受控实验揭示了智能体推荐的条件性价值，证明了在典型用户上单次基线是帕累托最优的，而在高多样性用户上分解和集成策略能显著提升效果，为智能体推荐系统的适用场景提供了实证指导。
+
+1. 创新点2：提出了一个包含记忆更新函数和记忆检索函数的通用框架，将工作记忆、情景记忆、语义记忆和程序记忆统一到推荐系统中，并指出了记忆在推荐中的特有失效模式。
+
+1. 创新点3：通过受控实验揭示了智能体推荐的条件性价值，证明了在典型用户上单次基线是帕累托最优的，而在高多样性用户上分解和集成策略能显著提升效果，为智能体推荐系统的适用场景提供了实证指导。
 
 ## 方法论
 
@@ -34,8 +43,11 @@ description: "这是一篇视角论文，正式定义了多智能体推荐系统
 ## 实验条件
 
 - **数据与任务设置**：数据集：Amazon-2023 review corpus (Amazon Fashion, Appliances, Electronics, Toys and Games)；任务：4.2 User Simulation and Recommendation Evaluation <sub>Formal</sub> <sub>definition</sub> <sub>of</sub> <sub>the</sub> <sub>task.</sub> User simulation and recommendation evaluation together form a framework in which synthetic user behavior is generated to probe, test, and refine recommender systems before full-scale deployment.
+
 - **基线与对照**：For example, an e-commerce platform aiming to recommend Bohemian-style furniture may wish to simulate how a typical user navigates through the site, examines multiple items, compares prices, and ultimately decides whether to purchase.；The primary aim is to replicate the interactions of a diverse user population in order to evaluate and compare recommendation strategies.；The <sub>random</sub> cohort is drawn uniformly at random (seed 42) from the eligible users in the same category, and serves as a typical baseline population against which the high-diversity cohort is compared.
+
 - **评价指标**：原文未披露
+
 - **实现环境与关键参数**：原文未披露
 
 > 实验条件由 Summary 2.0 从解析原文提取；证据锚点：ev-experiment-01。

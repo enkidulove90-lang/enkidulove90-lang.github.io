@@ -1,16 +1,21 @@
 ---
+
 title: "融合顺序不该是超参：MMSR 用模态增强图做自适应多模态融合"
-date: 2023-08-30
+
+date: 2026-10-19
+
 year: 2023
+
 venue_type: 会议
+
 venue_name: CIKM 2023
-location_type: Affiliation
-affil_city: [Singapore]
-affiliation_name: "National University of Singapore"
+
 categories: [推荐系统, 多模态推荐]
-tags: [论文速读, 多模态推荐, 序列推荐, 图神经网络]
+
+tags: [论文速读]
+
 slug: mmsr-adaptive-multimodal-fusion
-description: "早期融合还是晚期融合？MMSR 的答案是「不该有全局答案」：把用户历史建成模态增强图，同质边管模态内序列、异质边管跨模态依赖，用 update gate 让节点异步融合，平均 HR@5 +8.6%、MRR@5 +17.2%。"
+
 ---
 
 > 论文：[arXiv 2308.15980](https://arxiv.org/abs/2308.15980) · 代码：[GitHub](https://github.com/HoldenHu/MMSR)
@@ -19,20 +24,21 @@ description: "早期融合还是晚期融合？MMSR 的答案是「不该有全�
 
 ## 现象：融合顺序和序列长度纠缠在一起
 
-![Amazon-Fashion 上的案例分析](/images/mmsr-case-study.jpg)
+![Amazon-Fashion 上的案例分析](/images/d3e93f24fa18732445089419698b06d5.png)
 
-*这张案例分析把"模态序列"的两种组织方式摆在一起对比：Order/Match 指按原始时序排列的模态序列，disordered 指打乱顺序后的序列。论文用这张图说明一件事——**模态之间的时序依赖本身携带信息**，如果把模态序列当成无序的集合去融合（晚期融合的典型做法），这部分信息就丢了；反之如果强行按固定顺序早期融合，又会把"某个模态主导"的假设硬编码进模型。*
+*这张案例分析把"模态序列"的两种组织方式摆在一起对比：Order/Match 指按原始时序排列的模态序列，disordered 指打乱顺序后的序列。论文用这张图说明一件事——模态之间的时序依赖本身携带信息，如果把模态序列当成无序的集合去融合（晚期融合的典型做法），这部分信息就丢了；反之如果强行按固定顺序早期融合，又会把"某个模态主导"的假设硬编码进模型。*
 
 ## 机制：把用户历史建成"模态增强图"，让节点异步更新
 
 MMSR 的做法是把每个用户的历史序列展开成一张图：
 
 - **同质节点之间的边**表示模态内的序列关系（图像→图像、文本→文本），保留时序；
+
 - **异质节点之间的边**表示跨模态依赖（同一物品的图与文）。
 
 图传播时引入**双注意力**——对同质邻居和异质邻居用两套注意力，避免"邻居类型混在一起平均"这种常见退化。最关键的是**update gate**：每个节点的表示可以**异步更新**，也就是不同节点可以处在不同的"融合阶段"。这等价于让模型为每个节点自适应地挑选融合顺序，而不是全图统一 early 或 late。
 
-![MMSR 整体框架](/images/mmsr-framework.jpg)
+![MMSR 整体框架](/images/7c0ae27b2bb05cab3cc0bb3b31a5d4b5.png)
 
 *框架图左侧是整体流程（用户历史 → 模态增强图 → 传播 → 兴趣表示），右侧拆开聚合模块：可以看到同质/异质两类边分别走不同的聚合路径，再被 update gate 控制更新节奏。图上用不同颜色区分节点类型，视觉上就能看出"一张图里同时存在两种关系"，这是它区别于普通 GNN 序列推荐的地方。*
 
@@ -40,14 +46,13 @@ MMSR 的做法是把每个用户的历史序列展开成一张图：
 
 六个数据集（Beauty / Clothing / Sports / Toys / Kitchen / Phone，均为图+文两模态）：
 
-| 数据集 | 用户数 | 物品数 | 交互数 | 稀疏度 |
-|---|---|---|---|---|
-| Beauty | 22,363 | 12,101 | 198,502 | 99.93% |
-| Clothing | 39,387 | 23,033 | 278,677 | 99.97% |
-| Sports | 35,598 | 18,357 | 296,337 | 99.95% |
-| Toys | 19,412 | 11,924 | 167,597 | 99.93% |
-| Kitchen | 27,879 | 10,429 | 194,439 | 99.93% |
-| Phone | 66,519 | 28,237 | 551,682 | 99.97% |
+
+
+
+
+
+
+
 
 **主结果**：相对最强基线平均 **HR@5 +8.6% / HR@20 +2.8%、MRR@5 +17.2% / MRR@20 +7.6%**。基线覆盖三类：序列模型（GRU4Rec、SASRec、SR-GNN、STOSA 等）、多模态序列模型（NOVA、DIF-SR、SASRec^F、GRU4Rec^F 等）、以及图类多模态方法（MMGCN、MGAT、BM3）。
 
@@ -55,9 +60,9 @@ MMSR 的做法是把每个用户的历史序列展开成一张图：
 
 **消融**：论文拆开同质关系与异质关系后发现**最优选择随数据集变化**——Sports 上同质关系（模态内序列）贡献更大，而 Beauty、Clothing 上异质关系（跨模态依赖）更有利。这恰好实证了"融合顺序应自适应"的动机。
 
-![缺失模态下的鲁棒性](/images/mmsr-robustness.jpg)
+![缺失模态下的鲁棒性](/images/4ac1f4b8967567378235143ff3755f66.png)
 
-*这张图对比 MMSR 与两个最强基线（SASRecF、DIF-SR）在"图像/文本特征按比例缺失"时的表现。横轴是缺失比例、纵轴是性能。读法是看**曲线斜率**：MMSR 的下降更平缓，说明显式建模"模态间依赖"的图结构在模态缺失时比"把特征塞进序列"更抗损——这也符合直觉：图里保留的关系不会因为某个模态缺失就整段消失。*
+*这张图对比 MMSR 与两个最强基线（SASRecF、DIF-SR）在"图像/文本特征按比例缺失"时的表现。横轴是缺失比例、纵轴是性能。读法是看曲线斜率：MMSR 的下降更平缓，说明显式建模"模态间依赖"的图结构在模态缺失时比"把特征塞进序列"更抗损——这也符合直觉：图里保留的关系不会因为某个模态缺失就整段消失。*
 
 ## 总结
 
@@ -66,6 +71,9 @@ MMSR 的贡献是把"融合顺序"从超参变成了可学的东西：用异质�
 ## References
 
 - 论文：Adaptive Multi-Modalities Fusion in Sequential Recommendation Systems（arXiv:2308.15980）
-- 代码：https://github.com/HoldenHu/MMSR
+
+- 代码：[https://github.com/HoldenHu/MMSR](https://github.com/HoldenHu/MMSR)
+
 - 相关基线：GRU4Rec、SASRec、SR-GNN、STOSA、MMGCN、MGAT、BM3、NOVA、DIF-SR、SASRec^F、GRU4Rec^F
+
 - 关键组件：模态增强图（MS-Graph）、同质/异质双注意力、update gate 异步融合

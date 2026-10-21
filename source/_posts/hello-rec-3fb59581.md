@@ -1,13 +1,21 @@
 ---
+
 title: "Hello Rec: 我和推荐系统的故事"
-date: 2026-10-16
+
+date: 2026-10-19
+
 year: 2026
-venue_type: "随笔"
-venue_name: ""
+
+venue_type: arXiv预印本
+
+venue_name: arXiv
+
 categories: [随笔]
-tags: [推荐系统, Hello Rec]
+
+tags: [论文速读]
+
 slug: hello-rec-3fb59581
-description: "推荐系统像一位故人，也像我迷茫硕士生涯里的一剂良药：它让我重新找到可以探索、可以实践、也可以长期走下去的方向。"
+
 ---
 
 有些相遇，只发生一次；有些相遇，却会在漫长的岁月里一遍遍重来。

@@ -1,17 +1,24 @@
 ---
+
 title: "CoSA：用计算顺序掩码把代理与内核焊在一起，128K 注意力加速 4.93 倍"
-date: 2026-07-01
+
+date: 2026-10-19
+
 year: 2026
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
+
+venue_type: arXiv预印本
+
+venue_name: arXiv
+
 categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+tags: [论文速读]
+
 slug: paper-2607.25291
-arxiv_id: "2607.25291"
-description: "CoSA 提出代理-内核协同设计的两阶段无训练块稀疏注意力：KAP 输出带 HRM 优先顺序的计算顺序掩码，OSK 通过 KV 页重映射物理跳页并做内核内二次稀疏，在 RULER 与 LongBench-v2 上以最低预算取得稀疏方法最佳平均准确率，128K 下注意力加速 4.93 倍、TTFT 加速 2.53 倍。"
+
 ---
 
-> 论文：[arXiv 2607.25291](https://arxiv.org/abs/2607.25291) · 代码：[GitHub](https://github.com/Tencent/AngelSlim) · 代码：[GitHub](https://github.com/mit-hanlab/Block-Sparse-Attention) · PDF：[本地阅读](/papers/2607.25291.pdf)
+> 论文：[arXiv 2607.25291](https://arxiv.org/abs/2607.25291) · 代码：[GitHub](https://github.com/Tencent/AngelSlim) · 代码：[GitHub](https://github.com/mit-hanlab/Block-Sparse-Attention) · PDF：[本地阅读](https://app.notion.com/papers/2607.25291.pdf)
 
 长上下文推理的成本几乎全部压在自注意力的二次项上。RAG、智能体系统与深度推理任务把输入推到 128K 甚至更长，预填充阶段每个查询块都要与所有键块做 QK 乘法，延迟随长度平方增长。块稀疏注意力因此成为最直接的工程解法：用一个廉价代理在线估计哪些查询-键块重要，只计算被选中的块。
 
@@ -25,7 +32,7 @@ CoSA 的出发点不是换一个更准的代理，也不是单独优化内核，
 
 CoSA 是两阶段、无训练的块稀疏注意力。第一阶段由内核感知代理 KAP 在中等预算下完成块选择并输出有序掩码；第二阶段由有序跳跃内核 OSK 消费该掩码，先物理跳过未选中页，再在保留块上依据精确 logits 做内核内跳跃。两阶段之间唯一的通信量就是那张掩码。
 
-![CoSA 总览：左侧 KAP 生成带 HRM 标志的计算顺序掩码，右侧 OSK 通过 KV 页重映射消费该掩码，产生掩码跳过、内核内跳过与完整计算三种块模式](/images/papers/2607.25291/4e85b9243983bd21922df3e58da8f8c3082e6e64c009de6b5c222ab4bfdf2188.jpg)
+![CoSA 总览：左侧 KAP 生成带 HRM 标志的计算顺序掩码，右侧 OSK 通过 KV 页重映射消费该掩码，产生掩码跳过、内核内跳过与完整计算三种块模式](/images/ccd2f4b38d82c45a924cd5a3bc5c4d5d.png)
 
 读这张图可以从左往右看。左侧是代理侧：KAP 对每个块估计一个重要性分数，同时产出一个 HRM 标志，二者合并成计算顺序掩码，HRM 块被排在最前面。右侧是内核侧：OSK 拿到这张有序掩码后，通过 KV 页重映射直接跳到下一个保留页，于是每个块落入三种模式之一——被掩码跳过、在内核内被跳过、或完整计算。这张图支撑的核心主张是：掩码不再只是“保留/丢弃”的二元判断，而是携带了执行顺序，代理的决策因此能改变内核的实际行为。
 
@@ -41,54 +48,50 @@ OSK 则把这张掩码变成物理执行。它支持任意顺序的页访问：�
 
 实验覆盖两个骨干与两个长上下文基准。RULER 是 4K 到 128K 的合成任务，LongBench-v2 是真实世界深度理解与推理任务，并区分直接作答与带思维链两种模式。基线包括 MInference、FlexPrefill、XAttention 三种强块稀疏方法，以及 FlashAttention-2 全注意力基线。所有精度与速度测量在 NVIDIA H20 节点上完成，逻辑块大小为 128 token，仅稀疏化预填充。
 
-| 项目 | 设置 |
-|---|---|
-| 骨干模型 | Qwen3-8B、Llama-3.1-8B-Instruct |
-| 基准 | RULER（4K–128K）、LongBench-v2（w/o CoT、w/ CoT） |
-| 基线 | MInference、FlexPrefill、XAttention、FlashAttention-2（全注意力） |
-| 指标 | 准确率、加权预算 B、注意力加速比、TTFT 加速比 |
-| 硬件 | NVIDIA H20 |
-| 关键参数 | 逻辑块 b=128；Qwen3-8B 的 Stage-1 Top-p p=0.95、Δ=2000；Llama-3.1-8B 的 p 按长度离线校准、Δ=200 |
-| 稀疏范围 | 仅预填充，解码保持密集 |
+
+
+
+
+
+
+
+
 
 RULER 主结果如下。CoSA 在两个骨干上都以最低预算取得稀疏方法中的最佳平均准确率，并且与全注意力的差距很小。
 
-| 方法 | Qwen3-8B 平均 Acc | Qwen3-8B 预算 B | Llama-3.1-8B 平均 Acc | Llama-3.1-8B 预算 B |
-|---|---|---|---|---|
-| Dense | 89.20 | 100% | 88.97 | 100% |
-| MInference | 86.77 | 49% | 88.05 | 47% |
-| FlexPrefill | 87.72 | 28% | 87.98 | 29% |
-| XAttention | 85.93 | 24% | 87.90 | 33% |
-| CoSA | 88.65 | 22% | 88.41 | 22% |
+
+
+
+
+
+
 
 最值得注意的不是平均值，而是差距随长度的演化。短上下文下所有方法都贴近全注意力，稀疏几乎免费；到 128K 时，Qwen3-8B 上最强基线已经落后数个百分点，CoSA 仍是稀疏方法中最强的。Llama-3.1-8B 上 CoSA 的 128K 准确率为 71.82，低于全注意力的 73.84，也低于 MInference 的 71.60 之外的若干基线在个别长度上的表现，说明它并非在每个长度点都占优，优势主要体现在平均与预算的组合上。
 
 LongBench-v2 的结果进一步检验推理场景。CoSA 在两个骨干、两种模式下都取得稀疏方法最佳平均，且预算最低。
 
-| 方法 | Qwen3-8B 平均 Acc | Qwen3-8B 预算 B | Llama-3.1-8B 平均 Acc | Llama-3.1-8B 预算 B |
-|---|---|---|---|---|
-| Dense | 37.48 | 100% | 29.67 | 100% |
-| MInference | 34.49 | 28% | 30.72 | 41% |
-| FlexPrefill | 33.90 | 20% | 29.72 | 22% |
-| XAttention | 33.20 | 18% | 29.13 | 35% |
-| CoSA | 36.51 | 15% | 30.96 | 17% |
+
+
+
+
+
+
 
 这里有一个需要如实指出的例外：Llama-3.1-8B 上 MInference 的平均准确率 30.72 略高于 CoSA 的 30.96 之下的部分子项表现并不一致，CoSA 的平均值 30.96 仍是稀疏方法最高，但优势幅度明显小于 Qwen3-8B。带思维链模式下 CoSA 同样保持稀疏方法最佳，说明稀疏预填充没有破坏推理模型依赖的长思维链。
 
 消融实验从 XAttention 风格的二值掩码基线出发，逐步加入 KAP、内核内跳跃与页重映射。
 
-| 变体 | Qwen3-8B 平均 Acc | Qwen3-8B 预算 B | Llama-3.1-8B 平均 Acc | Llama-3.1-8B 预算 B |
-|---|---|---|---|---|
-| Base（二值掩码） | 32.71 | 22% | 27.83 | 35% |
-| + KAP | 33.27 | 20% | 29.67 | 39% |
-| + IKS | 32.27 | 16% | 28.88 | 24% |
-| + RMP（完整 CoSA） | 33.45 | 15% | 30.86 | 17% |
+
+
+
+
+
 
 逐步看，KAP 在两个骨干上都提升了准确率，说明有序掩码找回了二值代理容易丢弃的显著块。单独打开内核内跳跃时，Qwen3-8B 上准确率反而下降 0.44，Llama-3.1-8B 上提升收窄，这是保守跳跃规则在缺少顺序配合时的代价。最后加入页重映射，趋势反转：Qwen3-8B 回升到 33.45，Llama-3.1-8B 达到 30.86，相比 Base 提升 3.03 个百分点，同时预算从 35% 降到 17%。这组数字支撑的结论是，代理侧排序与内核侧跳跃只有一起作用时才划算。
 
 效率方面，CoSA 在 4K 长度即已出现 1.11 倍注意力加速，是唯一在 4K 就加速的方法；随长度增长优势扩大，128K 下达到 4.93 倍注意力加速，端到端 TTFT 加速 2.53 倍，且在每个评估长度上都领先基线。4K 处端到端没有性能退化。
 
-![不同 Stage-1 预算与跳跃尺度下的重映射扫描：上排为 PPL，下排为内核内跳过比例，重映射在固定 Δ 下跳过更多块，在匹配跳过比例下 PPL 更低](/images/papers/2607.25291/793761a8283ef1a3937fb56e453152e738698fb3d8e4f7e8fb79af4029f6329c.jpg)
+![不同 Stage-1 预算与跳跃尺度下的重映射扫描：上排为 PPL，下排为内核内跳过比例，重映射在固定 Δ 下跳过更多块，在匹配跳过比例下 PPL 更低](/images/08a9e4bd7c55dd0a05e2a51feceb6065.png)
 
 这张图用于分析重映射本身的作用，而不是主精度。每一列固定一个 Stage-1 预算，上排横轴是跳跃尺度 Δ、纵轴是 PPL，下排是同一扫描下的内核内跳过比例。阅读顺序是先看单列内 Δ 缩小时 PPL 如何平滑下降，再看同一 Δ 下带重映射与不带重映射的曲线分离。它支撑的主张是：Δ 是一个行为良好的旋钮，而重映射在匹配跳过比例下取得更低 PPL，等价地在可比 PPL 下取得更高跳过比例；这一优势在多个 Stage-1 预算下持续存在，说明它不是绑定在单一工作点上的偶然现象。
 
@@ -103,8 +106,13 @@ CoSA 的机制可以概括为一句话：用一张携带顺序的计算顺序掩
 ## References
 
 - Xue, Y., Niu, L., Liu, H., Liu, S., Shao, H., Liu, W., Yu, G., Zhu, J., Zhang, J. CoSA: Accelerating Long-Context Inference via Proxy-Kernel Co-Designed Sparse Attention. arXiv:2607.25291. [https://arxiv.org/abs/2607.25291](https://arxiv.org/abs/2607.25291) · 代码：[https://github.com/Tencent/AngelSlim](https://github.com/Tencent/AngelSlim)
+
 - Jiang, H. et al. MInference: Accelerating Long-Context LLM Inference with Dynamic Sparse Attention. 2024.
+
 - Lai, X. et al. FlexPrefill: A Context-Aware Sparse Attention Mechanism for Efficient Long-Sequence Inference. 2025.
+
 - Xu, R. et al. XAttention: Block Sparse Attention with Antidiagonal Scoring. 2025.
+
 - Yuan, J. et al. BLASST: Skipping Softmax Logits inside FlashAttention. 2025.
+
 - Guo, Q. et al. Block-Sparse-Attention: Efficient Prefilling with Arbitrary Block Masks. 2024. 代码：[https://github.com/mit-hanlab/Block-Sparse-Attention](https://github.com/mit-hanlab/Block-Sparse-Attention)

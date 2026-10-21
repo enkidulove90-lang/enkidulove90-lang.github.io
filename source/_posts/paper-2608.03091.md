@@ -1,17 +1,24 @@
 ---
+
 title: "InvariRank：当候选顺序一变，LLM 重排序的偏好就散了"
-date: 2026-08-01
+
+date: 2026-10-19
+
 year: 2026
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
+
+venue_type: arXiv预印本
+
+venue_name: arXiv
+
 categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+tags: [论文速读]
+
 slug: paper-2608.03091
-arxiv_id: "2608.03091"
-description: "论文把等价候选排列下的排序视为诱导偏好系统的观测，提出 PPI、GPI、LOC 三层一致性度量，发现 STELLA_LW 在 HR@5 最高时 PPI/GPI 最差、LOC 仅 0.1181，而 SGS 一致性最好却需 K 次顺序前向。"
+
 ---
 
-> 论文：[arXiv 2608.03091](https://arxiv.org/abs/2608.03091) · 代码：[GitHub](https://github.com/ejbito/InvariRank) · PDF：[本地阅读](/papers/2608.03091.pdf)
+> 论文：[arXiv 2608.03091](https://arxiv.org/abs/2608.03091) · 代码：[GitHub](https://github.com/ejbito/InvariRank) · PDF：[本地阅读](https://app.notion.com/papers/2608.03091.pdf)
 
 列表式 LLM 重排序已经成为两阶段推荐流水线里的常见组件：第一阶段用 LightGCN 之类的检索器取出 top-K 候选，第二阶段把用户历史和候选物品序列化进 prompt，让 LLM 一次性给出排序。这个流程默认了一个前提——候选集是无序集合，排序结果应当只取决于用户上下文和物品内容，而不取决于候选被写进 prompt 的先后顺序。
 
@@ -41,7 +48,7 @@ description: "论文把等价候选排列下的排序视为诱导偏好系统的
 
 列表级输出一致性 LOC 直接用采样排序之间的平均成对一致性衡量，主报告 Kendall's τ，越高表示等价排列下的完整排序越一致。PPI、GPI、LOC 并非统计独立，而是同一候选顺序敏感性在局部、全局、输出三个层面的刻画。此外，作者测量 top-k 曝光 E_k(p)：候选处于输入位置 p 时进入 top-k 的概率。由于候选位置被随机化，位置不敏感的重排器应给出 E_k(p)=k/K 的均匀曝光，系统性偏离即边际位置曝光偏差。这一度量只看平均 top 位置分布，不看跨排列一致性，因此与前三者有本质区别。
 
-![PPI 与 GPI 随候选列表长度变化](/images/papers/2608.03091/figure_001_figure2_instability_decomposition.png)
+![PPI 与 GPI 随候选列表长度变化](/images/14f66a2c965d1ede75caea4d9bd04389.png)
 
 这张图按 K=15、25、50 三个列表长度分别画出 PPI 与 GPI 的曲线，横轴是候选列表长度，纵轴是一致性度量，数值越低越好。阅读顺序是先看左图 PPI 再看右图 GPI，两条曲线的方法排序在三个长度上保持一致：SGS 处于最低位，Bootstrapping 居中，STELLA_LW 明显抬升。它支撑的主张是，方法间的一致性差异不是某个列表长度下的偶然现象，而是随 K 变化仍稳定存在的结构性差异。
 
@@ -63,22 +70,32 @@ description: "论文把等价候选排列下的排序视为诱导偏好系统的
 
 STELLA_LW 的校准阶段最多使用 150 个探测候选集，把每个相关候选放在每个输入位置并重复 5 次以估计平滑的位置转移矩阵；推理时最多 10 次后验更新并早停，返回最小熵后验诱导的排序，信息增益可忽略时回退到原始排序。
 
+
+
+
+
+
+
+
+
+
+STELLA_LW 的校准阶段最多使用 150 个探测候选集，把每个相关候选放在每个输入位置并重复 5 次以估计平滑的位置转移矩阵；推理时最多 10 次后验更新并早停，返回最小熵后验诱导的排序，信息增益可忽略时回退到原始排序。
+
 ### 主结果：最高 HR@5 对应最差一致性
 
-| 模型 | 方法 | MovieLens HR@5 | MovieLens PPI↓ | MovieLens GPI↓ | MovieLens LOC↑ | Amazon HR@5 | Amazon PPI↓ | Amazon GPI↓ |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Llama-3B | Zero-shot | 0.5560 | 0.4775 | 0.1149 | 0.6358 | 0.2145 | 0.3853 | 0.0983 |
-| Llama-3B | Bootstrapping | 0.5480 | 0.2992 | 0.0827 | 0.7475 | 0.2302 | 0.2387 | 0.0668 |
-| Llama-3B | STELLA_LW | 0.5922 | 0.8331 | 0.3648 | 0.1181 | 0.2345 | 0.8337 | 0.3644 |
-| Llama-3B | SGS | 0.5634 | 0.1972 | 0.0586 | 0.8268 | 0.2117 | 0.1876 | 0.0571 |
-| Mistral-7B | Zero-shot | 0.4794 | 0.4726 | 0.1195 | 0.6290 | 0.2325 | 0.4329 | 0.1147 |
-| Mistral-7B | Bootstrapping | 0.4790 | 0.2970 | 0.0831 | 0.7481 | 0.2320 | 0.2787 | 0.0796 |
-| Mistral-7B | STELLA_LW | 0.5490 | 0.8902 | 0.3861 | 0.0616 | 0.2435 | 0.8452 | 0.3410 |
-| Mistral-7B | SGS | 0.4840 | 0.2150 | 0.0643 | 0.8107 | 0.2335 | 0.1956 | 0.0591 |
-| Qwen-7B | Zero-shot | 0.5344 | 0.5408 | 0.1372 | 0.5799 | 0.2530 | 0.4496 | 0.1219 |
-| Qwen-7B | Bootstrapping | 0.5450 | 0.3288 | 0.0938 | 0.7198 | 0.2535 | 0.2844 | 0.0831 |
-| Qwen-7B | STELLA_LW | 0.5528 | 0.8328 | 0.3615 | 0.1230 | 0.2594 | 0.8291 | 0.3342 |
-| Qwen-7B | SGS | 0.5366 | 0.2654 | 0.0804 | 0.7641 | 0.2460 | 0.2202 | 0.0661 |
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 最刺眼的一组数字来自 Llama-3B 在 MovieLens-32M 上：STELLA_LW 的 HR@5 为 0.5922，高于 Zero-shot 的 0.5560 和 SGS 的 0.5634，但它的 PPI 高达 0.8331，是 Zero-shot 0.4775 的近两倍，GPI 0.3648 对 0.1149，LOC 仅 0.1181 对 0.6358。也就是说，相关性提升与偏好一致性在这里是反向的。SGS 则给出另一极：PPI 0.1972、GPI 0.0586、LOC 0.8268，三项一致性均为最优，HR@5 也略高于 Zero-shot，但代价在推理成本。
 
@@ -88,18 +105,17 @@ Bootstrapping 提供了一个中间参照。相对 Zero-shot，它在 Llama-3B/M
 
 ### 曝光曲线：拉平不等于稳定
 
-![top-5 曝光随输入位置的变化](/images/papers/2608.03091/figure_002_figure1_exposure.png)
+![top-5 曝光随输入位置的变化](/images/c55cfd5ee46da9b8ed30a765278a17d6.png)
 
 这张图按 K=15、25、50 三个子图展示 top-5 曝光随输入位置的变化，横轴是候选在 prompt 中的输入位置，纵轴是该位置候选进入 top-5 的概率，均匀无偏的参照线是 k/K。阅读时先看 Zero-shot 曲线：早期输入位置的曝光明显低于后期位置，呈现系统性偏斜；再看 Bootstrapping，偏斜被压低但没有消失；最后看 STELLA_LW 与 SGS，两条曲线都更接近平坦。它支撑的主张正是论文的关键区分——STELLA_LW 把边际曝光拉平了，却在同一设置下给出最高的 PPI、GPI 和最低的 LOC，因此曝光平坦化不能作为排列一致性的替代证据。
 
 ### 效率：一致性有明确的推理代价
 
-| 方法 | 前向次数（K=25） | 额外开销 |
-| --- | --- | --- |
-| Zero-shot | 1 次/候选集 | 无 |
-| Bootstrapping | 3 次打乱前向并聚合 | 无 |
-| SGS | K 次顺序前向，K=25 时为 25 次 | 每步重洗剩余候选 |
-| STELLA_LW | 最多 10 次推理查询并早停 | 校准阶段最多 150 个探测候选集，每候选每位置重复 5 次 |
+
+
+
+
+
 
 这张表解释了为什么“一致性最好”的 SGS 不能无条件推荐：它的一致性来自 K 次顺序前向，K=25 时是 Zero-shot 的 25 倍推理次数。STELLA_LW 的推理查询次数少于 SGS，但校准阶段的一次性成本很高。论文没有报告墙钟延迟或显存占用，因此这里的成本比较只能停留在前向次数与探测规模层面，不能外推为端到端服务成本。
 
@@ -120,7 +136,11 @@ Bootstrapping 提供了一个中间参照。相对 Zero-shot，它在 Llama-3B/M
 ## References
 
 - Ethan Bito, Yongli Ren, Estrid He. Position Bias Undermines Preference Consistency in Listwise LLM-Based Reranking. RecSys '26. [arXiv 2608.03091](https://arxiv.org/abs/2608.03091) · [DOI 10.1145/3773078.3831801](https://doi.org/10.1145/3773078.3831801) · [代码](https://github.com/ejbito/InvariRank)
+
 - Yupeng Hou, Junjie Zhang, Zihan Lin, et al. Large Language Models are Zero-Shot Rankers for Recommender Systems. arXiv:2305.08845.
+
 - Tianhui Ma, Yuan Cheng, Hengshu Zhu, Hui Xiong. Large Language Models are Not Stable Recommender Systems. arXiv:2312.15746.
+
 - Ethan Bito, Yongli Ren, Estrid He. Evaluating Position Bias in Large Language Model Recommendations. arXiv:2508.02020.
+
 - Xiangnan He, Kuan Deng, Xiang Wang, et al. LightGCN: Simplifying and Powering Graph Convolution Network for Recommendation. arXiv:2002.02126.

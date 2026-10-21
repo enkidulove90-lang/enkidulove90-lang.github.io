@@ -39,6 +39,7 @@ RULE = {
     "msca-multi-view-semantic-alignment": ("会议", "WWW 2026", 2026, "DOI 10.1145/3774904.3792192 -> WWW'26"),
     "mmgcf-graph-collaborative-filtering": ("会议", "UMAP 2026", 2026, "DOI 10.1145/3774935.3806158 -> ACM UMAP"),
     "mamex-moe-coldstart-recommendation": ("会议", "ACM 会议", 2025, "OpenAlex: conference-paper / ACM International Conference（具体会议待补）"),
+    "paper-2603.13934": ("会议", "WWW 2026", 2026, "论文元数据: WWW'26 / The ACM Web Conference 2026"),
     # —— 期刊（证据：DOI 的 OpenAlex 记录 type=article + 期刊名）——
     "nlgclplus-neighbor-layer-contrastive": ("期刊", "ACM TORS", 2026, "DOI 10.1145/3806231 -> ACM Transactions on Recommender Systems"),
     "maf-kgat-modality-adaptive-fusion": ("期刊", "计算机科学与应用", 2026, "DOI 10.12677/csa.2026.163084 -> Computer Science and Application"),
@@ -55,6 +56,40 @@ def fm_span(text):
     return (m.start(1), m.end(1)) if m else None
 
 
+def field_value(frontmatter, name):
+    match = re.search(rf"^{re.escape(name)}:\s*[\"']?([^\r\n\"']*)", frontmatter, re.M)
+    return match.group(1).strip() if match else ""
+
+
+def set_field(frontmatter, name, value):
+    rendered = f"{name}: {value}"
+    pattern = rf"^{re.escape(name)}:.*$"
+    if re.search(pattern, frontmatter, re.M):
+        return re.sub(pattern, rendered, frontmatter, count=1, flags=re.M)
+    date = re.search(r"^date:.*$", frontmatter, re.M)
+    if date:
+        return frontmatter[:date.end()] + "\n" + rendered + frontmatter[date.end():]
+    return rendered + "\n" + frontmatter
+
+
+def arxiv_id_for(slug, frontmatter, text):
+    candidates = [
+        field_value(frontmatter, "arxiv_id"),
+        slug.removeprefix("paper-") if slug.startswith("paper-") else "",
+    ]
+    link = re.search(r"arxiv\.org/(?:abs|pdf)/(\d{4}\.\d{4,5})(?:v\d+)?", text, re.I)
+    if link:
+        candidates.append(link.group(1))
+    for candidate in candidates:
+        if re.fullmatch(r"\d{4}\.\d{4,5}", candidate):
+            return candidate
+    return ""
+
+
+def arxiv_year(identifier):
+    return 2000 + int(identifier[:2]) if identifier else None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("posts_dir")
@@ -66,31 +101,39 @@ def main():
     changed = 0
     rows = []
     for f in files:
-        slug = os.path.basename(f)[:-3]
+        filename_slug = os.path.basename(f)[:-3]
         text = open(f, encoding="utf-8").read()
         sp = fm_span(text)
         if not sp:
-            print(f"  ! {slug} 无 front matter，跳过", file=sys.stderr)
+            print(f"  ! {filename_slug} 无 front matter，跳过", file=sys.stderr)
             continue
         fm = text[sp[0]:sp[1]]
-        if re.search(r"^venue_type:", fm, re.M):
-            rows.append((slug, "已存在", "", "", ""))
-            continue
-        vt, vn, yr, why = RULE.get(slug, ("arXiv预印本", "arXiv", None, "无已发表证据 -> 预印本"))
+        slug = field_value(fm, "slug") or filename_slug
+        identifier = arxiv_id_for(slug, fm, text)
+        existing_type = field_value(fm, "venue_type")
+        existing_name = field_value(fm, "venue_name")
+        existing_year = field_value(fm, "year")
+        default_type = existing_type if existing_type in ("会议", "期刊") else "arXiv预印本"
+        default_name = existing_name if default_type != "arXiv预印本" else "arXiv"
+        yr_from_venue = re.search(r"(?:19|20)\d{2}", existing_name)
+        default_year = int(yr_from_venue.group(0)) if yr_from_venue else arxiv_year(identifier)
+        if default_year is None and re.fullmatch(r"(?:19|20)\d{2}", existing_year):
+            default_year = int(existing_year)
+        vt, vn, yr, why = RULE.get(
+            slug,
+            (default_type, default_name, default_year, "按 arXiv 标识或已有正式出版字段校正"),
+        )
         if yr is None:
             d = re.search(r"^date:\s*(\d{4})", fm, re.M)
             yr = int(d.group(1)) if d else 2026
-        add = f"year: {yr}\nvenue_type: {vt}\nvenue_name: {vn}\n"
-        # 插到 date: 行之后
-        m = re.search(r"^date:.*$", fm, re.M)
-        if m:
-            fm2 = fm[:m.end()] + "\n" + add.rstrip("\n") + fm[m.end():]
-        else:
-            fm2 = add + fm
+        fm2 = set_field(fm, "year", yr)
+        fm2 = set_field(fm2, "venue_type", vt)
+        fm2 = set_field(fm2, "venue_name", vn)
         stat[vt] += 1
-        changed += 1
+        if fm2 != fm:
+            changed += 1
         rows.append((slug, vt, vn, yr, why))
-        if a.apply:
+        if a.apply and fm2 != fm:
             open(f, "w", encoding="utf-8", newline="\n").write(text[:sp[0]] + fm2 + text[sp[1]:])
 
     # 对照表：venue_name -> 篇数
@@ -103,10 +146,7 @@ def main():
         print(f"  {k:<26} {v}")
     print("\n逐篇判定（venue_type / venue_name / year / 依据）：")
     for slug, vt, vn, yr, why in rows:
-        if vt == "已存在":
-            print(f"  - {slug[:44]:<46} 已有 venue_type，跳过")
-        else:
-            print(f"  · {slug[:44]:<46} {vt:<10} {vn:<22} {yr}  ← {why}")
+        print(f"  · {slug[:44]:<46} {vt:<10} {vn:<22} {yr}  ← {why}")
 
 
 if __name__ == "__main__":

@@ -9,4 +9,5 @@ comments: false
   <header class="map-catalog__intro"><p class="map-catalog__eyebrow">Virtual conferences</p><h1>☁ 线上会议</h1><p data-map-catalog-count>正在整理明确标记为线上会议的论文……</p></header>
   <div class="map-catalog__groups"></div>
 </section>
-<script defer src="/js/map-catalog.js"></script>
+<script defer src="/js/map-data-cache.js?v=20261021-cache-v1"></script>
+<script defer src="/js/map-catalog.js?v=20261021-company-cards"></script>

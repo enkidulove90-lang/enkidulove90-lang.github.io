@@ -1,42 +1,60 @@
 ---
+
 title: "FITMM：自适应频率感知多模态推荐"
-date: 2026-01-30
+
+date: 2026-10-19
+
 year: 2026
+
 venue_type: arXiv预印本
+
 venue_name: arXiv
+
 categories: [推荐系统, 多模态推荐]
-tags: [论文速读, 多模态推荐]
+
+tags: [论文速读]
+
 slug: fitmm-frequency-aware-multimodal
-description: "将多模态推荐从空间域推向频域。理论证明高斯信息瓶颈(GIB)目标在正交变换下可按频带解耦，为\"先分离再融合\"范式提供理论保证。"
+
 ---
+
 > 论文：[arXiv 2601.22498](https://arxiv.org/abs/2601.22498) · 代码：[GitHub](https://github.com/llm-ml/FITMM)
 
-**arXiv**: 2601.22498 | **会议**: ACM MM 2025 | **GitHub**: https://github.com/llm-ml/FITMM
+**arXiv**: 2601.22498 | **会议**: ACM MM 2025 | **GitHub**: [https://github.com/llm-ml/FITMM](https://github.com/llm-ml/FITMM)
 
 **创新评级**: ⭐⭐⭐⭐⭐ — 频域多模态开创性工作
 
 ## 主要贡献
+
 将多模态推荐从空间域推向频域。理论证明高斯信息瓶颈(GIB)目标在正交变换下可按频带解耦，为"先分离再融合"范式提供理论保证。
 
 ## 创新点
+
 1. 频域信息论基础: GIB在正交变换下频带解耦的理论证明
-2. SVD频带分解: K个正交频带(低=稳定语义/中=跨模态互补/高=个性化+噪声)
-3. 任务自适应频率门控: 可学习G_k,冷启动物品加重低频
-4. 频域IB正则化: Wiener式收缩关闭弱/噪频带
-5. 跨模态频谱一致性损失
+
+1. SVD频带分解: K个正交频带(低=稳定语义/中=跨模态互补/高=个性化+噪声)
+
+1. 任务自适应频率门控: 可学习G_k,冷启动物品加重低频
+
+1. 频域IB正则化: Wiener式收缩关闭弱/噪频带
+
+1. 跨模态频谱一致性损失
 
 ## 方法论
+
 七步架构: 编码→GCN→SVD分解→频带内拼接→门控→IB正则→一致性损失。骨干: LightGCN
 
 ## Benchmark 与数据集
-| 数据集 | 模态 | 来源 |
-|--------|------|------|
-| Amazon-Baby | 图像+文本 | Amazon Reviews |
-| Amazon-Sports | 图像+文本 | Amazon Reviews |
-| Amazon-Clothing | 图像+文本 | Amazon Reviews |
+
+
+
+
+
 
 ## 基线方法
+
 MMIL, AlignRec, SMORE, LATTICE, MMSSL | 骨干: LightGCN(embed=64,layers=2)
 
 ## 实验效果
+
 三个Amazon数据集Recall@K/NDCG@K一致超越所有基线。冷启动场景提升尤其显著(自适应加重低频稳定语义)。IB正则化消融: 移除后过拟合噪声频带。

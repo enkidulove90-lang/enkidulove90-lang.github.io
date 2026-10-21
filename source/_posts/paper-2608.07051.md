@@ -1,17 +1,24 @@
 ---
+
 title: "YOLO-PEFT：把适配器放置变成可审计的约束规划，并在 RT-DETR 上学会拒绝"
-date: 2026-08-01
+
+date: 2026-10-19
+
 year: 2026
-venue_type: "arXiv预印本"
-venue_name: "arXiv"
+
+venue_type: arXiv预印本
+
+venue_name: arXiv
+
 categories: [推荐系统, 论文速递]
-tags: [论文速递]
+
+tags: [论文速读]
+
 slug: paper-2608.07051
-arxiv_id: "2608.07051"
-description: "YOLO-PEFT 将检测器 PEFT 形式化为异构计算图上的多约束规划，在 VOC 协议下规划器选择的 RS-LoRA 于 YOLO11s/YOLO12s 超过全量微调 7.1/6.5 mAP50:95，并在 RT-DETR-L 上返回 Refuse。"
+
 ---
 
-> 论文：[arXiv 2608.07051](https://arxiv.org/abs/2608.07051) · 代码：[GitHub](https://github.com/huggingface/peft) · 代码：[GitHub](https://github.com/ultralytics/ult) · PDF：[本地阅读](/papers/2608.07051.pdf)
+> 论文：[arXiv 2608.07051](https://arxiv.org/abs/2608.07051) · 代码：[GitHub](https://github.com/huggingface/peft) · 代码：[GitHub](https://github.com/ultralytics/ult) · PDF：[本地阅读](https://app.notion.com/papers/2608.07051.pdf)
 
 把语言模型上的 LoRA 直接搬到实时检测器上，常常不是效果差一点，而是悄无声息地崩掉。现代检测器把稠密卷积、分组卷积、深度可分离卷积、与损失耦合的 DFL 投影、可变形注意力、文本—图像融合和 MoE 路由交织在同一张图里，按模块名或模块类型选目标的做法在这里失去了前提。YOLO-PEFT 的出发点正是这个错位：PEFT 的“可插入性”不是参数化问题，而是宿主图的结构问题。
 
@@ -33,26 +40,13 @@ YOLO-PEFT 把检测器表示为有向无环图 G=(V,E)，每个模块 i 由四�
 
 运行时契约维护四个不变量：基础检查点加载不变、适配器检查点只存适配器张量与运行时元数据、合并后恢复普通 YOLO 模块、ONNX/TensorRT 导出器看到可导出的图。对于回退的分组卷积 LoRA 后端，每个组内更新 ΔW_g=B_gA_g^T 被重塑到宿主卷积核分区后合并，由于更新在各卷积组内独立构造，移除包装器保持分组结构，输出在浮点容差内等价。
 
-![图 1：架构条件化的 PEFT 行为。14 种变体在五种异构检测器上相对 Full-SFT 的 ΔmAP；红色为灾难性（Δ<-0.05），灰色为未扫描，颜色在 −0.30 以下截断。灾难率随注意力比例上升，且五个评估家族间不存在共同排序。](/images/papers/2608.07051/9f8f7e1cff9b53a20ffa7ddd3bf25d3d4c5477019d61846a4e35ad01fc541770.jpg)
+![图 1：架构条件化的 PEFT 行为。14 种变体在五种异构检测器上相对 Full-SFT 的 ΔmAP；红色为灾难性（Δ<-0.05），灰色为未扫描，颜色在 −0.30 以下截断。灾难率随注意力比例上升，且五个评估家族间不存在共同排序。](/images/09aee6355b42dce6f31773183dd1a7c7.png)
 
 这张矩阵图是全文论证的枢纽。横轴是五种异构检测器家族，纵轴是 14 种 PEFT 变体，单元格颜色表示相对全量微调的 ΔmAP。阅读顺序建议先看红色单元格的分布：在纯卷积的 YOLO11n 上十次运行零崩溃，而在 YOLO12n 上是 6/7，在 RT-DETR-L 上是 7/7。颜色随注意力比例 φ_attn 上升而整体变红，说明失败不是随机噪声，而是与宿主图的注意力密度相关。它支撑的主张很直接：不存在跨架构通用的 PEFT 排序，因此放置必须条件化于架构，且拒绝必须成为一等结果。
 
 ## 二、实验：VOC 协议下的放置收益与系统代价
 
 实验遵循官方 Ultralytics VOC 配置：VOC2007 trainval（5,011 张）与 VOC2012 trainval（11,540 张）合并为 16,551 张训练图像，官方 VOC2007 test 为 4,952 张。核心 s-scale 运行使用 600 epoch 上限与 640×640 输入；14 变体×5 架构诊断扫描使用 300 epoch 与 320×320 输入。优化器为 SGD（初始学习率 0.01，动量 0.9，权重衰减 5e-4），余弦调度，最后 10 个 epoch 关闭 Mosaic。PEFT 默认 r=16、α=32、dropout=0.05、RS-LoRA 缩放。种子为 {0,28,42}，组内最大标准差 ≤0.006 mAP50:95。
-
-| 项目 | 设置 |
-| --- | --- |
-| 训练集 | VOC2007 trainval（5,011）+ VOC2012 trainval（11,540），共 16,551 张 |
-| 测试集 | 官方 VOC2007 test，4,952 张 |
-| 核心协议 | 600 epoch 上限，640×640 输入 |
-| 诊断扫描 | 300 epoch，320×320 输入 |
-| 优化器 | SGD，lr=0.01，momentum=0.9，weight decay=5e-4 |
-| 调度 | 余弦，最后 10 epoch 关闭 Mosaic |
-| PEFT 默认 | r=16，α=32，dropout=0.05，RS-LoRA 缩放 |
-| 种子 | {0,28,42}，组内最大 SD ≤0.006 mAP50:95 |
-| 对比基线 | Full-SFT、标准 LoRA、Planner-LoRA、最佳 PEFT、朴素放置 |
-| 评估变体 | LoRA、DoRA、LoHa、LoKr、IA3、HRA、RS-LoRA 等 |
 
 主结果如下表（seed-0 核心矩阵，Δ 为相对同 backbone Full-SFT 的 mAP50:95 变化）。
 
@@ -78,27 +72,58 @@ YOLO-PEFT 把检测器表示为有向无环图 G=(V,E)，每个模块 i 由四�
 | RT-DETR-L | Full-SFT（锚点） | - | 0.8614 | 0.6833 | — | 32.85M | 108.1 |
 | RT-DETR-L | LoRA 族拒绝 | - | - | - | （refused） | - | - |
 
+
+
+
+
+
+
+
+
+
+
+主结果如下表（seed-0 核心矩阵，Δ 为相对同 backbone Full-SFT 的 mAP50:95 变化）。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 最强的相关基线是 HRA：在 YOLO11s 上达到 0.7276（+0.0848），在 YOLO12s 上达到 0.7453（+0.0791），均高于规划器选择的 RS-LoRA。这说明“规划器选择”并不等于“全局最优变体”，而是在约束下给出可部署的可行解。另一个值得注意的例外是 YOLO12s 上 LoRA+DoRA 且无 RS-LoRA 缩放时 Δ=-0.0550，直接越过灾难阈值，说明训练先验之间存在非加性交互，不能孤立报告。
 
 RT-DETR-L 一行是拒绝机制的直接证据：七种被扫描的 LoRA 族配置全部低于 Δ=-0.05，规划器返回 REFUSE 而非适配器。作者明确这是已评估覆盖范围内的校准规则，不是对未见架构的测试。
 
 系统代价方面，受控 YOLO11 审计显示 LoRA 将峰值显存从 28.57 GB 降至 16.03 GB（43.9%），但训练时间从 118.2 秒增至 203.8 秒（1.72 倍）。合并后的部署收益在 MPS 审计中体现为：YOLO11s 延迟从 27.719 ms 降至 17.933 ms，吞吐量从 36.076 提升至 55.763 img/s；YOLO12s 延迟从 35.095 ms 降至 24.881 ms，吞吐量从 28.494 提升至 40.191 img/s。
 
-| Backbone | 模式 | 参数 | 适配器参数 | GFLOPs | 延迟（ms） | 吞吐（img/s） | MPS Δ（MB） |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| YOLO11s | unmerged | 10.491M | 1.033M | 25.891 | 27.719 | 36.076 | 1024 |
-| YOLO11s | merged | 9.459M | 0 | 21.718 | 17.933 | 55.763 | 1024 |
-| YOLO12s | unmerged | 10.380M | 1.094M | 26.199 | 35.095 | 28.494 | 8 |
-| YOLO12s | merged | 9.286M | 0 | 21.692 | 24.881 | 40.191 | 8 |
+
+
+
+
+
 
 消融部分，规划器约束在 YOLO12s 上的逐级贡献为：无约束 0.6900，加入算子有效性过滤后 0.7094，再加入检测头语义排除后 0.7307，完整规划器保持 0.7307。语义排除带来最大的一步稳定性提升，支持“语义守卫是稳定性驱动而非工程保险”的判断。
 
-| 配置 | 目标 | 总参数 | mAP50:95 | Δ |
-| --- | --- | --- | --- | --- |
-| 无约束 | all-conv+linear+attn | 10.32M | 0.6900 | +0.0238 |
-| + 算子有效性 | dense+linear+attn | 10.07M | 0.7094 | +0.0432 |
-| + 检测头语义 | dense+linear+attn\reg | 10.06M | 0.7307 | +0.0645 |
-| 完整规划器 | dense+attn（规划器剪枝） | 10.06M | 0.7307 | +0.0645 |
+
+
+
+
+
 
 秩敏感性上，YOLO12s 从 r=8 的 0.7288 提升到 r=16 的 0.7307，再到 r=32 的 0.7363，但参数与推理 GFLOPs 从 9.66M/23.6 增至 10.85M/29.6，作者据此把 r=16 视为实时检测器的实用 Pareto 点。谓词级诊断还显示，打开注意力流规则会多接纳 32 个模块并把平均适配器梯度范数提高 1.581 倍，打开类型化头部规则会多接纳 18 个模块并提高 1.091 倍，但短程运行未出现非有限梯度，因此证据支持的是优化压力改变而非必然崩溃。
 
@@ -112,9 +137,14 @@ YOLO-PEFT 的机制可以概括为：用双角色图解析把模块的算子契�
 
 ## References
 
-- YOLO-PEFT: Parameter-Efficient Fine-Tuning on YOLO Family：[arXiv 2608.07051](https://arxiv.org/abs/2608.07051) · [PDF](/papers/2608.07051.pdf)
+- YOLO-PEFT: Parameter-Efficient Fine-Tuning on YOLO Family：[arXiv 2608.07051](https://arxiv.org/abs/2608.07051) · [PDF](https://app.notion.com/papers/2608.07051.pdf)
+
 - Hu et al. LoRA: Low-Rank Adaptation of Large Language Models. [arXiv:2106.09685](https://arxiv.org/abs/2106.09685)
+
 - Liu et al. DoRA: Weight-Decomposed Low-Rank Adaptation. [arXiv:2402.09353](https://arxiv.org/abs/2402.09353)
+
 - Zhao et al. HRA: High-Rank Adaptation. （直接相关工作，具体条目以论文引用为准）
+
 - HuggingFace PEFT 库：[GitHub](https://github.com/huggingface/peft)
+
 - Ultralytics YOLO：[GitHub](https://github.com/ultralytics/ult)
