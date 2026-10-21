@@ -35,7 +35,7 @@ function createElement(registry) {
   return element;
 }
 
-async function runSubSelection(attributes, posts) {
+async function runSubSelection(attributes, posts, interaction = 'sub') {
   const registry = new Map();
   const main = createElement(registry);
   const originalList = createElement(registry);
@@ -59,6 +59,10 @@ async function runSubSelection(attributes, posts) {
     registry.set(node.id, node);
   };
 
+  const siteTitle = createElement(registry);
+  siteTitle.id = 'site-title';
+  siteTitle.textContent = '企业论文';
+
   const document = {
     readyState: 'complete',
     getElementById(id) { return registry.get(id) || null; },
@@ -79,9 +83,27 @@ async function runSubSelection(attributes, posts) {
   await new Promise(resolve => setImmediate(resolve));
 
   const active = new Set();
+  const group = {
+    getAttribute(name) {
+      if (name === 'data-group') return attributes['data-val'] || '';
+      if (name === 'data-leaf-dim') return attributes['data-dim'] || '';
+      if (name === 'data-leaf-val') return attributes['data-val'] || '';
+      return null;
+    },
+    classList: {
+      contains(name) { return active.has(name); },
+      add(name) { active.add(name); },
+      remove(name) { active.delete(name); },
+      toggle(name) { active.has(name) ? active.delete(name) : active.add(name); }
+    },
+    querySelectorAll() { return []; }
+  };
   const sub = {
     parentNode: { parentNode: { querySelectorAll() { return [sub]; } } },
-    closest(selector) { return selector === '.md-sub' ? this : null; },
+    closest(selector) {
+      if (interaction === 'leaf' && selector === '.md-group-head') return { parentNode: group };
+      return interaction === 'sub' && selector === '.md-sub' ? this : null;
+    },
     getAttribute(name) { return attributes[name] || null; },
     classList: {
       contains(name) { return active.has(name); },
@@ -91,7 +113,10 @@ async function runSubSelection(attributes, posts) {
   };
 
   registry.get('md-filter').listeners.click({ target: sub });
-  return registry.get('md-results').innerHTML;
+  return {
+    html: registry.get('md-results').innerHTML,
+    title: siteTitle.textContent
+  };
 }
 
 test('filtered results render a visible Butterfly card with cover and excerpt', async () => {
@@ -184,7 +209,7 @@ test('filter index supplies cover and plain-text excerpt for every post', () => 
   const post = {
     title: 'Rendered paper',
     path: 'papers/rendered-paper/',
-    content: '<p>Useful <strong>plain text</strong> summary.</p>',
+    content: '<p>Useful <strong>plain text</strong> summary.</p><a href="https://arxiv.org/abs/2508.04247">paper</a>',
     date: { format(pattern) { return pattern === 'YYYY' ? '2026' : '2026-10-16'; } },
     categories: { toArray() { return [{ name: '推荐系统' }]; } },
     tags: { toArray() { return [{ name: '论文速读' }]; } }
@@ -193,7 +218,8 @@ test('filter index supplies cover and plain-text excerpt for every post', () => 
   const output = JSON.parse(generator(locals).data);
 
   assert.equal(output.posts[0].cover, 'https://images.example/default-1.webp');
-  assert.equal(output.posts[0].excerpt, 'Useful plain text summary.');
+  assert.equal(output.posts[0].excerpt, 'Useful plain text summary. paper');
+  assert.equal(output.posts[0].month, '08', 'paper month should come from its arXiv identity, not the October intake date');
 });
 
 test('selecting a venue keeps its type and filters by the concrete venue', async () => {
@@ -201,7 +227,7 @@ test('selecting a venue keeps its type and filters by the concrete venue', async
     date: '2026-10-16', year: '2026', cats: ['推荐系统'], tags: [],
     cover: 'https://images.example/cover.webp', excerpt: 'Summary'
   };
-  const html = await runSubSelection(
+  const { html, title } = await runSubSelection(
     { 'data-dim': 'venueType', 'data-val': 'RecSys', 'data-parent': '会议' },
     [
       { ...base, title: 'RecSys paper', url: '/recsys/', venue_type: '会议', venue_name: 'RecSys' },
@@ -211,6 +237,7 @@ test('selecting a venue keeps its type and filters by the concrete venue', async
 
   assert.match(html, /RecSys paper/);
   assert.doesNotMatch(html, /Journal paper/);
+  assert.equal(title, 'RecSys');
 });
 
 test('selecting a month keeps both year and month constraints', async () => {
@@ -218,7 +245,7 @@ test('selecting a month keeps both year and month constraints', async () => {
     year: '2026', cats: ['推荐系统'], tags: [], venue_type: '会议', venue_name: 'RecSys',
     cover: 'https://images.example/cover.webp', excerpt: 'Summary'
   };
-  const html = await runSubSelection(
+  const { html, title } = await runSubSelection(
     { 'data-dim': 'year', 'data-val': '2026', 'data-month': '07' },
     [
       { ...base, title: 'July paper', url: '/july/', date: '2026-07-15' },
@@ -228,6 +255,26 @@ test('selecting a month keeps both year and month constraints', async () => {
 
   assert.match(html, /July paper/);
   assert.doesNotMatch(html, /June paper/);
+  assert.equal(title, '2026 年 7 月');
+});
+
+test('a domain without children is a selectable leaf instead of an empty accordion', async () => {
+  const base = {
+    date: '2026-10-16', year: '2026', month: '10', tags: [], venue_type: '随笔', venue_name: '站内随笔',
+    cover: 'https://images.example/cover.webp', excerpt: 'Summary'
+  };
+  const { html, title } = await runSubSelection(
+    { 'data-dim': 'domain', 'data-val': '随笔' },
+    [
+      { ...base, title: 'Hello Rec', url: '/hello-rec/', cats: ['随笔'] },
+      { ...base, title: 'A paper', url: '/paper/', cats: ['推荐系统'] }
+    ],
+    'leaf'
+  );
+
+  assert.match(html, /Hello Rec/);
+  assert.doesNotMatch(html, /A paper/);
+  assert.equal(title, '随笔');
 });
 
 test('desktop pointer navigation is a retractable left-edge drawer', () => {

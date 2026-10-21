@@ -34,6 +34,14 @@ hexo.extend.generator.register('filter_index', function (locals) {
     return text.length > 180 ? text.slice(0, 177).trim() + '…' : text;
   }
 
+  function paperMonthFor(p) {
+    var source = [p.arxiv_id || '', p.slug || '', p.path || '', p.content || ''].join(' ');
+    var match = source.match(/arxiv\.org\/(?:abs|pdf)\/(\d{2})(0[1-9]|1[0-2])\.\d{4,5}/i) ||
+      source.match(/\b(\d{2})(0[1-9]|1[0-2])\.\d{4,5}\b/);
+    if (match) return match[2];
+    return p.date ? p.date.format('MM') : '';
+  }
+
   var posts = locals.posts.sort('-date').map(function (p, index) {
     var cats = [];
     var tags = [];
@@ -44,6 +52,7 @@ hexo.extend.generator.register('filter_index', function (locals) {
       url: '/' + String(p.path || '').replace(/^\//, ''),
       date: p.date ? p.date.format('YYYY-MM-DD') : '',
       year: p.year ? String(p.year) : (p.date ? p.date.format('YYYY') : ''),
+      month: paperMonthFor(p),
       venue_type: p.venue_type || '',
       venue_name: p.venue_name || '',
       cats: cats,
