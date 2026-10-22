@@ -133,8 +133,7 @@ $$
 - Yicheng He, Zhou Kaiyu, Haoyue Bai, Fengbin Zhu, and Yonghui Yang. 2025. Understanding embedding scaling in collaborative filtering. arXiv preprint arXiv:2509.15709.
 
 - Yupeng Hou, Jiacheng Li, Zhankui He, An Yan, Xiusi Chen, and Julian McAuley. 2024. Bridging language and items for retrieval and recommendation. Preprint, arXiv:2403.03952.
-
-- Kibum Kim, Jiwan Kim, Kyle Min, Yueqi Wang, Jinyoung Moon, Julian McAuley, and Chanyoung Park. 2026. Sink-token-aware pruning for fine-grained video understanding in efficient video llms. arXiv preprint arXiv:2604.20937.
+- Kibum Kim, Jiwan Kim, Kyle Min, Yueqi Wang, Jinyoung Moon, Julian McAuley, and Chanyoung Park. 2026. Sink-token-aware pruning for fine-grained video understanding in efficient video llms. arXiv preprint arXiv:2604.20937. [论文链接](https://arxiv.org/abs/2604.20937) · [代码链接](https://github.com/rlqja1107/SToP)
 
 - Zijie Lei, Tao Feng, Zhigang Hua, Yan Xie, Guanyu Lin, Shuang Yang, Ge Liu, and Jiaxuan You. 2026. Unirec: Unified multimodal encoding for llm-based recommendations. arXiv preprint arXiv:2601.19423.
 
@@ -153,8 +152,7 @@ $$
 - Daniele Malitesta, Emanuele Rossi, Claudio Pomo, Tommaso Di Noia, and Fragkiskos D Malliaros. 2024. Do we really need to drop items with missing modalities in multimodal recommendation? In Proceedings of the 33rd ACM International Conference on Information and Knowledge Management, pages 3943–3948.
 
 - Rongqing Kenneth Ong and Andy WH Khong. 2025. Spectrum-based modality representation fusion graph convolutional network for multimodal recommendation. In Proceedings of the Eighteenth ACM International Conference on Web Search and Data Mining, pages 773–781.
-
-- OpenAI. 2026. OpenAI gpt-5 system card. Preprint, arXiv:2601.03267.
+- OpenAI. 2026. OpenAI gpt-5 system card. Preprint, arXiv:2601.03267. [论文链接](https://arxiv.org/abs/2601.03267)
 
 - OpenGV. 2025. Internvl3.5: Advancing open-source multimodal models in versatility, reasoning, and efficiency. Preprint, arXiv:2508.18265.
 
@@ -213,21 +211,3 @@ $$
 - Xin Zhou, Xiaoxiong Zhang, Dusit Niyato, and Zhiqi Shen. 2025b. Learning item representations directly from multimodal features for effective recommendation. arXiv preprint arXiv:2505.04960.
 
 - Xin Zhou, Hongyu Zhou, Yong Liu, Zhiwei Zeng, Chunyan Miao, Pengwei Wang, Yuan You, and Feijun Jiang. 2023b. Bootstrap latent representations for multi-modal recommendation. In Proceedings of the ACM web conference 2023, pages 845–854.
-
-<!-- related-reading:start -->
-
-## 补充阅读
-
-### 1. Sink-token-aware pruning for fine-grained video understanding in efficient video llms
-
-年份：2026
-
-[论文链接](https://arxiv.org/abs/2604.20937)
-
-### 2. Openai gpt-5 system card
-
-年份：2026
-
-[论文链接](https://arxiv.org/abs/2601.03267)
-
-<!-- related-reading:end -->

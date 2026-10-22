@@ -113,3 +113,37 @@ test('Hexo preserves inline and display formula delimiters for MathJax', async (
     await hexo.exit();
   }
 });
+
+test('Hexo protects real OpticalRec formulas from Markdown emphasis parsing', async () => {
+  const hexo = new Hexo(root, { silent: true });
+  await hexo.init();
+  try {
+    const { protectMath } = require(path.join(root, 'scripts/opticalrec-math.js'));
+    const content = protectMath([
+        '$$',
+        '\\mathbf{q}_i = f(\\mathbf{v}_i, \\mathbf{t}_i), \\quad \\mathbf{p}_u = \\mathcal{A}(\\{\\mathbf{q}_i\\}_{i\\in\\mathcal{N}_u})',
+        '$$',
+        '',
+        '行内公式 $y_{ui}=\\langle \\mathbf{p}_u, \\mathbf{q}_i\\rangle$。'
+      ].join('\n'));
+    const html = await hexo.render.render({
+      text: content,
+      engine: 'md'
+    });
+
+    assert.doesNotMatch(html, /<em>/);
+    assert.match(html, /class="math-display"/);
+    assert.match(html, /class="math-inline"/);
+    assert.match(html, /\\mathbf\{q\}_i/);
+  } finally {
+    await hexo.exit();
+  }
+});
+
+test('math protection identifies the target during Hexo before-post rendering', () => {
+  const { isTargetPost } = require(path.join(root, 'scripts/opticalrec-math.js'));
+
+  assert.equal(isTargetPost({ source: '_posts/paper-2610.05432.md' }), true);
+  assert.equal(isTargetPost({ slug: 'paper-2610.05432' }), true);
+  assert.equal(isTargetPost({ source: '_posts/paper-2608.17316.md' }), false);
+});
