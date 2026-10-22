@@ -213,6 +213,62 @@
       </tags>
   </entry>
   <entry>
+    <title>专家该建模模态组合而不是单个模态：CAMMSR 的品类引导 MoE</title>
+    <url>/article/cammsr-category-guided-moe-seqrec/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://arxiv.org/abs/2603.04320">arXiv 2603.04320</a></p>
+</blockquote>
+<p>序列推荐里的多模态融合，主流做法是”每个模态各自编码 → 再按权重加权求和”。CAMMSR 指出这套流程漏掉了一件事：<strong>模态之间是有协同关系的</strong>——图和文放在一起才说明一个商品是什么，分开编码再相加就把这层关系丢掉了。而且用户对模态的关注是<strong>动态、且和品类相关</strong>的：买手机时看参数（文本），买衣服时看款式（图片）。</p>
+<h2 id="整体设计"><a href="#整体设计" class="headerlink" title="整体设计"></a>整体设计</h2><p>CAMMSR 把”品类（category）”当作调制模态权重的上下文信号，用一套品类引导的注意力混合专家做融合。</p>
+<p><img src="/images/8d1e174e72f58eb110b67605844cdecb.png" alt="CAMMSR 整体框架"></p>
+<p><em>框架左侧是流程说明、右侧逐组件展开，共四块：①物品表示初始化——ID、文本、图像三路分别编码；②品类引导的注意力混合专家（核心）：门控网络根据物品的品类决定各专家的权重，而每个专家不是作用在单个模态上，而是作用在多个模态拼接后的特征上——这是它和”先分开加权”最本质的区别；③用户兴趣学习——把各模态的行为序列各自送进 Transformer 编码器，建模兴趣演化；④模态交换对比学习——构造”交换了模态的序列”作为增强视图做对齐。</em></p>
+<h2 id="机制一：为什么专家要作用在”拼接后”的特征上"><a href="#机制一：为什么专家要作用在”拼接后”的特征上" class="headerlink" title="机制一：为什么专家要作用在”拼接后”的特征上"></a>机制一：为什么专家要作用在”拼接后”的特征上</h2><p>融合模块的形式是：</p>
+<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">ê_&#123;i_m&#125; = Σ_k  g_k^m · Expert_k( Con(e_&#123;i_id&#125;, e_&#123;i_text&#125;, e_&#123;i_image&#125;) )</span><br></pre></td></tr></table></figure>
+
+<p>两个细节值得注意：</p>
+<ul>
+<li><p><strong>输入是拼接</strong>：专家的输入是多模态拼接而非单模态特征，所以专家学的是”模态组合在一起时的模式”，天然覆盖了协同效应；门控再按品类决定”现在该让哪些专家说话”。</p>
+</li>
+<li><p><strong>门控由品类引导</strong>：<code>g_k^m</code> 不是纯输入驱动的，而是带品类条件——同一个视觉相似的物品，在不同品类下会被路由到不同的专家组合。</p>
+</li>
+</ul>
+<p>论文另外把归一化换成了 <strong>DyT（dynamic tanh）</strong> 替代 LayerNorm，用更便宜的方式做激活归一。</p>
+<h2 id="机制二：模态交换对比学习"><a href="#机制二：模态交换对比学习" class="headerlink" title="机制二：模态交换对比学习"></a>机制二：模态交换对比学习</h2><p>序列模型容易”只信一个模态”（哪路特征好训就偏哪路）。论文的做法是构造增强视图——把序列里某个模态替换&#x2F;交换掉，然后要求交换前后的表示保持一致：</p>
+<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">Z_aug = Transformer( Dropout( DyT( S̄_aug ) ) )</span><br></pre></td></tr></table></figure>
+
+<p>这等于在训练层面强制”模型对模态缺失&#x2F;替换不敏感”，和主力损失一起联合优化（<code>L = L_SR + L_contrastive</code>）。</p>
+<h2 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h2><p>四个数据集（图 + 文两模态）：</p>
+<p>基线覆盖两类：序列类（GRU4Rec、SASRec、LRURec、FEARec）与多模态序列类（NOVA、DIF-SR、UniSRec、MISSRec，另对比 IISAN、M3SRec）。</p>
+<p><strong>主结果</strong>：CAMMSR 在所有数据集与指标上取得最好成绩，其中 NDCG@5 相对最强基线在 Games 上 +6.67%、Beauty 上 +15.32%。论文特别点出：IISAN、M3SRec 这些专门做多模态融合的方法已经很强，<strong>但它们的融合方式仍不足以为”模态间关系”建模</strong>——这正是 CAMMSR 的差异化位置。</p>
+<h3 id="品类标签噪声：一篇很实用的鲁棒性研究"><a href="#品类标签噪声：一篇很实用的鲁棒性研究" class="headerlink" title="品类标签噪声：一篇很实用的鲁棒性研究"></a>品类标签噪声：一篇很实用的鲁棒性研究</h3><p>因为门控依赖品类标签，一个自然的问题是”品类标错了会怎样”。论文做了两种破坏方式：<strong>Removal</strong>（把品类信息删掉）与 <strong>Misleading</strong>（把品类替换成错的），各按 10%&#x2F;20%&#x2F;30% 比例注入。Toys 数据集（NDCG@10 &#x2F; MRR@10）：</p>
+<p>三条可读的结论：<strong>品类噪声是可承受的</strong>（30% 删除只掉约 5%）；**”有噪声”比”有错味”更安全<strong>（Removal 全程好于同比例的 Misleading）；也就是说，模型拿到的品类信息</strong>错<strong>比</strong>缺**更伤。</p>
+<h3 id="模态贡献：文本比图片更关键"><a href="#模态贡献：文本比图片更关键" class="headerlink" title="模态贡献：文本比图片更关键"></a>模态贡献：文本比图片更关键</h3><p>去掉单模态的对照（Figure 4）显示，<strong>去掉视觉（w&#x2F;o V）的结果优于去掉文本（w&#x2F;o T）</strong>——在这四个数据集上，文本模态的贡献大于图像。这个结论和很多多模态推荐论文”图像更重要”的默认印象相反，值得注意（数据集差异：这里的序列建模更依赖语义描述）。</p>
+<p><img src="/images/4e1c740882025e70c2db6756a9ebc059.png" alt="移除单个模态后的性能"></p>
+<p><em>这张图按数据集分组，对比完整模型与两个消融变体（去视觉 &#x2F; 去文本）。读法是横向比较两组柱子的高度差：去视觉之后掉得少、去文本之后掉得多，两条差距在所有数据集上方向一致。它给出的工程含义是：如果算力或数据只能保一路模态，保住文本的收益更大。</em></p>
+<h3 id="效率"><a href="#效率" class="headerlink" title="效率"></a>效率</h3><p>论文把”每 epoch 训练时间”与”效果（NDCG@10）”画成散点（Games 与 Beauty），看谁在 Pareto 前沿；同时给了收敛轮数、总训练时间与推理时间：</p>
+<p><img src="/images/86d4abc86cde82899dc284329955cb66.png" alt="效率与效果的权衡"></p>
+<p><em>散点图的横轴是每轮训练时间、纵轴是 NDCG@10，越靠左上越好。这张图的作用是把”涨点”和”变贵”分开看：CAMMSR 落在左上区域，也就是在精度更高的一侧，训练开销并没有按比例膨胀。对工业落地来说，这比单纯报一个绝对精度更有意义。</em></p>
+<h3 id="案例"><a href="#案例" class="headerlink" title="案例"></a>案例</h3><p>论文在 Beauty 上给了一个案例：当目标序列的品类暗示”该看文本”时，网格门控会动态放大文本信号的权重，把视觉上相似但与语义无关的物品滤掉。这解释了”品类引导 + 注意力门控”在推理时的具体行为。</p>
+<p><strong>超参</strong>：专家数量 K &#x3D; 4 时在所有指标上最优（不是越多越好）。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>CAMMSR 的两个支点很清楚：<strong>把专家放在多模态拼接特征上</strong>（从而显式建模模态协同，而不是分开加权），以及<strong>用品类作为门控的条件信号</strong>（让模态权重随语境变化）。配套的品类噪声研究给了一个有实践价值的结论——品类信息”缺”比”错”安全；模态消融则提示在这个任务上文本比图像更关键。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>论文：CAMMSR: Category-Guided Attentive Mixture of Experts for Multimodal Sequential Recommendation（arXiv:2603.04320）</p>
+</li>
+<li><p>相关基线：GRU4Rec、SASRec、LRURec、FEARec、NOVA、DIF-SR、UniSRec、MISSRec、IISAN、M3SRec</p>
+</li>
+<li><p>关键组件：注意力混合专家（MoE）、DyT（Dynamic Tanh）、模态交换对比学习</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>多模态推荐</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>模态缺失时补出来的特征为什么不能用：CaIRec 的两阶段校准</title>
     <url>/article/cairec-calibrated-modality-imputation/</url>
     <content><![CDATA[<blockquote>
@@ -269,62 +325,6 @@
 <li><p>相关工作：LightGCN（SIGIR’20）、SimGCL（SIGIR’22）、VBPR（AAAI’16）、MILK、I³-MRec、MIG-GT、LRMM、CI2MG、CalMRL、DGMRec、HEAT、PGL</p>
 </li>
 <li><p>评测基线覆盖：协同过滤、通用多模态推荐、缺失感知多模态推荐三类共 11 个</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>多模态推荐</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>专家该建模模态组合而不是单个模态：CAMMSR 的品类引导 MoE</title>
-    <url>/article/cammsr-category-guided-moe-seqrec/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2603.04320">arXiv 2603.04320</a></p>
-</blockquote>
-<p>序列推荐里的多模态融合，主流做法是”每个模态各自编码 → 再按权重加权求和”。CAMMSR 指出这套流程漏掉了一件事：<strong>模态之间是有协同关系的</strong>——图和文放在一起才说明一个商品是什么，分开编码再相加就把这层关系丢掉了。而且用户对模态的关注是<strong>动态、且和品类相关</strong>的：买手机时看参数（文本），买衣服时看款式（图片）。</p>
-<h2 id="整体设计"><a href="#整体设计" class="headerlink" title="整体设计"></a>整体设计</h2><p>CAMMSR 把”品类（category）”当作调制模态权重的上下文信号，用一套品类引导的注意力混合专家做融合。</p>
-<p><img src="/images/8d1e174e72f58eb110b67605844cdecb.png" alt="CAMMSR 整体框架"></p>
-<p><em>框架左侧是流程说明、右侧逐组件展开，共四块：①物品表示初始化——ID、文本、图像三路分别编码；②品类引导的注意力混合专家（核心）：门控网络根据物品的品类决定各专家的权重，而每个专家不是作用在单个模态上，而是作用在多个模态拼接后的特征上——这是它和”先分开加权”最本质的区别；③用户兴趣学习——把各模态的行为序列各自送进 Transformer 编码器，建模兴趣演化；④模态交换对比学习——构造”交换了模态的序列”作为增强视图做对齐。</em></p>
-<h2 id="机制一：为什么专家要作用在”拼接后”的特征上"><a href="#机制一：为什么专家要作用在”拼接后”的特征上" class="headerlink" title="机制一：为什么专家要作用在”拼接后”的特征上"></a>机制一：为什么专家要作用在”拼接后”的特征上</h2><p>融合模块的形式是：</p>
-<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">ê_&#123;i_m&#125; = Σ_k  g_k^m · Expert_k( Con(e_&#123;i_id&#125;, e_&#123;i_text&#125;, e_&#123;i_image&#125;) )</span><br></pre></td></tr></table></figure>
-
-<p>两个细节值得注意：</p>
-<ul>
-<li><p><strong>输入是拼接</strong>：专家的输入是多模态拼接而非单模态特征，所以专家学的是”模态组合在一起时的模式”，天然覆盖了协同效应；门控再按品类决定”现在该让哪些专家说话”。</p>
-</li>
-<li><p><strong>门控由品类引导</strong>：<code>g_k^m</code> 不是纯输入驱动的，而是带品类条件——同一个视觉相似的物品，在不同品类下会被路由到不同的专家组合。</p>
-</li>
-</ul>
-<p>论文另外把归一化换成了 <strong>DyT（dynamic tanh）</strong> 替代 LayerNorm，用更便宜的方式做激活归一。</p>
-<h2 id="机制二：模态交换对比学习"><a href="#机制二：模态交换对比学习" class="headerlink" title="机制二：模态交换对比学习"></a>机制二：模态交换对比学习</h2><p>序列模型容易”只信一个模态”（哪路特征好训就偏哪路）。论文的做法是构造增强视图——把序列里某个模态替换&#x2F;交换掉，然后要求交换前后的表示保持一致：</p>
-<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">Z_aug = Transformer( Dropout( DyT( S̄_aug ) ) )</span><br></pre></td></tr></table></figure>
-
-<p>这等于在训练层面强制”模型对模态缺失&#x2F;替换不敏感”，和主力损失一起联合优化（<code>L = L_SR + L_contrastive</code>）。</p>
-<h2 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h2><p>四个数据集（图 + 文两模态）：</p>
-<p>基线覆盖两类：序列类（GRU4Rec、SASRec、LRURec、FEARec）与多模态序列类（NOVA、DIF-SR、UniSRec、MISSRec，另对比 IISAN、M3SRec）。</p>
-<p><strong>主结果</strong>：CAMMSR 在所有数据集与指标上取得最好成绩，其中 NDCG@5 相对最强基线在 Games 上 +6.67%、Beauty 上 +15.32%。论文特别点出：IISAN、M3SRec 这些专门做多模态融合的方法已经很强，<strong>但它们的融合方式仍不足以为”模态间关系”建模</strong>——这正是 CAMMSR 的差异化位置。</p>
-<h3 id="品类标签噪声：一篇很实用的鲁棒性研究"><a href="#品类标签噪声：一篇很实用的鲁棒性研究" class="headerlink" title="品类标签噪声：一篇很实用的鲁棒性研究"></a>品类标签噪声：一篇很实用的鲁棒性研究</h3><p>因为门控依赖品类标签，一个自然的问题是”品类标错了会怎样”。论文做了两种破坏方式：<strong>Removal</strong>（把品类信息删掉）与 <strong>Misleading</strong>（把品类替换成错的），各按 10%&#x2F;20%&#x2F;30% 比例注入。Toys 数据集（NDCG@10 &#x2F; MRR@10）：</p>
-<p>三条可读的结论：<strong>品类噪声是可承受的</strong>（30% 删除只掉约 5%）；**”有噪声”比”有错味”更安全<strong>（Removal 全程好于同比例的 Misleading）；也就是说，模型拿到的品类信息</strong>错<strong>比</strong>缺**更伤。</p>
-<h3 id="模态贡献：文本比图片更关键"><a href="#模态贡献：文本比图片更关键" class="headerlink" title="模态贡献：文本比图片更关键"></a>模态贡献：文本比图片更关键</h3><p>去掉单模态的对照（Figure 4）显示，<strong>去掉视觉（w&#x2F;o V）的结果优于去掉文本（w&#x2F;o T）</strong>——在这四个数据集上，文本模态的贡献大于图像。这个结论和很多多模态推荐论文”图像更重要”的默认印象相反，值得注意（数据集差异：这里的序列建模更依赖语义描述）。</p>
-<p><img src="/images/4e1c740882025e70c2db6756a9ebc059.png" alt="移除单个模态后的性能"></p>
-<p><em>这张图按数据集分组，对比完整模型与两个消融变体（去视觉 &#x2F; 去文本）。读法是横向比较两组柱子的高度差：去视觉之后掉得少、去文本之后掉得多，两条差距在所有数据集上方向一致。它给出的工程含义是：如果算力或数据只能保一路模态，保住文本的收益更大。</em></p>
-<h3 id="效率"><a href="#效率" class="headerlink" title="效率"></a>效率</h3><p>论文把”每 epoch 训练时间”与”效果（NDCG@10）”画成散点（Games 与 Beauty），看谁在 Pareto 前沿；同时给了收敛轮数、总训练时间与推理时间：</p>
-<p><img src="/images/86d4abc86cde82899dc284329955cb66.png" alt="效率与效果的权衡"></p>
-<p><em>散点图的横轴是每轮训练时间、纵轴是 NDCG@10，越靠左上越好。这张图的作用是把”涨点”和”变贵”分开看：CAMMSR 落在左上区域，也就是在精度更高的一侧，训练开销并没有按比例膨胀。对工业落地来说，这比单纯报一个绝对精度更有意义。</em></p>
-<h3 id="案例"><a href="#案例" class="headerlink" title="案例"></a>案例</h3><p>论文在 Beauty 上给了一个案例：当目标序列的品类暗示”该看文本”时，网格门控会动态放大文本信号的权重，把视觉上相似但与语义无关的物品滤掉。这解释了”品类引导 + 注意力门控”在推理时的具体行为。</p>
-<p><strong>超参</strong>：专家数量 K &#x3D; 4 时在所有指标上最优（不是越多越好）。</p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>CAMMSR 的两个支点很清楚：<strong>把专家放在多模态拼接特征上</strong>（从而显式建模模态协同，而不是分开加权），以及<strong>用品类作为门控的条件信号</strong>（让模态权重随语境变化）。配套的品类噪声研究给了一个有实践价值的结论——品类信息”缺”比”错”安全；模态消融则提示在这个任务上文本比图像更关键。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>论文：CAMMSR: Category-Guided Attentive Mixture of Experts for Multimodal Sequential Recommendation（arXiv:2603.04320）</p>
-</li>
-<li><p>相关基线：GRU4Rec、SASRec、LRURec、FEARec、NOVA、DIF-SR、UniSRec、MISSRec、IISAN、M3SRec</p>
-</li>
-<li><p>关键组件：注意力混合专家（MoE）、DyT（Dynamic Tanh）、模态交换对比学习</p>
 </li>
 </ul>
 ]]></content>
@@ -882,89 +882,6 @@
       </tags>
   </entry>
   <entry>
-    <title>知识图谱塞进 LLM 塞多少才合适：KERAG_R 的检索-选择-格式化流程</title>
-    <url>/article/kerag-rec-knowledge-enhanced-rag/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2507.05863">arXiv 2507.05863</a></p>
-</blockquote>
-<p>大语言模型做推荐，缺的往往不是”语言能力”，而是<strong>领域内的关系知识</strong>——模型预训练语料里没有”这部电影属于哪个系列、由谁执导、和哪些作品共享演员”这类结构化事实。缺了它，模型只能靠标题字面猜，于是出现幻觉式的推荐。</p>
-<p>补知识最直接的办法是把知识图谱（KG）塞进提示词。但这条路有两个现实的坑：<strong>一是冗余</strong>，一个物品在 KG 里可能挂着几十条三元组，全塞进去噪声会淹没信号；<strong>二是长度</strong>，LLM 的上下文窗口经不起这么消耗。KERAG_R 要解决的就是”塞哪些、怎么塞”。</p>
-<hr>
-<h2 id="一、方法：三件事串成一条链"><a href="#一、方法：三件事串成一条链" class="headerlink" title="一、方法：三件事串成一条链"></a>一、方法：三件事串成一条链</h2><p>整条链路是「<strong>检索 → 构造提示 → 微调</strong>」，依次对应论文里的 GraphRAG、知识增强提示构造、知识增强指令微调三个模块。</p>
-<p><img src="/images/1fe06465b9afa015ca63a43e461f9175.png" alt="KERAG\_R 的整体结构：GraphRAG 检索、知识增强提示构造、知识增强指令微调"></p>
-<p>上图是论文的 Figure 1，三块分别是：(a) GraphRAG 负责从 KG 里挑出与物品最相关的三元组；(b) 把挑出的三元组组装进指令提示；(c) 用这批提示去微调模型。下面按顺序拆。</p>
-<h3 id="1-GraphRAG：先学表示，再选三元组"><a href="#1-GraphRAG：先学表示，再选三元组" class="headerlink" title="1. GraphRAG：先学表示，再选三元组"></a>1. GraphRAG：先学表示，再选三元组</h3><p>检索的前提是有可比的向量。这一步用 <strong>GAT（图注意力网络）</strong> 在 KG 上做预训练，得到物品与实体的表示：</p>
-<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">α_ij = softmax_j( LeakyReLU( βᵀ [W·h_i ‖ W·e_j] ) )        (1)</span><br><span class="line">h&#x27;_i = Σ_&#123;j ∈ N(i)&#125; α_ij · W·e_j                            (2)</span><br></pre></td></tr></table></figure>
-
-<p>也就是标准的注意力聚合：物品节点 <code>i</code> 的表示由邻居实体加权求和得到，权重 <code>α_ij</code> 由两者的注意力分数决定。训练目标是 <strong>BPR 式的成对排序损失</strong>：</p>
-<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">L = (1/N) Σ_&#123;(i,j) ∈ E&#125; max( 0, φ(h_i, e_k) − φ(h_i, e_j) )   (3)</span><br></pre></td></tr></table></figure>
-
-<p>其中 <code>φ</code> 是内积相似度。这一步的作用不只是”得到物品向量”——它还顺带把<strong>哪些邻居对该物品更重要</strong>这件事编码进了注意力权重，而这正是下一步要用的东西。</p>
-<h3 id="2-三元组的挑选：把结构重要度和语义相似度相乘"><a href="#2-三元组的挑选：把结构重要度和语义相似度相乘" class="headerlink" title="2. 三元组的挑选：把结构重要度和语义相似度相乘"></a>2. 三元组的挑选：把结构重要度和语义相似度相乘</h3><p>选三元组用的打分公式很值得看一眼：</p>
-<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">S_ij = α_ij × ( h&#x27;_i · e_j )                                (4)</span><br><span class="line">T_i  = Top-Q( S_ij ),   e_j ∈ N(i)                          (5)</span><br></pre></td></tr></table></figure>
-
-<p>拆开看，<code>α_ij</code> 来自 GAT 的注意力，衡量”这条边在图结构上有多重要”；<code>h&#39;_i · e_j</code> 是表示空间里的<strong>语义相似度</strong>。两者相乘，等于要求候选三元组同时满足”结构上相关”和”语义上接近”。只用其中一项都会有偏：只看注意力会偏向高度数的热门实体，只看语义相似度则完全忽略图结构。</p>
-<p>对每个物品取 top-Q 个实体，就得到该物品的三元组集合 <code>T_i</code>，再拼进提示词。</p>
-<h3 id="3-两个提示变体：三元组直给-vs-句子化"><a href="#3-两个提示变体：三元组直给-vs-句子化" class="headerlink" title="3. 两个提示变体：三元组直给 vs. 句子化"></a>3. 两个提示变体：三元组直给 vs. 句子化</h3><p>论文做了两个版本做对比：</p>
-<p>直觉上后者应该更好——毕竟是在跟语言模型对话，自然语言应该更”顺口”。但实验结果相反（见下表），这一点后面细说。</p>
-<p>此外，提示构造还包含用户采样（优先取交互多的用户、再对用户表示做 K-Means 聚类以保持多样性）与候选物品筛选，目的是把一条提示压进 LLM 的上下文预算内。</p>
-<p>最后用 <strong>LoRA</strong> 做轻量指令微调，训练目标是标准的自回归负对数似然：</p>
-<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">L = min_Θ Σ_&#123;(x,y) ∈ D_train&#125; Σ_t −log P_Θ( y_t | x, y_&#123;[1:t−1]&#125; )   (6)</span><br></pre></td></tr></table></figure>
-
-<hr>
-<h2 id="二、实验"><a href="#二、实验" class="headerlink" title="二、实验"></a>二、实验</h2><h3 id="数据集与设置"><a href="#数据集与设置" class="headerlink" title="数据集与设置"></a>数据集与设置</h3><p>在 ML-1M、ML-10M、Amazon-book 三个数据集上评估，评价指标为 HR@3&#x2F;5 与 NDCG@3&#x2F;5。三个数据集的 KG 规模差异明显，Amazon-book 的交互极为稀疏（密度 0.0008%）：</p>
-<p>对比方法分四组：协同过滤（MF、LightGCN、MixGCF）、序列推荐（SASRec、BERT4Rec、CL4SRec）、KG 推荐（CKE、KGAT）、LLM 推荐（P5、RecRanker）。</p>
-<h3 id="主结果：两个变体全面超过全部基线"><a href="#主结果：两个变体全面超过全部基线" class="headerlink" title="主结果：两个变体全面超过全部基线"></a>主结果：两个变体全面超过全部基线</h3><p>（完整表格里 12 个指标格子的相对提升区间是 **+7.23% ~ +14.89%**，全部通过 Holm-Bonferroni 校正的配对 t 检验。）</p>
-<p>两个细节值得注意：</p>
-<ul>
-<li><p><strong><code>Rt</code></strong>** 全面优于 ****<code>Rs</code><strong>（三元组直给优于句子化改写）。论文的解释是：三元组形式保留了”头实体—关系—尾实体”的</strong>结构边界**，模型能直接对齐到训练时的图结构；句子化改写反而在改写过程中引入了语言层面的噪声与歧义。</p>
-</li>
-<li><p><strong>KG 模型（CKE、KGAT）与 LLM 模型（RecRanker）普遍强于协同过滤与序列模型</strong>——说明”外部知识”和”语言能力”各自都有效，而 KERAG_R 是在两者的交叉点上做加法。</p>
-</li>
-</ul>
-<h3 id="消融：谁最不能少"><a href="#消融：谁最不能少" class="headerlink" title="消融：谁最不能少"></a>消融：谁最不能少</h3><p>消融表（Table 4）用四个变体逐一拆解组件：</p>
-<p>三点解读：</p>
-<ol>
-<li><p><strong>“选得准”确实有价值</strong>：把 top-Q 选择换成随机选，ML-1M 上 HR@5 掉 4.8%。这直接验证了公式 (4) 那个”注意力 × 语义相似度”的联合打分不是摆设。</p>
-</li>
-<li><p><strong>GraphRAG 与指令微调是互相成就的</strong>：单独去掉任一个都掉 7%–9%。知识要经过微调才能被模型”消化”，而微调需要知识来提供任务外的事实依据。</p>
-</li>
-<li><p><strong>基座模型能力是天花板</strong>：换掉 LLM 的影响（−11.9%）比摘掉任何一个自研模块都大。这是个务实提醒——在这套框架里，选基座比调模块更影响上限。</p>
-</li>
-</ol>
-<h3 id="反直觉结论：一个三元组就够了"><a href="#反直觉结论：一个三元组就够了" class="headerlink" title="反直觉结论：一个三元组就够了"></a>反直觉结论：一个三元组就够了</h3><p><img src="/images/e2cfe13a24913b8ea53004b9b793add3.png" alt="三元组数量对性能的影响：单条三元组即达到最优，继续增加反而下降"></p>
-<p>论文的 RQ3 专门扫了三元组数量。结论是：<strong>每个用户交互过的物品只配 1 条三元组就足够</strong>，继续增加不但没有增益，反而会<strong>损害</strong> LLM 的推理——因为额外的三元组带来了与当前排序任务无关的关系边，模型在生成时被这些无关事实带偏。</p>
-<p>这与”知识越多越好”的直觉正好相反，也和 RAG 领域早先的一个经验一致：检索噪声对生成式模型的伤害是非线性的。</p>
-<h3 id="效率"><a href="#效率" class="headerlink" title="效率"></a>效率</h3><p>GraphRAG 与指令微调的开销在论文里被单独报告：指令微调部分用 <strong>单张 A6000 训练 Llama-3.1 (8B)、1000 条指令</strong>，配合 LoRA 做轻量适配——这也是这套方案能落到常规硬件的前提。</p>
-<hr>
-<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>KERAG_R 的贡献可以概括成一句话：<strong>把”往 LLM 里塞知识”从一次性动作，变成一个可控的检索—选择—格式化流程。</strong></p>
-<p>三处值得记住的结论：</p>
-<ul>
-<li><p><strong>挑选标准要双条件</strong>：结构重要度（GAT 注意力）与语义相似度相乘，比任何单一指标都更稳。</p>
-</li>
-<li><p><strong>知识的呈现形式会影响效果</strong>：三元组直给优于句子化改写，和”LLM 更懂自然语言”的直觉相反。</p>
-</li>
-<li><p><strong>知识量存在最优值，且往往比预期小</strong>：1 条三元组即最优，多加会伤——把检索预算花在”提纯”而不是”堆量”上更划算。</p>
-</li>
-</ul>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>KERAG_R: Knowledge-Enhanced Retrieval-Augmented Generation for Recommendation — <a href="https://arxiv.org/abs/2507.05863">arXiv:2507.05863</a></p>
-</li>
-<li><p>相关基线：LightGCN（图卷积协同过滤）、KGAT（知识图谱注意力网络）、RecRanker（LLM 排序推荐）、P5&#x2F;OpenP5（统一文本到文本推荐）</p>
-</li>
-<li><p>相关检索增强工作：GRAG（Graph Retrieval-Augmented Generation）、Coral（协同检索增强的长尾推荐）</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>知识图谱</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>模态缺失不等于信息丢失：I³-MRec 的信息瓶颈不变学习</title>
     <url>/article/i3mrec-invariant-information-bottleneck/</url>
     <content><![CDATA[<blockquote>
@@ -1059,6 +976,89 @@
 </blockquote>
 <h2 id="实验效果"><a href="#实验效果" class="headerlink" title="实验效果"></a>实验效果</h2><p>在Games、Toys、Office三个数据集上，ColdRAG（使用GPT）的Recall@10分别达到12.38%、5.40%、8.60%，NDCG@10分别为4.37%、2.29%、3.26%。相比最强基线（KALM4Rec&#x2F;LLMRank），Recall@10提升78.22%、26.76%、123.81%。使用Qwen模型时，Games数据集Recall@10达19.57%。幻觉率仅3.15%，远低于其他LLM方法的5-10%。</p>
 <h2 id="对推荐系统-Agent-开发的借鉴"><a href="#对推荐系统-Agent-开发的借鉴" class="headerlink" title="对推荐系统 Agent 开发的借鉴"></a>对推荐系统 Agent 开发的借鉴</h2><p>对推荐Agent开发有重要借鉴价值：1）算法设计：可采用动态知识图谱作为Agent的长期记忆，支持增量更新；2）推理机制：LLM引导的多跳图遍历可作为Agent的推理策略，实现目标导向的探索；3）评估方法：论文的稳定性（5次运行方差）和幻觉率评估指标可直接用于Agent质量监控；4）系统架构：混合存储（图拓扑+向量数据库）的设计可复用，支持高效语义检索与结构化推理的结合。</p>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>知识图谱</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>知识图谱塞进 LLM 塞多少才合适：KERAG_R 的检索-选择-格式化流程</title>
+    <url>/article/kerag-rec-knowledge-enhanced-rag/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://arxiv.org/abs/2507.05863">arXiv 2507.05863</a></p>
+</blockquote>
+<p>大语言模型做推荐，缺的往往不是”语言能力”，而是<strong>领域内的关系知识</strong>——模型预训练语料里没有”这部电影属于哪个系列、由谁执导、和哪些作品共享演员”这类结构化事实。缺了它，模型只能靠标题字面猜，于是出现幻觉式的推荐。</p>
+<p>补知识最直接的办法是把知识图谱（KG）塞进提示词。但这条路有两个现实的坑：<strong>一是冗余</strong>，一个物品在 KG 里可能挂着几十条三元组，全塞进去噪声会淹没信号；<strong>二是长度</strong>，LLM 的上下文窗口经不起这么消耗。KERAG_R 要解决的就是”塞哪些、怎么塞”。</p>
+<hr>
+<h2 id="一、方法：三件事串成一条链"><a href="#一、方法：三件事串成一条链" class="headerlink" title="一、方法：三件事串成一条链"></a>一、方法：三件事串成一条链</h2><p>整条链路是「<strong>检索 → 构造提示 → 微调</strong>」，依次对应论文里的 GraphRAG、知识增强提示构造、知识增强指令微调三个模块。</p>
+<p><img src="/images/1fe06465b9afa015ca63a43e461f9175.png" alt="KERAG\_R 的整体结构：GraphRAG 检索、知识增强提示构造、知识增强指令微调"></p>
+<p>上图是论文的 Figure 1，三块分别是：(a) GraphRAG 负责从 KG 里挑出与物品最相关的三元组；(b) 把挑出的三元组组装进指令提示；(c) 用这批提示去微调模型。下面按顺序拆。</p>
+<h3 id="1-GraphRAG：先学表示，再选三元组"><a href="#1-GraphRAG：先学表示，再选三元组" class="headerlink" title="1. GraphRAG：先学表示，再选三元组"></a>1. GraphRAG：先学表示，再选三元组</h3><p>检索的前提是有可比的向量。这一步用 <strong>GAT（图注意力网络）</strong> 在 KG 上做预训练，得到物品与实体的表示：</p>
+<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">α_ij = softmax_j( LeakyReLU( βᵀ [W·h_i ‖ W·e_j] ) )        (1)</span><br><span class="line">h&#x27;_i = Σ_&#123;j ∈ N(i)&#125; α_ij · W·e_j                            (2)</span><br></pre></td></tr></table></figure>
+
+<p>也就是标准的注意力聚合：物品节点 <code>i</code> 的表示由邻居实体加权求和得到，权重 <code>α_ij</code> 由两者的注意力分数决定。训练目标是 <strong>BPR 式的成对排序损失</strong>：</p>
+<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">L = (1/N) Σ_&#123;(i,j) ∈ E&#125; max( 0, φ(h_i, e_k) − φ(h_i, e_j) )   (3)</span><br></pre></td></tr></table></figure>
+
+<p>其中 <code>φ</code> 是内积相似度。这一步的作用不只是”得到物品向量”——它还顺带把<strong>哪些邻居对该物品更重要</strong>这件事编码进了注意力权重，而这正是下一步要用的东西。</p>
+<h3 id="2-三元组的挑选：把结构重要度和语义相似度相乘"><a href="#2-三元组的挑选：把结构重要度和语义相似度相乘" class="headerlink" title="2. 三元组的挑选：把结构重要度和语义相似度相乘"></a>2. 三元组的挑选：把结构重要度和语义相似度相乘</h3><p>选三元组用的打分公式很值得看一眼：</p>
+<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">S_ij = α_ij × ( h&#x27;_i · e_j )                                (4)</span><br><span class="line">T_i  = Top-Q( S_ij ),   e_j ∈ N(i)                          (5)</span><br></pre></td></tr></table></figure>
+
+<p>拆开看，<code>α_ij</code> 来自 GAT 的注意力，衡量”这条边在图结构上有多重要”；<code>h&#39;_i · e_j</code> 是表示空间里的<strong>语义相似度</strong>。两者相乘，等于要求候选三元组同时满足”结构上相关”和”语义上接近”。只用其中一项都会有偏：只看注意力会偏向高度数的热门实体，只看语义相似度则完全忽略图结构。</p>
+<p>对每个物品取 top-Q 个实体，就得到该物品的三元组集合 <code>T_i</code>，再拼进提示词。</p>
+<h3 id="3-两个提示变体：三元组直给-vs-句子化"><a href="#3-两个提示变体：三元组直给-vs-句子化" class="headerlink" title="3. 两个提示变体：三元组直给 vs. 句子化"></a>3. 两个提示变体：三元组直给 vs. 句子化</h3><p>论文做了两个版本做对比：</p>
+<p>直觉上后者应该更好——毕竟是在跟语言模型对话，自然语言应该更”顺口”。但实验结果相反（见下表），这一点后面细说。</p>
+<p>此外，提示构造还包含用户采样（优先取交互多的用户、再对用户表示做 K-Means 聚类以保持多样性）与候选物品筛选，目的是把一条提示压进 LLM 的上下文预算内。</p>
+<p>最后用 <strong>LoRA</strong> 做轻量指令微调，训练目标是标准的自回归负对数似然：</p>
+<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">L = min_Θ Σ_&#123;(x,y) ∈ D_train&#125; Σ_t −log P_Θ( y_t | x, y_&#123;[1:t−1]&#125; )   (6)</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="二、实验"><a href="#二、实验" class="headerlink" title="二、实验"></a>二、实验</h2><h3 id="数据集与设置"><a href="#数据集与设置" class="headerlink" title="数据集与设置"></a>数据集与设置</h3><p>在 ML-1M、ML-10M、Amazon-book 三个数据集上评估，评价指标为 HR@3&#x2F;5 与 NDCG@3&#x2F;5。三个数据集的 KG 规模差异明显，Amazon-book 的交互极为稀疏（密度 0.0008%）：</p>
+<p>对比方法分四组：协同过滤（MF、LightGCN、MixGCF）、序列推荐（SASRec、BERT4Rec、CL4SRec）、KG 推荐（CKE、KGAT）、LLM 推荐（P5、RecRanker）。</p>
+<h3 id="主结果：两个变体全面超过全部基线"><a href="#主结果：两个变体全面超过全部基线" class="headerlink" title="主结果：两个变体全面超过全部基线"></a>主结果：两个变体全面超过全部基线</h3><p>（完整表格里 12 个指标格子的相对提升区间是 **+7.23% ~ +14.89%**，全部通过 Holm-Bonferroni 校正的配对 t 检验。）</p>
+<p>两个细节值得注意：</p>
+<ul>
+<li><p><strong><code>Rt</code></strong>** 全面优于 ****<code>Rs</code><strong>（三元组直给优于句子化改写）。论文的解释是：三元组形式保留了”头实体—关系—尾实体”的</strong>结构边界**，模型能直接对齐到训练时的图结构；句子化改写反而在改写过程中引入了语言层面的噪声与歧义。</p>
+</li>
+<li><p><strong>KG 模型（CKE、KGAT）与 LLM 模型（RecRanker）普遍强于协同过滤与序列模型</strong>——说明”外部知识”和”语言能力”各自都有效，而 KERAG_R 是在两者的交叉点上做加法。</p>
+</li>
+</ul>
+<h3 id="消融：谁最不能少"><a href="#消融：谁最不能少" class="headerlink" title="消融：谁最不能少"></a>消融：谁最不能少</h3><p>消融表（Table 4）用四个变体逐一拆解组件：</p>
+<p>三点解读：</p>
+<ol>
+<li><p><strong>“选得准”确实有价值</strong>：把 top-Q 选择换成随机选，ML-1M 上 HR@5 掉 4.8%。这直接验证了公式 (4) 那个”注意力 × 语义相似度”的联合打分不是摆设。</p>
+</li>
+<li><p><strong>GraphRAG 与指令微调是互相成就的</strong>：单独去掉任一个都掉 7%–9%。知识要经过微调才能被模型”消化”，而微调需要知识来提供任务外的事实依据。</p>
+</li>
+<li><p><strong>基座模型能力是天花板</strong>：换掉 LLM 的影响（−11.9%）比摘掉任何一个自研模块都大。这是个务实提醒——在这套框架里，选基座比调模块更影响上限。</p>
+</li>
+</ol>
+<h3 id="反直觉结论：一个三元组就够了"><a href="#反直觉结论：一个三元组就够了" class="headerlink" title="反直觉结论：一个三元组就够了"></a>反直觉结论：一个三元组就够了</h3><p><img src="/images/e2cfe13a24913b8ea53004b9b793add3.png" alt="三元组数量对性能的影响：单条三元组即达到最优，继续增加反而下降"></p>
+<p>论文的 RQ3 专门扫了三元组数量。结论是：<strong>每个用户交互过的物品只配 1 条三元组就足够</strong>，继续增加不但没有增益，反而会<strong>损害</strong> LLM 的推理——因为额外的三元组带来了与当前排序任务无关的关系边，模型在生成时被这些无关事实带偏。</p>
+<p>这与”知识越多越好”的直觉正好相反，也和 RAG 领域早先的一个经验一致：检索噪声对生成式模型的伤害是非线性的。</p>
+<h3 id="效率"><a href="#效率" class="headerlink" title="效率"></a>效率</h3><p>GraphRAG 与指令微调的开销在论文里被单独报告：指令微调部分用 <strong>单张 A6000 训练 Llama-3.1 (8B)、1000 条指令</strong>，配合 LoRA 做轻量适配——这也是这套方案能落到常规硬件的前提。</p>
+<hr>
+<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>KERAG_R 的贡献可以概括成一句话：<strong>把”往 LLM 里塞知识”从一次性动作，变成一个可控的检索—选择—格式化流程。</strong></p>
+<p>三处值得记住的结论：</p>
+<ul>
+<li><p><strong>挑选标准要双条件</strong>：结构重要度（GAT 注意力）与语义相似度相乘，比任何单一指标都更稳。</p>
+</li>
+<li><p><strong>知识的呈现形式会影响效果</strong>：三元组直给优于句子化改写，和”LLM 更懂自然语言”的直觉相反。</p>
+</li>
+<li><p><strong>知识量存在最优值，且往往比预期小</strong>：1 条三元组即最优，多加会伤——把检索预算花在”提纯”而不是”堆量”上更划算。</p>
+</li>
+</ul>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>KERAG_R: Knowledge-Enhanced Retrieval-Augmented Generation for Recommendation — <a href="https://arxiv.org/abs/2507.05863">arXiv:2507.05863</a></p>
+</li>
+<li><p>相关基线：LightGCN（图卷积协同过滤）、KGAT（知识图谱注意力网络）、RecRanker（LLM 排序推荐）、P5&#x2F;OpenP5（统一文本到文本推荐）</p>
+</li>
+<li><p>相关检索增强工作：GRAG（Graph Retrieval-Augmented Generation）、Coral（协同检索增强的长尾推荐）</p>
+</li>
+</ul>
 ]]></content>
       <categories>
         <category>推荐系统</category>
@@ -1801,6 +1801,59 @@
       </tags>
   </entry>
   <entry>
+    <title>模态不可靠时该信谁：MARGO 给模态权重加显式监督</title>
+    <url>/article/margo-modality-reliability/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://arxiv.org/abs/2504.16524">arXiv 2504.16524</a> · 代码：<a href="https://github.com/hello-dx/MARGO">GitHub</a></p>
+</blockquote>
+<p>多模态推荐的方法论默认”每个物品的图、文都是有效信息”，于是把融合权重交给模型自己学。MARGO 指出这个默认有问题：<strong>真实数据里的模态本身就不靠谱</strong>——图片是白底图、文本是模板化标题、甚至图文描述的是不同东西。</p>
+<h2 id="现象：模态不可靠不是例外"><a href="#现象：模态不可靠不是例外" class="headerlink" title="现象：模态不可靠不是例外"></a>现象：模态不可靠不是例外</h2><p><img src="/images/94fb96da2088806bca8745def1a13b1e.png" alt="模态数据不可靠的例子"></p>
+<p><em>这张图直接摆出数据集里的”坏样本”：有的商品主图是纯白底甚至占位图，有的标题只是品牌名重复，还有图文明显不匹配的情况。论文的论点是这类样本不是噪声例外，而是常态——在这类数据上学出来的模态权重往往是错的，因为它只有”推荐精度”这一个（间接）监督信号，权重错了也可能靠其他模态掩盖过去。</em></p>
+<p>这引出了 MARGO 的核心主张：<strong>模态权重需要显式监督，而不是交给主任务间接学</strong>。</p>
+<h2 id="整体设计"><a href="#整体设计" class="headerlink" title="整体设计"></a>整体设计</h2><p><img src="/images/f11582296deeb94f218f754f79532fce.png" alt="MARGO 框架"></p>
+<p><em>框架图的关键在于”多出来的一条监督线”。常规做法是：各模态编码 → 加权融合 → 排序损失，权重只被排序损失间接约束。MARGO 在这条链上加了模态可靠性（modality reliability）的显式监督：先估计每个物品在每个模态上的可靠程度，再用它作为目标去校准权重（即图中的权重校准分支），最后才是融合与排序。</em></p>
+<h2 id="机制一：给权重学习”一个可直接对照的目标”"><a href="#机制一：给权重学习”一个可直接对照的目标”" class="headerlink" title="机制一：给权重学习”一个可直接对照的目标”"></a>机制一：给权重学习”一个可直接对照的目标”</h2><p>论文的做法分两步（对应框架里的两阶段）：</p>
+<ol>
+<li><p><strong>估计可靠性</strong>：为每个物品的每个模态算出一个可靠程度（论文在 Baby 数据集上给了具体例子——最可靠与最不可靠的物品文本&#x2F;图像）；</p>
+</li>
+<li><p><strong>校准权重</strong>：用可靠性作为监督目标训练权重网络，损失记作 <code>L_cal</code>。</p>
+</li>
+</ol>
+<p>这样权重网络不再”从零猜”，而是被要求去逼近一个显式的可靠性估计。</p>
+<p><img src="/images/c50d09e3265d9e9bcf4f8f4019ca37c0.png" alt="权重校准过程"></p>
+<p><em>这张图拆解了校准的具体流程：可靠性信号从何而来、如何被喂给权重学习、以及两阶段的先后顺序。它的意义是说明 MARGO 并没有引入额外的标注数据——可靠性是从数据自身（模态本身的统计与一致性）推出来的，所以整条链路是端到端可训练的。</em></p>
+<h2 id="机制二：两个必要的工程细节"><a href="#机制二：两个必要的工程细节" class="headerlink" title="机制二：两个必要的工程细节"></a>机制二：两个必要的工程细节</h2><p>消融实验显示，除了”有没有显式监督”，还有两个细节影响很大：</p>
+<ul>
+<li><p><strong>两阶段训练</strong>（先建立可靠性&#x2F;权重，再进行推荐优化）：直接联合训练会掉点；</p>
+</li>
+<li><p><strong>stop-gradient</strong>：在权重校准路径上截断梯度。论文在 Figure 5 里用直方图对比了 DRAGON、去掉 stopgrad 的变体与 MARGO 学到的图像权重分布——<strong>MARGO 的权重分布明显更分散（学会了区分），而去掉 stopgrad 的变体权重趋于集中在某个值附近（等于没学会区分）</strong>。这个细节的价值在于：它防止主任务梯度把权重网络”压平”。</p>
+</li>
+</ul>
+<h2 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h2><p>三个 Amazon 数据集（Baby、Sports、Clothing），指标 R@10 &#x2F; R@20 &#x2F; N@10 &#x2F; N@20，最后一列是四个指标的平均：</p>
+<p>平均指标上 MARGO 比最强基线 DRAGON 高约 3%（可见提升幅度不大——<strong>这也说明它解决的是一个”精度之外”的问题</strong>：在模态可靠的数据集上，显式监督带来的收益有限；它的主要价值应该在”模态质量参差”的数据上，而论文的主张是这些公开数据集已经足够脏）。</p>
+<p><strong>消融</strong>（Baby，R@10 &#x2F; R@20 &#x2F; N@10 &#x2F; N@20）：</p>
+<p>四条结论：去掉权重学习掉最多（R@10 −9.6%），说明”给模态分配权重”这件事本身是有效的；<strong>去掉校准损失掉 3.4%<strong>，验证了”显式监督”这一核心主张；两阶段与 stopgrad 各贡献约 2–3%；单模态对照里</strong>仅文本（0.0635）远好于仅图像（0.0497）</strong>，与”文本信息量更大”的结论一致。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>MARGO 处理的是一个被默认忽略的前提：模态质量。它的技术主张很聚焦——<strong>模态权重学习必须有显式监督</strong>，否则主任务的间接信号会学出不区分的权重。配套的两个工程细节（两阶段、stop-gradient）也被消融证明是必要的。附带一个可以顺手验证的现象：在 Baby 这类数据集上，文本单模态远超图像单模态，说明多模态的增益主要来自文本。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>论文：Modality Reliability Guided Multimodal Recommendation（arXiv:2504.16524）</p>
+</li>
+<li><p>代码：<a href="https://github.com/hello-dx/MARGO">https://github.com/hello-dx/MARGO</a></p>
+</li>
+<li><p>相关基线：SLMRec（TMM’22）、DRAGON（ECAI’23）</p>
+</li>
+<li><p>关键组件：模态可靠性估计、权重校准损失 <code>L_cal</code>、两阶段训练、stop-gradient</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>多模态推荐</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>海上远程操作中心高效认证方法</title>
     <url>/article/maritime-remote-operation-certification/</url>
     <content><![CDATA[<blockquote>
@@ -1897,59 +1950,6 @@
 ]]></content>
       <categories>
         <category>跨学科与基础</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>模态不可靠时该信谁：MARGO 给模态权重加显式监督</title>
-    <url>/article/margo-modality-reliability/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2504.16524">arXiv 2504.16524</a> · 代码：<a href="https://github.com/hello-dx/MARGO">GitHub</a></p>
-</blockquote>
-<p>多模态推荐的方法论默认”每个物品的图、文都是有效信息”，于是把融合权重交给模型自己学。MARGO 指出这个默认有问题：<strong>真实数据里的模态本身就不靠谱</strong>——图片是白底图、文本是模板化标题、甚至图文描述的是不同东西。</p>
-<h2 id="现象：模态不可靠不是例外"><a href="#现象：模态不可靠不是例外" class="headerlink" title="现象：模态不可靠不是例外"></a>现象：模态不可靠不是例外</h2><p><img src="/images/94fb96da2088806bca8745def1a13b1e.png" alt="模态数据不可靠的例子"></p>
-<p><em>这张图直接摆出数据集里的”坏样本”：有的商品主图是纯白底甚至占位图，有的标题只是品牌名重复，还有图文明显不匹配的情况。论文的论点是这类样本不是噪声例外，而是常态——在这类数据上学出来的模态权重往往是错的，因为它只有”推荐精度”这一个（间接）监督信号，权重错了也可能靠其他模态掩盖过去。</em></p>
-<p>这引出了 MARGO 的核心主张：<strong>模态权重需要显式监督，而不是交给主任务间接学</strong>。</p>
-<h2 id="整体设计"><a href="#整体设计" class="headerlink" title="整体设计"></a>整体设计</h2><p><img src="/images/f11582296deeb94f218f754f79532fce.png" alt="MARGO 框架"></p>
-<p><em>框架图的关键在于”多出来的一条监督线”。常规做法是：各模态编码 → 加权融合 → 排序损失，权重只被排序损失间接约束。MARGO 在这条链上加了模态可靠性（modality reliability）的显式监督：先估计每个物品在每个模态上的可靠程度，再用它作为目标去校准权重（即图中的权重校准分支），最后才是融合与排序。</em></p>
-<h2 id="机制一：给权重学习”一个可直接对照的目标”"><a href="#机制一：给权重学习”一个可直接对照的目标”" class="headerlink" title="机制一：给权重学习”一个可直接对照的目标”"></a>机制一：给权重学习”一个可直接对照的目标”</h2><p>论文的做法分两步（对应框架里的两阶段）：</p>
-<ol>
-<li><p><strong>估计可靠性</strong>：为每个物品的每个模态算出一个可靠程度（论文在 Baby 数据集上给了具体例子——最可靠与最不可靠的物品文本&#x2F;图像）；</p>
-</li>
-<li><p><strong>校准权重</strong>：用可靠性作为监督目标训练权重网络，损失记作 <code>L_cal</code>。</p>
-</li>
-</ol>
-<p>这样权重网络不再”从零猜”，而是被要求去逼近一个显式的可靠性估计。</p>
-<p><img src="/images/c50d09e3265d9e9bcf4f8f4019ca37c0.png" alt="权重校准过程"></p>
-<p><em>这张图拆解了校准的具体流程：可靠性信号从何而来、如何被喂给权重学习、以及两阶段的先后顺序。它的意义是说明 MARGO 并没有引入额外的标注数据——可靠性是从数据自身（模态本身的统计与一致性）推出来的，所以整条链路是端到端可训练的。</em></p>
-<h2 id="机制二：两个必要的工程细节"><a href="#机制二：两个必要的工程细节" class="headerlink" title="机制二：两个必要的工程细节"></a>机制二：两个必要的工程细节</h2><p>消融实验显示，除了”有没有显式监督”，还有两个细节影响很大：</p>
-<ul>
-<li><p><strong>两阶段训练</strong>（先建立可靠性&#x2F;权重，再进行推荐优化）：直接联合训练会掉点；</p>
-</li>
-<li><p><strong>stop-gradient</strong>：在权重校准路径上截断梯度。论文在 Figure 5 里用直方图对比了 DRAGON、去掉 stopgrad 的变体与 MARGO 学到的图像权重分布——<strong>MARGO 的权重分布明显更分散（学会了区分），而去掉 stopgrad 的变体权重趋于集中在某个值附近（等于没学会区分）</strong>。这个细节的价值在于：它防止主任务梯度把权重网络”压平”。</p>
-</li>
-</ul>
-<h2 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h2><p>三个 Amazon 数据集（Baby、Sports、Clothing），指标 R@10 &#x2F; R@20 &#x2F; N@10 &#x2F; N@20，最后一列是四个指标的平均：</p>
-<p>平均指标上 MARGO 比最强基线 DRAGON 高约 3%（可见提升幅度不大——<strong>这也说明它解决的是一个”精度之外”的问题</strong>：在模态可靠的数据集上，显式监督带来的收益有限；它的主要价值应该在”模态质量参差”的数据上，而论文的主张是这些公开数据集已经足够脏）。</p>
-<p><strong>消融</strong>（Baby，R@10 &#x2F; R@20 &#x2F; N@10 &#x2F; N@20）：</p>
-<p>四条结论：去掉权重学习掉最多（R@10 −9.6%），说明”给模态分配权重”这件事本身是有效的；<strong>去掉校准损失掉 3.4%<strong>，验证了”显式监督”这一核心主张；两阶段与 stopgrad 各贡献约 2–3%；单模态对照里</strong>仅文本（0.0635）远好于仅图像（0.0497）</strong>，与”文本信息量更大”的结论一致。</p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>MARGO 处理的是一个被默认忽略的前提：模态质量。它的技术主张很聚焦——<strong>模态权重学习必须有显式监督</strong>，否则主任务的间接信号会学出不区分的权重。配套的两个工程细节（两阶段、stop-gradient）也被消融证明是必要的。附带一个可以顺手验证的现象：在 Baby 这类数据集上，文本单模态远超图像单模态，说明多模态的增益主要来自文本。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>论文：Modality Reliability Guided Multimodal Recommendation（arXiv:2504.16524）</p>
-</li>
-<li><p>代码：<a href="https://github.com/hello-dx/MARGO">https://github.com/hello-dx/MARGO</a></p>
-</li>
-<li><p>相关基线：SLMRec（TMM’22）、DRAGON（ECAI’23）</p>
-</li>
-<li><p>关键组件：模态可靠性估计、权重校准损失 <code>L_cal</code>、两阶段训练、stop-gradient</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>多模态推荐</category>
       </categories>
       <tags>
         <tag>论文速读</tag>
@@ -3521,6 +3521,51 @@
       </tags>
   </entry>
   <entry>
+    <title>S-LLMR：用可学习门控决定何时信任 LLM 的推荐正则化</title>
+    <url>/article/paper-2512.21526/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://arxiv.org/abs/2512.21526">arXiv 2512.21526</a> · PDF：<a href="https://app.notion.com/papers/2512.21526.pdf">本地阅读</a></p>
+</blockquote>
+<p>推荐系统在用户交互密集时表现稳定，但一旦进入冷启动用户、长尾物品或偏好表达微弱的稀疏区域，协同过滤类模型的信号就会迅速变薄。大语言模型恰好能提供语义先验和推理能力，从极少的交互历史中推断偏好，因此被广泛视为稀疏场景的补充知识源。问题在于，LLM 的推荐判断并非在所有用户—物品对上同样可靠：它可能受候选位置偏置影响，也可能产生幻觉，直接当推荐器用成本高且不稳定。</p>
+<p>现有两条主流路线各有明显代价。一条是把 LLM 直接部署为推荐器，推理开销大，且在大范围用户—物品空间上可靠性参差；另一条是全局知识蒸馏，让下游推荐模型在整个空间上模仿 LLM 输出，即使 LLM 在该实例上并不可靠。近期评估还指出，LLM 的优势是局部性的，尤其在短历史和重排序场景中更明显，而不是均匀分布在整个推荐空间。</p>
+<p>S-LLMR 的出发点正是这一经验事实：LLM 信号应当被当作条件性可靠的辅助信号，而不是无条件的地面真值。论文提出一个模型无关的训练框架，把 LLM 生成的软排序转化为成对排序正则项，并用一个可学习的门控网络决定该正则项在哪些用户—物品对上生效。门控的输入只有三个信号：用户是否冷启动、物品是否长尾、基础模型在该对上的预测不确定性。</p>
+<p>这一设计带来两个前置条件。第一，所有 LLM 打分都在离线阶段完成，训练时只查表，因此不增加在线推理成本；第二，门控参数与推荐骨干联合优化，不需要人工设定“何时信任 LLM”的阈值。论文在三个 Amazon 域和六个推荐骨干上验证了该框架，并特别报告了冷启动与长尾子集上的分层结果。</p>
+<h2 id="一、方法：离线软排序与可学习门控正则化"><a href="#一、方法：离线软排序与可学习门控正则化" class="headerlink" title="一、方法：离线软排序与可学习门控正则化"></a>一、方法：离线软排序与可学习门控正则化</h2><p>S-LLMR 的数据流可以分成离线打分和在线训练两段。离线阶段，对每个用户取最近 10 条交互作为历史摘要，从热门池中采样候选物品，拼成自然语言提示交给 GPT-4o-mini，返回每个候选物品的软相关性分数，归一化后存入查找表。为了覆盖协同过滤最弱的区域，论文额外构造了两类合成候选集：历史长度不超过 3 的冷启动用户与多样采样物品配对，以及流行度处于最低 10% 的长尾物品与采样用户配对。这些配对扩展了离线监督表的覆盖范围，使 LLM 能对训练数据中不存在的用户—物品组合给出判断。</p>
+<p><img src="/images/c6e9b5e4c22f3dbbf11d0e75ff2e74c8.png" alt="图 1：S-LLMR 的离线打分与在线门控正则化流程"></p>
+<p>读图时先看左侧离线阶段：用户历史被压缩成简短提示，LLM 输出软相关性分数并落成查找表。再看右侧训练阶段：基础推荐器照常产生预测分数，LLM 信号不进入主损失，而是通过成对排序正则项注入，该正则项的权重由门控函数逐对控制。这张图支撑的核心主张是“选择性”：LLM 知识只在训练期以条件正则的方式出现，推理路径与原始骨干完全一致。</p>
+<p>在线训练阶段，对每个用户从查找表中取出有 LLM 分数的物品，按 LLM 分数排序构造用户内有序对，只保留 LLM 分数差最大的若干对，避免过度正则化。若 LLM 认为物品 i 优于物品 j，则要求推荐模型也满足带间隔的排序关系，形成成对排序损失。门控权重取两个物品门控值的平均，乘在该损失项上。</p>
+<p>门控本身是一个单层网络：输入为冷启动指示、长尾指示和基础模型的不确定性分数，输出经 sigmoid 压缩到 0 到 1。不确定性可以采用置信度补数、预测熵或 dropout&#x2F;集成方差，论文在验证集上选择具体形式。门控参数与骨干通过完整目标联合反向传播：当 LLM 引导的对降低 hinge 损失时，梯度会把门控推高；当 LLM 信号无帮助时，门控被压低。最终训练目标是推荐主损失加上权重为 λ 的 LLM 正则项，论文取 λ&#x3D;0.1。</p>
+<p>这一机制把“是否信任 LLM”从人工规则变成了可学习参数，同时保持模型无关：任何能输出用户—物品分数的骨干都可以接入，门控只读取三个标量信号，不改变骨干结构。</p>
+<h2 id="二、实验：六个骨干、三个域与分层评估"><a href="#二、实验：六个骨干、三个域与分层评估" class="headerlink" title="二、实验：六个骨干、三个域与分层评估"></a>二、实验：六个骨干、三个域与分层评估</h2><p>论文在 Amazon Review 的三个子集上评估，数据稀疏性明显：冷启动交互占比接近一半，长尾物品约占两成。评估采用全排序设置，指标为 AUC，并额外报告冷启动用户（历史少于 3 条）和长尾物品（训练集流行度最低 20%）两个子集。</p>
+<p>主结果如下表，每个骨干组内最高 AUC 加粗。S-LLMR 在全部六个骨干和三个域上都取得最高 AUC，且最强相关基线是 LLM-CF。</p>
+<p>从绝对变化看，S-LLMR 相对无 LLM 骨干的提升在 DeepFM 上最直观：Sports 从 0.7990 到 0.8176，Beauty 从 0.7853 到 0.8101，Toys 从 0.7681 到 0.7961。相对最强相关基线 LLM-CF，提升幅度因骨干和域而异，例如 AutoInt 在 Sports 上从 0.8088 到 0.8161，DCNv1 在 Toys 上从 0.7702 到 0.7960。一致性方面，六个骨干乘三个域共 18 个组合全部由 S-LLMR 取得最高值，没有出现某个骨干上被 LLM-CF 反超的例外。代价方面，论文没有报告训练时间或离线 LLM 查询成本的数值，只说明离线打分不增加推理开销。</p>
+<p><img src="/images/c113d3c92cf0823393ec0344d796f769.png" alt="图 2：冷启动与长尾子集上的 AUC 提升"></p>
+<p>这张图按骨干分组展示冷启动用户和长尾物品两个子集上的 AUC 提升。横轴对应不同骨干，纵轴是相对提升幅度，两组柱分别对应冷启动和长尾。阅读重点是：两类稀疏子集的提升普遍高于整体提升，说明门控确实把 LLM 监督集中到了协同过滤信号最弱的区域，而不是均匀地抬高全局分数。</p>
+<p>消融实验在 DCNv2 上进行，分别比较全局与门控正则化、逐点与成对监督。</p>
+<p>消融给出两个清晰结论。第一，全局 LLM 正则并不稳定：在 Beauty 上整体 AUC 从 0.8028 降到 0.7911，长尾从 0.7702 降到 0.7330，说明无条件模仿 LLM 会伤害稀疏区域；门控版本则在三个域的整体、冷启动和长尾九个格子上全部不低于骨干。第二，逐点 MSE 监督普遍低于骨干，例如 Sports 整体从 0.811 降到 0.8069，Toys 从 0.7774 降到 0.7705；而成对排序版本在相同设置下取得最高值。论文据此认为，排序式监督比逐点回归更适合迁移 LLM 的语义知识，因为 LLM 的优势在相对排序而非绝对分数。</p>
+<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>S-LLMR 的机制可以概括为“离线打分、在线门控、成对正则”：LLM 只在训练期以条件正则项的形式出现，门控读取冷启动、长尾和不确定性三个信号，逐对决定正则强度，推理路径与原始骨干完全一致。实验证据覆盖六个架构差异明显的骨干和三个 Amazon 域，18 个骨干—域组合全部取得最高 AUC；消融进一步显示全局正则和逐点监督都可能低于骨干，而门控成对正则持续为正，冷启动与长尾子集的增益大于整体增益。</p>
+<p>边界同样需要说明。论文只报告了 AUC 一个指标，没有覆盖排序质量以外的业务指标；离线 LLM 打分依赖 GPT-4o-mini 和固定的历史长度与候选采样策略，查询成本与覆盖率的权衡没有给出数值；门控的可解释性停留在三个输入信号上，未分析学到的权重在不同域之间是否稳定。此外，所有实验都在 Amazon 评论数据上完成，跨域迁移和更大规模工业场景仍待验证。</p>
+<p>可迁移的设计启示是：当外部知识源（LLM、规则系统或其他模型）只在局部可靠时，与其全局蒸馏，不如把它的输出降级为带门控的正则项，让下游模型自己学习何时采纳。这一思路不限于推荐，也适用于任何需要融合不可靠外部信号的训练框架。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>Shanglin Yang, Zhan Shi. Selective LLM-Guided Regularization for Enhancing Recommendation Models. arXiv:2512.21526. <a href="https://arxiv.org/abs/2512.21526">https://arxiv.org/abs/2512.21526</a></p>
+</li>
+<li><p>Zhongxiang Sun et al. Large Language Models Enhanced Collaborative Filtering. CIKM 2024. arXiv:2403.17688</p>
+</li>
+<li><p>Xi Lin et al. Towards Open-World Recommendation with Knowledge Augmentation from Large Language Models. arXiv:2306.10933</p>
+</li>
+<li><p>Chumeng Jiang et al. Beyond Utility: Evaluating LLM as Recommender. WWW 2025. arXiv:2411.00331</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>论文速递</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>MemOCR：把长程记忆画成图，16 token 下仍保住关键证据</title>
     <url>/article/paper-2601.21468/</url>
     <content><![CDATA[<blockquote>
@@ -3556,51 +3601,6 @@
 <li><p>Mem-α: Learning Memory Construction via Reinforcement Learning（Wang et al., 2025）</p>
 </li>
 <li><p>HotpotQA: A Dataset for Diverse, Explainable Multi-hop Question Answering（Yang et al., 2018）</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>论文速递</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>S-LLMR：用可学习门控决定何时信任 LLM 的推荐正则化</title>
-    <url>/article/paper-2512.21526/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2512.21526">arXiv 2512.21526</a> · PDF：<a href="https://app.notion.com/papers/2512.21526.pdf">本地阅读</a></p>
-</blockquote>
-<p>推荐系统在用户交互密集时表现稳定，但一旦进入冷启动用户、长尾物品或偏好表达微弱的稀疏区域，协同过滤类模型的信号就会迅速变薄。大语言模型恰好能提供语义先验和推理能力，从极少的交互历史中推断偏好，因此被广泛视为稀疏场景的补充知识源。问题在于，LLM 的推荐判断并非在所有用户—物品对上同样可靠：它可能受候选位置偏置影响，也可能产生幻觉，直接当推荐器用成本高且不稳定。</p>
-<p>现有两条主流路线各有明显代价。一条是把 LLM 直接部署为推荐器，推理开销大，且在大范围用户—物品空间上可靠性参差；另一条是全局知识蒸馏，让下游推荐模型在整个空间上模仿 LLM 输出，即使 LLM 在该实例上并不可靠。近期评估还指出，LLM 的优势是局部性的，尤其在短历史和重排序场景中更明显，而不是均匀分布在整个推荐空间。</p>
-<p>S-LLMR 的出发点正是这一经验事实：LLM 信号应当被当作条件性可靠的辅助信号，而不是无条件的地面真值。论文提出一个模型无关的训练框架，把 LLM 生成的软排序转化为成对排序正则项，并用一个可学习的门控网络决定该正则项在哪些用户—物品对上生效。门控的输入只有三个信号：用户是否冷启动、物品是否长尾、基础模型在该对上的预测不确定性。</p>
-<p>这一设计带来两个前置条件。第一，所有 LLM 打分都在离线阶段完成，训练时只查表，因此不增加在线推理成本；第二，门控参数与推荐骨干联合优化，不需要人工设定“何时信任 LLM”的阈值。论文在三个 Amazon 域和六个推荐骨干上验证了该框架，并特别报告了冷启动与长尾子集上的分层结果。</p>
-<h2 id="一、方法：离线软排序与可学习门控正则化"><a href="#一、方法：离线软排序与可学习门控正则化" class="headerlink" title="一、方法：离线软排序与可学习门控正则化"></a>一、方法：离线软排序与可学习门控正则化</h2><p>S-LLMR 的数据流可以分成离线打分和在线训练两段。离线阶段，对每个用户取最近 10 条交互作为历史摘要，从热门池中采样候选物品，拼成自然语言提示交给 GPT-4o-mini，返回每个候选物品的软相关性分数，归一化后存入查找表。为了覆盖协同过滤最弱的区域，论文额外构造了两类合成候选集：历史长度不超过 3 的冷启动用户与多样采样物品配对，以及流行度处于最低 10% 的长尾物品与采样用户配对。这些配对扩展了离线监督表的覆盖范围，使 LLM 能对训练数据中不存在的用户—物品组合给出判断。</p>
-<p><img src="/images/c6e9b5e4c22f3dbbf11d0e75ff2e74c8.png" alt="图 1：S-LLMR 的离线打分与在线门控正则化流程"></p>
-<p>读图时先看左侧离线阶段：用户历史被压缩成简短提示，LLM 输出软相关性分数并落成查找表。再看右侧训练阶段：基础推荐器照常产生预测分数，LLM 信号不进入主损失，而是通过成对排序正则项注入，该正则项的权重由门控函数逐对控制。这张图支撑的核心主张是“选择性”：LLM 知识只在训练期以条件正则的方式出现，推理路径与原始骨干完全一致。</p>
-<p>在线训练阶段，对每个用户从查找表中取出有 LLM 分数的物品，按 LLM 分数排序构造用户内有序对，只保留 LLM 分数差最大的若干对，避免过度正则化。若 LLM 认为物品 i 优于物品 j，则要求推荐模型也满足带间隔的排序关系，形成成对排序损失。门控权重取两个物品门控值的平均，乘在该损失项上。</p>
-<p>门控本身是一个单层网络：输入为冷启动指示、长尾指示和基础模型的不确定性分数，输出经 sigmoid 压缩到 0 到 1。不确定性可以采用置信度补数、预测熵或 dropout&#x2F;集成方差，论文在验证集上选择具体形式。门控参数与骨干通过完整目标联合反向传播：当 LLM 引导的对降低 hinge 损失时，梯度会把门控推高；当 LLM 信号无帮助时，门控被压低。最终训练目标是推荐主损失加上权重为 λ 的 LLM 正则项，论文取 λ&#x3D;0.1。</p>
-<p>这一机制把“是否信任 LLM”从人工规则变成了可学习参数，同时保持模型无关：任何能输出用户—物品分数的骨干都可以接入，门控只读取三个标量信号，不改变骨干结构。</p>
-<h2 id="二、实验：六个骨干、三个域与分层评估"><a href="#二、实验：六个骨干、三个域与分层评估" class="headerlink" title="二、实验：六个骨干、三个域与分层评估"></a>二、实验：六个骨干、三个域与分层评估</h2><p>论文在 Amazon Review 的三个子集上评估，数据稀疏性明显：冷启动交互占比接近一半，长尾物品约占两成。评估采用全排序设置，指标为 AUC，并额外报告冷启动用户（历史少于 3 条）和长尾物品（训练集流行度最低 20%）两个子集。</p>
-<p>主结果如下表，每个骨干组内最高 AUC 加粗。S-LLMR 在全部六个骨干和三个域上都取得最高 AUC，且最强相关基线是 LLM-CF。</p>
-<p>从绝对变化看，S-LLMR 相对无 LLM 骨干的提升在 DeepFM 上最直观：Sports 从 0.7990 到 0.8176，Beauty 从 0.7853 到 0.8101，Toys 从 0.7681 到 0.7961。相对最强相关基线 LLM-CF，提升幅度因骨干和域而异，例如 AutoInt 在 Sports 上从 0.8088 到 0.8161，DCNv1 在 Toys 上从 0.7702 到 0.7960。一致性方面，六个骨干乘三个域共 18 个组合全部由 S-LLMR 取得最高值，没有出现某个骨干上被 LLM-CF 反超的例外。代价方面，论文没有报告训练时间或离线 LLM 查询成本的数值，只说明离线打分不增加推理开销。</p>
-<p><img src="/images/c113d3c92cf0823393ec0344d796f769.png" alt="图 2：冷启动与长尾子集上的 AUC 提升"></p>
-<p>这张图按骨干分组展示冷启动用户和长尾物品两个子集上的 AUC 提升。横轴对应不同骨干，纵轴是相对提升幅度，两组柱分别对应冷启动和长尾。阅读重点是：两类稀疏子集的提升普遍高于整体提升，说明门控确实把 LLM 监督集中到了协同过滤信号最弱的区域，而不是均匀地抬高全局分数。</p>
-<p>消融实验在 DCNv2 上进行，分别比较全局与门控正则化、逐点与成对监督。</p>
-<p>消融给出两个清晰结论。第一，全局 LLM 正则并不稳定：在 Beauty 上整体 AUC 从 0.8028 降到 0.7911，长尾从 0.7702 降到 0.7330，说明无条件模仿 LLM 会伤害稀疏区域；门控版本则在三个域的整体、冷启动和长尾九个格子上全部不低于骨干。第二，逐点 MSE 监督普遍低于骨干，例如 Sports 整体从 0.811 降到 0.8069，Toys 从 0.7774 降到 0.7705；而成对排序版本在相同设置下取得最高值。论文据此认为，排序式监督比逐点回归更适合迁移 LLM 的语义知识，因为 LLM 的优势在相对排序而非绝对分数。</p>
-<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>S-LLMR 的机制可以概括为“离线打分、在线门控、成对正则”：LLM 只在训练期以条件正则项的形式出现，门控读取冷启动、长尾和不确定性三个信号，逐对决定正则强度，推理路径与原始骨干完全一致。实验证据覆盖六个架构差异明显的骨干和三个 Amazon 域，18 个骨干—域组合全部取得最高 AUC；消融进一步显示全局正则和逐点监督都可能低于骨干，而门控成对正则持续为正，冷启动与长尾子集的增益大于整体增益。</p>
-<p>边界同样需要说明。论文只报告了 AUC 一个指标，没有覆盖排序质量以外的业务指标；离线 LLM 打分依赖 GPT-4o-mini 和固定的历史长度与候选采样策略，查询成本与覆盖率的权衡没有给出数值；门控的可解释性停留在三个输入信号上，未分析学到的权重在不同域之间是否稳定。此外，所有实验都在 Amazon 评论数据上完成，跨域迁移和更大规模工业场景仍待验证。</p>
-<p>可迁移的设计启示是：当外部知识源（LLM、规则系统或其他模型）只在局部可靠时，与其全局蒸馏，不如把它的输出降级为带门控的正则项，让下游模型自己学习何时采纳。这一思路不限于推荐，也适用于任何需要融合不可靠外部信号的训练框架。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>Shanglin Yang, Zhan Shi. Selective LLM-Guided Regularization for Enhancing Recommendation Models. arXiv:2512.21526. <a href="https://arxiv.org/abs/2512.21526">https://arxiv.org/abs/2512.21526</a></p>
-</li>
-<li><p>Zhongxiang Sun et al. Large Language Models Enhanced Collaborative Filtering. CIKM 2024. arXiv:2403.17688</p>
-</li>
-<li><p>Xi Lin et al. Towards Open-World Recommendation with Knowledge Augmentation from Large Language Models. arXiv:2306.10933</p>
-</li>
-<li><p>Chumeng Jiang et al. Beyond Utility: Evaluating LLM as Recommender. WWW 2025. arXiv:2411.00331</p>
 </li>
 </ul>
 ]]></content>
@@ -4507,6 +4507,55 @@
       </tags>
   </entry>
   <entry>
+    <title>EdgeBench：环境学习也遵循 log-sigmoid 缩放定律，R²=0.998</title>
+    <url>/article/paper-2607.05155/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://arxiv.org/abs/2607.05155">arXiv 2607.05155</a> · PDF：<a href="https://app.notion.com/papers/2607.05155.pdf">本地阅读</a></p>
+</blockquote>
+<p>预训练缩放定律告诉我们，模型能力随数据与算力可预测地提升。但智能体部署之后，从真实环境中学习是否也遵循某种简洁规律，此前几乎没有系统答案。现实世界的知识往往不在训练语料里——私有记录、内部工具、专家试错的过程，以及不断涌现的新问题，都要求智能体在与环境交互中持续改进。</p>
+<p>EdgeBench 正是为回答这个问题而建。它包含134个真实世界任务，覆盖科学问题与机器学习、系统与软件工程、组合优化、专业知识工作、形式数学与定理证明、交互式游戏六大能力族，每个任务支持至少12小时连续交互，并配有本地探索与隐藏评判构成的双环反馈。论文分析了五个前沿模型在约38,000小时交互中的数据，发现聚合性能随交互时间呈精确的 log-sigmoid 增长，平均 R²&#x3D;0.998。</p>
+<p>这一发现的意义不在于又一个排行榜，而在于把“部署后学习”变成了可测量、可拟合、可预测的对象。论文进一步提出任务图上的前沿扩展理论，用已解锁与未解锁分数质量的乘积解释 y(1-y) 速率律，并从任务图的自相似搜索几何导出对数时间坐标。</p>
+<p>但规律成立有前提：任务必须足够长、反馈必须足够丰富、评估必须隔离隐藏答案。EdgeBench 用工作-评判双容器架构和提交门控的外环反馈来满足这些条件，同时通过自动评估在智能体不提交时也记录轨迹。这些设计既是测量环境学习的基础设施，也构成了结论的边界——短任务、弱反馈或可被窥探的评判，都可能让曲线偏离 log-sigmoid。</p>
+<h2 id="一、方法：超长时程任务与双环反馈如何测量环境学习"><a href="#一、方法：超长时程任务与双环反馈如何测量环境学习" class="headerlink" title="一、方法：超长时程任务与双环反馈如何测量环境学习"></a>一、方法：超长时程任务与双环反馈如何测量环境学习</h2><p>EdgeBench 的设计目标有两个：任务要足够长、足够多样，让探索、策略修正和经验积累等学习行为有机会出现；反馈要足够真实、多层次，让智能体不是靠记忆解题，而是靠交互改进。为此，论文与领域专家合作筛选出134个任务，人类专家平均耗时57.2小时，最高320小时。任务按六大能力族组织：科学问题与ML 39个、系统与软件工程36个、组合优化19个、专业知识工作19个、形式数学与定理证明13个、交互式游戏与模拟器8个。视觉理解或GUI操作为主要难点的任务被排除，以避免感知能力与学习能力混淆。</p>
+<p><img src="/images/385a6b2153100d8762703b7591b189a7.png" alt="EdgeBench 任务分类"></p>
+<p>这张图给出六大能力族及其任务构成。阅读时先看六个分支的标签，再看每个分支下的任务数量与反馈通道设计。它支撑的主张是：EdgeBench 不是单一领域的刷榜集，而是覆盖不同知识类型和评分函数的异质任务群，后续 log-sigmoid 拟合正是在这个异质总体上取平均后出现的。</p>
+<p>评估协议的核心是双环反馈。内环是智能体驱动的本地循环：智能体在可写工作区中检查文件、运行测试或模拟器、观察错误并修改产物。外环是评判介导的提交循环：智能体把当前产物提交给独立的评判容器，评判容器运行隐藏测试或私有评分标准，返回分数、判定或诊断信息。不同任务族用不同机制实例化这一模式：软件任务用测试与性能分析，科学任务用开发集与验证器，优化任务用本地测试器与隐藏种子，定理证明用证明检查器状态，游戏用回合分数，专业知识工作用评分量表。</p>
+<p>实现上，SForge 采用双 Docker 容器架构。工作镜像包含骨架代码、文档和本地验证工具，但不含隐藏评估资产；评判镜像包含隐藏测试、评分脚本和评估命令，从不暴露给智能体。智能体提交后，代码被复制到临时评判容器中运行，只返回任务定义的结构化反馈，随后容器销毁。主机侧的评判服务器管理提交队列、冷却时间、认证和异步评分，使智能体在等待评判时仍可继续工作。此外，主机侧还会按固定间隔自动评估工作区并记录分数，这些结果不展示给智能体，用于测量两次显式提交之间的进步。</p>
+<h2 id="二、实验：log-sigmoid-拟合、学习速度与长时程动态"><a href="#二、实验：log-sigmoid-拟合、学习速度与长时程动态" class="headerlink" title="二、实验：log-sigmoid 拟合、学习速度与长时程动态"></a>二、实验：log-sigmoid 拟合、学习速度与长时程动态</h2><p>实验评估五个前沿模型：Claude Opus 4.8、GPT-5.5、GPT-5.4、GLM-5.1 和 DeepSeek-V4-Pro（preview）。每个任务-模型对运行三次独立的12小时试验，记录完整提交轨迹。GPT 模型通过 Codex 运行，使用256k压缩窗口；GLM-5.1 和 DeepSeek-V4-Pro 通过 Claude Code 运行，使用200k压缩窗口；Claude Opus 4.8 主要使用1M Claude Code压缩窗口，另设200k对比。主要指标是任务得分，在2、4、6、8、10、12小时时间预算下报告，类别得分在12小时报告。学习速度定义为固定两小时预算内的平均性能增益，有效提交率定义为设置新最佳分数的提交比例。</p>
+<p>EdgeBench 把部署后从环境学习变成一个可拟合的对象：在134个真实任务、约38,000小时交互上，聚合性能随交互时间呈 log-sigmoid 增长，平均 R²&#x3D;0.998，且该形式在任务族、更长时程和早期预测中均成立。论文用任务图上的前沿扩展过程解释这一形式，并用学习速度约每三个月翻倍的观察说明前沿智能体的环境学习能力在快速提升。</p>
+<p>实验证据同时划出了边界。log-sigmoid 是总体平均规律，单任务曲线仍可能平台、跳跃或回退；S 曲线对比中 log-probit 等形式的拟合误差与 log-sigmoid 接近，机制偏好而非数据排他性才是选择理由；理论推导依赖加权割混合、有限分数粒度、稳定可达支撑等假设，违反时可能出现多段 sigmoid 或延迟起飞。此外，长时程评估本身面临奖励黑客风险，论文附录记录了反馈被当作隐藏答案 oracle、优化随机上尾、过拟合评判种子等案例，并通过任务修订、提交预算、隐藏多种子和网络隔离来缓解。</p>
+<p>主结果方面，12小时聚合排行榜上 Claude Opus 4.8 以51.3分领先，GPT-5.5 为48.4分，GPT-5.4 为39.3分，GLM-5.1 为37.4分，DeepSeek-V4-Pro 为31.0分。类别得分上，Opus 4.8 在 Code 族达到67.4分，Math 族55.0分；GPT-5.5 在 Code 族为65.0分，Math 族50.0分。值得注意的是，GLM-5.1 在 Knowledge 族为43.5分，高于 GPT-5.4 的38.8分，说明能力族之间的排序并不总与总分一致。</p>
+<p>拟合结果方面，论文用三参数 log-sigmoid 模型 S(t)&#x3D;S_max&#x2F;(1+(t_mid&#x2F;t)^β) 拟合聚合学习曲线。在134个任务上，五个模型的拟合 R² 均不低于0.997，平均 R²&#x3D;0.998。同一形式在六个能力族分别拟合时仍然成立，在28小时和72小时的延长时程上也保持稳定，拟合 R² 均不低于0.993。更关键的是预测能力：仅用前6.5小时的数据拟合，再预测6.5到12小时的留出观测，五个模型的 R² 均不低于0.997，RMSE 低于1.0分。</p>
+<p><img src="/images/0ea2b048ee4bacc6015a0f92c129b0d2.png" alt="任务族级 log-sigmoid 拟合"></p>
+<p>这张图展示六个能力族各自的平均学习轨迹与 log-sigmoid 拟合。阅读顺序是先看每个子图的横轴（对数时间）与纵轴（得分），再看拟合曲线与观测点的贴合程度。它支撑的主张是：尽管任务类型和评分函数差异很大，同一函数形式仍能描述每个族的平均轨迹，说明规律不是由某一类任务主导的。</p>
+<p><img src="/images/00144e62d5a9552f1294f151d664f46b.png" alt="代表性任务的学习曲线"></p>
+<p>这张图给出18个代表性任务在12小时内的逐任务曲线。可以看到单任务轨迹高度异质：有的平滑上升，有的长期平台后突然突破，有的出现回退。它支撑的主张是：log-sigmoid 是总体平均层面的规律，而不是每个任务都服从的个体规律；论文也指出拟合误差随平均任务数增加而单调下降。</p>
+<p>在 S 曲线对比中，log-sigmoid 的全窗口 RMSE 为0.390，log-probit 为0.398，log-Gompertz 为0.402，Weibull CDF 为0.404，log-linear 基线为0.717。log-sigmoid 并非唯一拟合良好的形式，但论文从机制上偏好它：其速率律 dy&#x2F;dτ&#x3D;βy(1-y) 对应已解锁分数质量与剩余未解锁分数质量的乘积，而 log-linear 没有饱和项，明显更差。</p>
+<p>学习速度方面，论文在18个初始表现相近的任务切片上测量固定两小时预算内的平均增益。从2025年9月的 GPT-5-Codex 到2026年4月的 GPT-5.5，学习速度约提升8倍，约每三个月翻倍。这一提升主要来自每次交互更有效，而不是提交更频繁。</p>
+<p>长时程动态方面，持续有状态运行优于等预算的独立重启；1M 上下文的 Opus 4.8 比200k版本在2小时高5.8分，在12小时高4.4分。有效提交率与最终性能相关，但提交数量本身不保证更好结果。附录中的 harness 消融还显示，&#x2F;goal 模式和 Ralph 循环在部分任务上优于基础设置，例如 GPT-5.4 在展示任务平均上从26.1提升到31.8（Goal）和27.6（Ralph），但增益并不均匀，因此被定位为诊断性结果。</p>
+<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>EdgeBench 把部署后从环境学习变成一个可拟合的对象：在134个真实任务、约38,000小时交互上，聚合性能随交互时间呈 log-sigmoid 增长，平均 R²&#x3D;0.998，且该形式在任务族、更长时程和早期预测中均成立。论文用任务图上的前沿扩展过程解释这一形式，并用学习速度约每三个月翻倍的观察说明前沿智能体的环境学习能力在快速提升。</p>
+<p>实验证据同时划出了边界。log-sigmoid 是总体平均规律，单任务曲线仍可能平台、跳跃或回退；S 曲线对比中 log-probit 等形式的拟合误差与 log-sigmoid 接近，机制偏好而非数据排他性才是选择理由；理论推导依赖加权割混合、有限分数粒度、稳定可达支撑等假设，违反时可能出现多段 sigmoid 或延迟起飞。此外，长时程评估本身面临奖励黑客风险，论文附录记录了反馈被当作隐藏答案 oracle、优化随机上尾、过拟合评判种子等案例，并通过任务修订、提交预算、隐藏多种子和网络隔离来缓解。</p>
+<p>对推荐系统 Agent 等长时程应用而言，可迁移的设计启示是：把交互预算视为可拟合的学习曲线资源，用早期轨迹预测后期收益；用快速本地反馈加慢速权威评判的双环结构，既支持迭代又防止评估泄漏；并优先保证每次交互的有效性，而不是单纯增加尝试次数。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>EdgeBench: Unveiling Scaling Laws of Learning from Real-World Environments：<a href="https://arxiv.org/abs/2607.05155">arXiv 2607.05155</a> · <a href="https://app.notion.com/papers/2607.05155.pdf">PDF</a></p>
+</li>
+<li><p>Project Page: <a href="https://edge-bench.org/">https://edge-bench.org</a></p>
+</li>
+<li><p>预训练缩放定律相关：Kaplan et al., Scaling Laws for Neural Language Models；Hoffmann et al., Training Compute-Optimal Large Language Models</p>
+</li>
+<li><p>长时程智能体评估相关：Agents’ Last Exam（论文中作为对比基准引用）</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>论文速递</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>DSpark：用半自回归草稿与置信度调度，把推测解码的验证预算花在刀刃上</title>
     <url>/article/paper-2607.05147/</url>
     <content><![CDATA[<blockquote>
@@ -4557,55 +4606,6 @@
 <li><p>Chen et al. DFlash: 并行草稿器基线. 2026.</p>
 </li>
 <li><p>DeepSeek-AI. MTP-1 生产单 token 草稿配置. 2024.</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>论文速递</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>EdgeBench：环境学习也遵循 log-sigmoid 缩放定律，R²=0.998</title>
-    <url>/article/paper-2607.05155/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2607.05155">arXiv 2607.05155</a> · PDF：<a href="https://app.notion.com/papers/2607.05155.pdf">本地阅读</a></p>
-</blockquote>
-<p>预训练缩放定律告诉我们，模型能力随数据与算力可预测地提升。但智能体部署之后，从真实环境中学习是否也遵循某种简洁规律，此前几乎没有系统答案。现实世界的知识往往不在训练语料里——私有记录、内部工具、专家试错的过程，以及不断涌现的新问题，都要求智能体在与环境交互中持续改进。</p>
-<p>EdgeBench 正是为回答这个问题而建。它包含134个真实世界任务，覆盖科学问题与机器学习、系统与软件工程、组合优化、专业知识工作、形式数学与定理证明、交互式游戏六大能力族，每个任务支持至少12小时连续交互，并配有本地探索与隐藏评判构成的双环反馈。论文分析了五个前沿模型在约38,000小时交互中的数据，发现聚合性能随交互时间呈精确的 log-sigmoid 增长，平均 R²&#x3D;0.998。</p>
-<p>这一发现的意义不在于又一个排行榜，而在于把“部署后学习”变成了可测量、可拟合、可预测的对象。论文进一步提出任务图上的前沿扩展理论，用已解锁与未解锁分数质量的乘积解释 y(1-y) 速率律，并从任务图的自相似搜索几何导出对数时间坐标。</p>
-<p>但规律成立有前提：任务必须足够长、反馈必须足够丰富、评估必须隔离隐藏答案。EdgeBench 用工作-评判双容器架构和提交门控的外环反馈来满足这些条件，同时通过自动评估在智能体不提交时也记录轨迹。这些设计既是测量环境学习的基础设施，也构成了结论的边界——短任务、弱反馈或可被窥探的评判，都可能让曲线偏离 log-sigmoid。</p>
-<h2 id="一、方法：超长时程任务与双环反馈如何测量环境学习"><a href="#一、方法：超长时程任务与双环反馈如何测量环境学习" class="headerlink" title="一、方法：超长时程任务与双环反馈如何测量环境学习"></a>一、方法：超长时程任务与双环反馈如何测量环境学习</h2><p>EdgeBench 的设计目标有两个：任务要足够长、足够多样，让探索、策略修正和经验积累等学习行为有机会出现；反馈要足够真实、多层次，让智能体不是靠记忆解题，而是靠交互改进。为此，论文与领域专家合作筛选出134个任务，人类专家平均耗时57.2小时，最高320小时。任务按六大能力族组织：科学问题与ML 39个、系统与软件工程36个、组合优化19个、专业知识工作19个、形式数学与定理证明13个、交互式游戏与模拟器8个。视觉理解或GUI操作为主要难点的任务被排除，以避免感知能力与学习能力混淆。</p>
-<p><img src="/images/385a6b2153100d8762703b7591b189a7.png" alt="EdgeBench 任务分类"></p>
-<p>这张图给出六大能力族及其任务构成。阅读时先看六个分支的标签，再看每个分支下的任务数量与反馈通道设计。它支撑的主张是：EdgeBench 不是单一领域的刷榜集，而是覆盖不同知识类型和评分函数的异质任务群，后续 log-sigmoid 拟合正是在这个异质总体上取平均后出现的。</p>
-<p>评估协议的核心是双环反馈。内环是智能体驱动的本地循环：智能体在可写工作区中检查文件、运行测试或模拟器、观察错误并修改产物。外环是评判介导的提交循环：智能体把当前产物提交给独立的评判容器，评判容器运行隐藏测试或私有评分标准，返回分数、判定或诊断信息。不同任务族用不同机制实例化这一模式：软件任务用测试与性能分析，科学任务用开发集与验证器，优化任务用本地测试器与隐藏种子，定理证明用证明检查器状态，游戏用回合分数，专业知识工作用评分量表。</p>
-<p>实现上，SForge 采用双 Docker 容器架构。工作镜像包含骨架代码、文档和本地验证工具，但不含隐藏评估资产；评判镜像包含隐藏测试、评分脚本和评估命令，从不暴露给智能体。智能体提交后，代码被复制到临时评判容器中运行，只返回任务定义的结构化反馈，随后容器销毁。主机侧的评判服务器管理提交队列、冷却时间、认证和异步评分，使智能体在等待评判时仍可继续工作。此外，主机侧还会按固定间隔自动评估工作区并记录分数，这些结果不展示给智能体，用于测量两次显式提交之间的进步。</p>
-<h2 id="二、实验：log-sigmoid-拟合、学习速度与长时程动态"><a href="#二、实验：log-sigmoid-拟合、学习速度与长时程动态" class="headerlink" title="二、实验：log-sigmoid 拟合、学习速度与长时程动态"></a>二、实验：log-sigmoid 拟合、学习速度与长时程动态</h2><p>实验评估五个前沿模型：Claude Opus 4.8、GPT-5.5、GPT-5.4、GLM-5.1 和 DeepSeek-V4-Pro（preview）。每个任务-模型对运行三次独立的12小时试验，记录完整提交轨迹。GPT 模型通过 Codex 运行，使用256k压缩窗口；GLM-5.1 和 DeepSeek-V4-Pro 通过 Claude Code 运行，使用200k压缩窗口；Claude Opus 4.8 主要使用1M Claude Code压缩窗口，另设200k对比。主要指标是任务得分，在2、4、6、8、10、12小时时间预算下报告，类别得分在12小时报告。学习速度定义为固定两小时预算内的平均性能增益，有效提交率定义为设置新最佳分数的提交比例。</p>
-<p>EdgeBench 把部署后从环境学习变成一个可拟合的对象：在134个真实任务、约38,000小时交互上，聚合性能随交互时间呈 log-sigmoid 增长，平均 R²&#x3D;0.998，且该形式在任务族、更长时程和早期预测中均成立。论文用任务图上的前沿扩展过程解释这一形式，并用学习速度约每三个月翻倍的观察说明前沿智能体的环境学习能力在快速提升。</p>
-<p>实验证据同时划出了边界。log-sigmoid 是总体平均规律，单任务曲线仍可能平台、跳跃或回退；S 曲线对比中 log-probit 等形式的拟合误差与 log-sigmoid 接近，机制偏好而非数据排他性才是选择理由；理论推导依赖加权割混合、有限分数粒度、稳定可达支撑等假设，违反时可能出现多段 sigmoid 或延迟起飞。此外，长时程评估本身面临奖励黑客风险，论文附录记录了反馈被当作隐藏答案 oracle、优化随机上尾、过拟合评判种子等案例，并通过任务修订、提交预算、隐藏多种子和网络隔离来缓解。</p>
-<p>主结果方面，12小时聚合排行榜上 Claude Opus 4.8 以51.3分领先，GPT-5.5 为48.4分，GPT-5.4 为39.3分，GLM-5.1 为37.4分，DeepSeek-V4-Pro 为31.0分。类别得分上，Opus 4.8 在 Code 族达到67.4分，Math 族55.0分；GPT-5.5 在 Code 族为65.0分，Math 族50.0分。值得注意的是，GLM-5.1 在 Knowledge 族为43.5分，高于 GPT-5.4 的38.8分，说明能力族之间的排序并不总与总分一致。</p>
-<p>拟合结果方面，论文用三参数 log-sigmoid 模型 S(t)&#x3D;S_max&#x2F;(1+(t_mid&#x2F;t)^β) 拟合聚合学习曲线。在134个任务上，五个模型的拟合 R² 均不低于0.997，平均 R²&#x3D;0.998。同一形式在六个能力族分别拟合时仍然成立，在28小时和72小时的延长时程上也保持稳定，拟合 R² 均不低于0.993。更关键的是预测能力：仅用前6.5小时的数据拟合，再预测6.5到12小时的留出观测，五个模型的 R² 均不低于0.997，RMSE 低于1.0分。</p>
-<p><img src="/images/0ea2b048ee4bacc6015a0f92c129b0d2.png" alt="任务族级 log-sigmoid 拟合"></p>
-<p>这张图展示六个能力族各自的平均学习轨迹与 log-sigmoid 拟合。阅读顺序是先看每个子图的横轴（对数时间）与纵轴（得分），再看拟合曲线与观测点的贴合程度。它支撑的主张是：尽管任务类型和评分函数差异很大，同一函数形式仍能描述每个族的平均轨迹，说明规律不是由某一类任务主导的。</p>
-<p><img src="/images/00144e62d5a9552f1294f151d664f46b.png" alt="代表性任务的学习曲线"></p>
-<p>这张图给出18个代表性任务在12小时内的逐任务曲线。可以看到单任务轨迹高度异质：有的平滑上升，有的长期平台后突然突破，有的出现回退。它支撑的主张是：log-sigmoid 是总体平均层面的规律，而不是每个任务都服从的个体规律；论文也指出拟合误差随平均任务数增加而单调下降。</p>
-<p>在 S 曲线对比中，log-sigmoid 的全窗口 RMSE 为0.390，log-probit 为0.398，log-Gompertz 为0.402，Weibull CDF 为0.404，log-linear 基线为0.717。log-sigmoid 并非唯一拟合良好的形式，但论文从机制上偏好它：其速率律 dy&#x2F;dτ&#x3D;βy(1-y) 对应已解锁分数质量与剩余未解锁分数质量的乘积，而 log-linear 没有饱和项，明显更差。</p>
-<p>学习速度方面，论文在18个初始表现相近的任务切片上测量固定两小时预算内的平均增益。从2025年9月的 GPT-5-Codex 到2026年4月的 GPT-5.5，学习速度约提升8倍，约每三个月翻倍。这一提升主要来自每次交互更有效，而不是提交更频繁。</p>
-<p>长时程动态方面，持续有状态运行优于等预算的独立重启；1M 上下文的 Opus 4.8 比200k版本在2小时高5.8分，在12小时高4.4分。有效提交率与最终性能相关，但提交数量本身不保证更好结果。附录中的 harness 消融还显示，&#x2F;goal 模式和 Ralph 循环在部分任务上优于基础设置，例如 GPT-5.4 在展示任务平均上从26.1提升到31.8（Goal）和27.6（Ralph），但增益并不均匀，因此被定位为诊断性结果。</p>
-<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>EdgeBench 把部署后从环境学习变成一个可拟合的对象：在134个真实任务、约38,000小时交互上，聚合性能随交互时间呈 log-sigmoid 增长，平均 R²&#x3D;0.998，且该形式在任务族、更长时程和早期预测中均成立。论文用任务图上的前沿扩展过程解释这一形式，并用学习速度约每三个月翻倍的观察说明前沿智能体的环境学习能力在快速提升。</p>
-<p>实验证据同时划出了边界。log-sigmoid 是总体平均规律，单任务曲线仍可能平台、跳跃或回退；S 曲线对比中 log-probit 等形式的拟合误差与 log-sigmoid 接近，机制偏好而非数据排他性才是选择理由；理论推导依赖加权割混合、有限分数粒度、稳定可达支撑等假设，违反时可能出现多段 sigmoid 或延迟起飞。此外，长时程评估本身面临奖励黑客风险，论文附录记录了反馈被当作隐藏答案 oracle、优化随机上尾、过拟合评判种子等案例，并通过任务修订、提交预算、隐藏多种子和网络隔离来缓解。</p>
-<p>对推荐系统 Agent 等长时程应用而言，可迁移的设计启示是：把交互预算视为可拟合的学习曲线资源，用早期轨迹预测后期收益；用快速本地反馈加慢速权威评判的双环结构，既支持迭代又防止评估泄漏；并优先保证每次交互的有效性，而不是单纯增加尝试次数。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>EdgeBench: Unveiling Scaling Laws of Learning from Real-World Environments：<a href="https://arxiv.org/abs/2607.05155">arXiv 2607.05155</a> · <a href="https://app.notion.com/papers/2607.05155.pdf">PDF</a></p>
-</li>
-<li><p>Project Page: <a href="https://edge-bench.org/">https://edge-bench.org</a></p>
-</li>
-<li><p>预训练缩放定律相关：Kaplan et al., Scaling Laws for Neural Language Models；Hoffmann et al., Training Compute-Optimal Large Language Models</p>
-</li>
-<li><p>长时程智能体评估相关：Agents’ Last Exam（论文中作为对比基准引用）</p>
 </li>
 </ul>
 ]]></content>
@@ -5102,101 +5102,6 @@
       </tags>
   </entry>
   <entry>
-    <title>InvariRank：当候选顺序一变，LLM 重排序的偏好就散了</title>
-    <url>/article/paper-2608.03091/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2608.03091">arXiv 2608.03091</a> · 代码：<a href="https://github.com/ejbito/InvariRank">GitHub</a> · PDF：<a href="https://app.notion.com/papers/2608.03091.pdf">本地阅读</a></p>
-</blockquote>
-<p>列表式 LLM 重排序已经成为两阶段推荐流水线里的常见组件：第一阶段用 LightGCN 之类的检索器取出 top-K 候选，第二阶段把用户历史和候选物品序列化进 prompt，让 LLM 一次性给出排序。这个流程默认了一个前提——候选集是无序集合，排序结果应当只取决于用户上下文和物品内容，而不取决于候选被写进 prompt 的先后顺序。</p>
-<p>问题恰恰出在这个前提上。decoder-only 模型对输入位置敏感，同一组候选换一种序列化顺序，模型给出的分数、成对偏好乃至完整排序都可能改变。已有工作把这类现象统称为位置偏差，并提出排列聚合、顺序选择、校准修正、微调鲁棒重排器等缓解手段。但这些工作的评估通常落在推荐效果、边际位置曝光或最终列表之间的一致性上，很少追问：候选顺序敏感性在“诱导出的偏好结构”里究竟长什么样。</p>
-<p>这篇论文的定位不是再提一个缓解方法，而是把位置偏差当作排序函数有效性的可靠性问题来诊断。作者把同一候选集在 M 个等价排列下产生的排序，视为一个诱导偏好系统的多次观测，然后在局部成对偏好、全局偏好结构、列表级输出三个层面分别定义不一致性。这个视角的价值在于，它把“排序变了没有”拆成了“成对偏好稳不稳”“偏好系统能否被单一全局排序解释”“输出列表彼此有多一致”三个可分别测量的问题。</p>
-<p>论文的核心矛盾也由此浮现：推荐效果、边际曝光偏差与排列一致性并不总是同向。一个方法可以把 HR@5 做高，也可以把 top-5 曝光曲线拉平，但它的成对偏好仍可能剧烈摇摆，全局偏好结构仍可能无法被单一排序调和。作者在三个指令微调模型、两个数据集、三种列表长度上验证了这种背离，并据此主张：边际曝光校正不足以确立排序函数的有效性。</p>
-<p>需要提前说明边界。论文是诊断性研究，不训练新模型，排序从候选标记标识符的 token log-probabilities 中提取而非采样生成，因此固定序列输入下排序是确定的，跨排列的差异只来自候选顺序。每个查询和方法采样 M&#x3D;20 个排列，PPI 的位置条件化采用粗粒度分桶而非逐位置条件化，GPI 用加权 Kemeny 目标的近似解而非精确最小化。这些近似是方法可计算的前提，也构成结论的适用边界。</p>
-<h2 id="一、方法：把排列下的排序读成偏好系统"><a href="#一、方法：把排列下的排序读成偏好系统" class="headerlink" title="一、方法：把排列下的排序读成偏好系统"></a>一、方法：把排列下的排序读成偏好系统</h2><h3 id="排序函数有效性的形式化"><a href="#排序函数有效性的形式化" class="headerlink" title="排序函数有效性的形式化"></a>排序函数有效性的形式化</h3><p>给定用户上下文 H 和候选集 C&#x3D;{c_1,…,c_K}，重排序器接收 H 与 C 的某个序列化顺序，输出 C 上的一个排序。由于 C 本身无序，一个自洽的排序函数应当只依赖 H 和候选内容。作者采样 M 个候选排列 π_1,…,π_M，得到排序族 R(H,C)&#x3D;{R_1,…,R_M}。每个排序诱导成对偏好，对候选对 (c_i,c_j) 定义 q(i,j) 为 c_i 在 M 个排序中排在 c_j 之上的频率，全体 q(i,j) 构成诱导偏好系统 Q。后续三个度量都建立在这个 Q 与排序族 R 之上。</p>
-<h3 id="PPI：分桶条件化的成对偏好摆幅"><a href="#PPI：分桶条件化的成对偏好摆幅" class="headerlink" title="PPI：分桶条件化的成对偏好摆幅"></a>PPI：分桶条件化的成对偏好摆幅</h3><p>成对偏好不稳定性 PPI 问的是：当两个候选被放在不同的输入区域时，它们之间的相对偏好概率会不会变。逐位置条件化在 K(K−1) 个有序位置对上只有 M 个样本，过于稀疏，因此作者把位置粗分为头、中、尾等桶 B，对桶对 (b_i,b_j) 计算条件偏好概率 q(i,j|b_i,b_j)，再取该候选对在所有被观测到的桶对上的最大值与最小值之差。对全部候选对平均即得 PPI，越低表示跨输入区域的成对偏好越稳定。</p>
-<h3 id="GPI：加权-Kemeny-目标的近似分歧"><a href="#GPI：加权-Kemeny-目标的近似分歧" class="headerlink" title="GPI：加权 Kemeny 目标的近似分歧"></a>GPI：加权 Kemeny 目标的近似分歧</h3><p>成对偏好稳定并不保证 Q 能被单一全局排序解释。作者定义排序 σ 与 Q 的分歧 D(σ) 为所有候选对上与 σ 相反的偏好质量之和，最优拟合排序 σ* 是 D 的最小化者，这正是以 q(i,j) 为成对权重的加权 Kemeny 秩聚合目标。精确求解需要遍历所有排序，作者先用聚合胜分 s_i&#x3D;Σ_j q(i,j) 降序初始化，再反复执行使 D 下降最多的成对交换直至无改进。GPI 定义为该近似最优排序上的平均分歧，越低表示偏好系统越接近一个全局一致的排序。</p>
-<h3 id="LOC-与边际位置曝光"><a href="#LOC-与边际位置曝光" class="headerlink" title="LOC 与边际位置曝光"></a>LOC 与边际位置曝光</h3><p>列表级输出一致性 LOC 直接用采样排序之间的平均成对一致性衡量，主报告 Kendall’s τ，越高表示等价排列下的完整排序越一致。PPI、GPI、LOC 并非统计独立，而是同一候选顺序敏感性在局部、全局、输出三个层面的刻画。此外，作者测量 top-k 曝光 E_k(p)：候选处于输入位置 p 时进入 top-k 的概率。由于候选位置被随机化，位置不敏感的重排器应给出 E_k(p)&#x3D;k&#x2F;K 的均匀曝光，系统性偏离即边际位置曝光偏差。这一度量只看平均 top 位置分布，不看跨排列一致性，因此与前三者有本质区别。</p>
-<p><img src="/images/14f66a2c965d1ede75caea4d9bd04389.png" alt="PPI 与 GPI 随候选列表长度变化"></p>
-<p>这张图按 K&#x3D;15、25、50 三个列表长度分别画出 PPI 与 GPI 的曲线，横轴是候选列表长度，纵轴是一致性度量，数值越低越好。阅读顺序是先看左图 PPI 再看右图 GPI，两条曲线的方法排序在三个长度上保持一致：SGS 处于最低位，Bootstrapping 居中，STELLA_LW 明显抬升。它支撑的主张是，方法间的一致性差异不是某个列表长度下的偶然现象，而是随 K 变化仍稳定存在的结构性差异。</p>
-<h2 id="二、实验：效果、一致性与成本的三角背离"><a href="#二、实验：效果、一致性与成本的三角背离" class="headerlink" title="二、实验：效果、一致性与成本的三角背离"></a>二、实验：效果、一致性与成本的三角背离</h2><h3 id="数据、模型与实现条件"><a href="#数据、模型与实现条件" class="headerlink" title="数据、模型与实现条件"></a>数据、模型与实现条件</h3><table>
-<thead>
-<tr>
-<th>项目</th>
-<th>设置</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>数据集</td>
-<td>MovieLens-32M、Amazon Books</td>
-</tr>
-<tr>
-<td>划分方式</td>
-<td>用户交互按时间排序，时序划分训练集与评估集</td>
-</tr>
-<tr>
-<td>候选构造</td>
-<td>LightGCN 检索 top-K，K∈{15,25,50}；每个候选集至少含一个留出相关物品</td>
-</tr>
-<tr>
-<td>模型</td>
-<td>Llama-3.2-3B-Instruct、Mistral-7B-Instruct-v0.3、Qwen2.5-7B-Instruct</td>
-</tr>
-<tr>
-<td>排序提取</td>
-<td>从候选标记标识符的 token log-probabilities 提取，非采样生成</td>
-</tr>
-<tr>
-<td>排列采样</td>
-<td>每个查询和方法 M&#x3D;20 个候选排列</td>
-</tr>
-<tr>
-<td>基线</td>
-<td>Zero-shot、Bootstrapping（Borda 聚合）、SGS（顺序选择并重洗）、STELLA_LW（生成式校准 + 贝叶斯后验更新）</td>
-</tr>
-<tr>
-<td>指标</td>
-<td>HR@5、nDCG@5、PPI↓、GPI↓、LOC↑（Kendall’s τ）、top-k 曝光</td>
-</tr>
-<tr>
-<td>未披露</td>
-<td>硬件、软件版本、训练超参数</td>
-</tr>
-</tbody></table>
-<p>STELLA_LW 的校准阶段最多使用 150 个探测候选集，把每个相关候选放在每个输入位置并重复 5 次以估计平滑的位置转移矩阵；推理时最多 10 次后验更新并早停，返回最小熵后验诱导的排序，信息增益可忽略时回退到原始排序。</p>
-<p>STELLA_LW 的校准阶段最多使用 150 个探测候选集，把每个相关候选放在每个输入位置并重复 5 次以估计平滑的位置转移矩阵；推理时最多 10 次后验更新并早停，返回最小熵后验诱导的排序，信息增益可忽略时回退到原始排序。</p>
-<h3 id="主结果：最高-HR-5-对应最差一致性"><a href="#主结果：最高-HR-5-对应最差一致性" class="headerlink" title="主结果：最高 HR@5 对应最差一致性"></a>主结果：最高 HR@5 对应最差一致性</h3><p>最刺眼的一组数字来自 Llama-3B 在 MovieLens-32M 上：STELLA_LW 的 HR@5 为 0.5922，高于 Zero-shot 的 0.5560 和 SGS 的 0.5634，但它的 PPI 高达 0.8331，是 Zero-shot 0.4775 的近两倍，GPI 0.3648 对 0.1149，LOC 仅 0.1181 对 0.6358。也就是说，相关性提升与偏好一致性在这里是反向的。SGS 则给出另一极：PPI 0.1972、GPI 0.0586、LOC 0.8268，三项一致性均为最优，HR@5 也略高于 Zero-shot，但代价在推理成本。</p>
-<p>Bootstrapping 提供了一个中间参照。相对 Zero-shot，它在 Llama-3B&#x2F;MovieLens 上把 PPI 从 0.4775 降到 0.2992、GPI 从 0.1149 降到 0.0827、LOC 从 0.6358 升到 0.7475，但 HR@5 从 0.5560 微降到 0.5480。这种“一致性换效果”的交换在 Mistral-7B 上同样出现（HR@5 0.4794→0.4790），在 Qwen-7B 上则表现为效果与一致性同时小幅改善（HR@5 0.5344→0.5450，PPI 0.5408→0.3288）。</p>
-<p>一致性度量的内部一致性值得单独指出：PPI、GPI、LOC 的方法排序在全部六个模型—数据集组合中完全相同，SGS 最低、Bootstrapping 次之、STELLA_LW 最高。这说明三个层面测到的确实是同一种候选顺序敏感性，而非彼此独立的噪声。但 nDCG@5 的最优方法并不统一：Llama-3B 在 MovieLens 上 SGS 最好（0.2324），Mistral-7B 在两个数据集上都是 STELLA_LW 最好，其余三组是 Bootstrapping。连标准效果指标之间都不完全同向，这进一步削弱了“用单一效果指标判断重排器好坏”的做法。</p>
-<h3 id="曝光曲线：拉平不等于稳定"><a href="#曝光曲线：拉平不等于稳定" class="headerlink" title="曝光曲线：拉平不等于稳定"></a>曝光曲线：拉平不等于稳定</h3><p><img src="/images/c55cfd5ee46da9b8ed30a765278a17d6.png" alt="top-5 曝光随输入位置的变化"></p>
-<p>这张图按 K&#x3D;15、25、50 三个子图展示 top-5 曝光随输入位置的变化，横轴是候选在 prompt 中的输入位置，纵轴是该位置候选进入 top-5 的概率，均匀无偏的参照线是 k&#x2F;K。阅读时先看 Zero-shot 曲线：早期输入位置的曝光明显低于后期位置，呈现系统性偏斜；再看 Bootstrapping，偏斜被压低但没有消失；最后看 STELLA_LW 与 SGS，两条曲线都更接近平坦。它支撑的主张正是论文的关键区分——STELLA_LW 把边际曝光拉平了，却在同一设置下给出最高的 PPI、GPI 和最低的 LOC，因此曝光平坦化不能作为排列一致性的替代证据。</p>
-<h3 id="效率：一致性有明确的推理代价"><a href="#效率：一致性有明确的推理代价" class="headerlink" title="效率：一致性有明确的推理代价"></a>效率：一致性有明确的推理代价</h3><p>这张表解释了为什么“一致性最好”的 SGS 不能无条件推荐：它的一致性来自 K 次顺序前向，K&#x3D;25 时是 Zero-shot 的 25 倍推理次数。STELLA_LW 的推理查询次数少于 SGS，但校准阶段的一次性成本很高。论文没有报告墙钟延迟或显存占用，因此这里的成本比较只能停留在前向次数与探测规模层面，不能外推为端到端服务成本。</p>
-<h3 id="消融与超参数的边界"><a href="#消融与超参数的边界" class="headerlink" title="消融与超参数的边界"></a>消融与超参数的边界</h3><p>论文未报告独立的消融实验，也没有对分桶粒度、排列采样数 M、Kemeny 近似初始化策略做敏感性分析。K∈{15,25,50} 的结果以曲线形式呈现，主表固定在 K&#x3D;25。因此本文能支持的结论是方法排序在三个列表长度上稳定，而不能支持“分桶方式无关紧要”或“M&#x3D;20 已足够收敛”这类更强的主张。</p>
-<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>方法上，这篇论文把等价排列下的排序族读成诱导偏好系统的观测，用分桶条件化的成对偏好摆幅（PPI）、加权 Kemeny 目标的近似分歧（GPI）和 Kendall’s τ 的列表一致性（LOC）分别刻画局部、全局与输出层面的候选顺序敏感性，并用 top-k 曝光单独刻画边际位置偏差。这套拆分的意义在于，它让“位置偏差”从一个笼统的现象变成了三个可分别报告、且被实验证明高度同向的量。</p>
-<p>实验证据给出的最强结论是一个背离：STELLA_LW 在三个模型、两个数据集上取得最高 HR@5（如 Llama-3B&#x2F;MovieLens 的 0.5922），同时 PPI 0.8331、GPI 0.3648、LOC 0.1181 三项一致性全部最差；SGS 一致性最好（PPI 0.1972、GPI 0.0586、LOC 0.8268）却需要 K 次顺序前向；Bootstrapping 以轻微的效果损失换取一致性改善。曝光曲线进一步显示，STELLA_LW 的边际曝光更平坦，却并未带来更稳定的偏好。</p>
-<p>限制同样清楚。评估只覆盖三个 3B–7B 级指令微调模型和两个数据集，排序提取依赖 token log-probabilities，未涉及采样生成式重排器；M&#x3D;20 的排列采样与粗粒度位置分桶是对可计算性的妥协；GPI 使用近似而非精确 Kemeny 解；效率分析只到前向次数，没有端到端成本。这些边界意味着结论应被读作“在这些条件下，效果、曝光与一致性可以背离”，而不是对所有 LLM 重排器的普遍定律。</p>
-<p>可迁移的设计启示是：把排列不变性当作重排序组件的硬性约束来验收，而不是当作效果调优的副产品。具体做法是在评估中同时报告效果指标与 PPI&#x2F;GPI&#x2F;LOC，在数据侧随机化候选序列化顺序并多次采样以暴露顺序敏感性，在架构侧把多排列聚合或顺序选择的推理成本纳入选型——因为一致性最好的方案往往也是最贵的那个。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>Ethan Bito, Yongli Ren, Estrid He. Position Bias Undermines Preference Consistency in Listwise LLM-Based Reranking. RecSys ‘26. <a href="https://arxiv.org/abs/2608.03091">arXiv 2608.03091</a> · <a href="https://doi.org/10.1145/3773078.3831801">DOI 10.1145&#x2F;3773078.3831801</a> · <a href="https://github.com/ejbito/InvariRank">代码</a></p>
-</li>
-<li><p>Yupeng Hou, Junjie Zhang, Zihan Lin, et al. Large Language Models are Zero-Shot Rankers for Recommender Systems. arXiv:2305.08845.</p>
-</li>
-<li><p>Tianhui Ma, Yuan Cheng, Hengshu Zhu, Hui Xiong. Large Language Models are Not Stable Recommender Systems. arXiv:2312.15746.</p>
-</li>
-<li><p>Ethan Bito, Yongli Ren, Estrid He. Evaluating Position Bias in Large Language Model Recommendations. arXiv:2508.02020.</p>
-</li>
-<li><p>Xiangnan He, Kuan Deng, Xiang Wang, et al. LightGCN: Simplifying and Powering Graph Convolution Network for Recommendation. arXiv:2002.02126.</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>论文速递</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>Hunyuan3D-Buffalo 1.0：用统一多模态架构打通3D理解、生成与编辑</title>
     <url>/article/paper-2608.02711/</url>
     <content><![CDATA[<blockquote>
@@ -5625,6 +5530,101 @@
       </tags>
   </entry>
   <entry>
+    <title>InvariRank：当候选顺序一变，LLM 重排序的偏好就散了</title>
+    <url>/article/paper-2608.03091/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://arxiv.org/abs/2608.03091">arXiv 2608.03091</a> · 代码：<a href="https://github.com/ejbito/InvariRank">GitHub</a> · PDF：<a href="https://app.notion.com/papers/2608.03091.pdf">本地阅读</a></p>
+</blockquote>
+<p>列表式 LLM 重排序已经成为两阶段推荐流水线里的常见组件：第一阶段用 LightGCN 之类的检索器取出 top-K 候选，第二阶段把用户历史和候选物品序列化进 prompt，让 LLM 一次性给出排序。这个流程默认了一个前提——候选集是无序集合，排序结果应当只取决于用户上下文和物品内容，而不取决于候选被写进 prompt 的先后顺序。</p>
+<p>问题恰恰出在这个前提上。decoder-only 模型对输入位置敏感，同一组候选换一种序列化顺序，模型给出的分数、成对偏好乃至完整排序都可能改变。已有工作把这类现象统称为位置偏差，并提出排列聚合、顺序选择、校准修正、微调鲁棒重排器等缓解手段。但这些工作的评估通常落在推荐效果、边际位置曝光或最终列表之间的一致性上，很少追问：候选顺序敏感性在“诱导出的偏好结构”里究竟长什么样。</p>
+<p>这篇论文的定位不是再提一个缓解方法，而是把位置偏差当作排序函数有效性的可靠性问题来诊断。作者把同一候选集在 M 个等价排列下产生的排序，视为一个诱导偏好系统的多次观测，然后在局部成对偏好、全局偏好结构、列表级输出三个层面分别定义不一致性。这个视角的价值在于，它把“排序变了没有”拆成了“成对偏好稳不稳”“偏好系统能否被单一全局排序解释”“输出列表彼此有多一致”三个可分别测量的问题。</p>
+<p>论文的核心矛盾也由此浮现：推荐效果、边际曝光偏差与排列一致性并不总是同向。一个方法可以把 HR@5 做高，也可以把 top-5 曝光曲线拉平，但它的成对偏好仍可能剧烈摇摆，全局偏好结构仍可能无法被单一排序调和。作者在三个指令微调模型、两个数据集、三种列表长度上验证了这种背离，并据此主张：边际曝光校正不足以确立排序函数的有效性。</p>
+<p>需要提前说明边界。论文是诊断性研究，不训练新模型，排序从候选标记标识符的 token log-probabilities 中提取而非采样生成，因此固定序列输入下排序是确定的，跨排列的差异只来自候选顺序。每个查询和方法采样 M&#x3D;20 个排列，PPI 的位置条件化采用粗粒度分桶而非逐位置条件化，GPI 用加权 Kemeny 目标的近似解而非精确最小化。这些近似是方法可计算的前提，也构成结论的适用边界。</p>
+<h2 id="一、方法：把排列下的排序读成偏好系统"><a href="#一、方法：把排列下的排序读成偏好系统" class="headerlink" title="一、方法：把排列下的排序读成偏好系统"></a>一、方法：把排列下的排序读成偏好系统</h2><h3 id="排序函数有效性的形式化"><a href="#排序函数有效性的形式化" class="headerlink" title="排序函数有效性的形式化"></a>排序函数有效性的形式化</h3><p>给定用户上下文 H 和候选集 C&#x3D;{c_1,…,c_K}，重排序器接收 H 与 C 的某个序列化顺序，输出 C 上的一个排序。由于 C 本身无序，一个自洽的排序函数应当只依赖 H 和候选内容。作者采样 M 个候选排列 π_1,…,π_M，得到排序族 R(H,C)&#x3D;{R_1,…,R_M}。每个排序诱导成对偏好，对候选对 (c_i,c_j) 定义 q(i,j) 为 c_i 在 M 个排序中排在 c_j 之上的频率，全体 q(i,j) 构成诱导偏好系统 Q。后续三个度量都建立在这个 Q 与排序族 R 之上。</p>
+<h3 id="PPI：分桶条件化的成对偏好摆幅"><a href="#PPI：分桶条件化的成对偏好摆幅" class="headerlink" title="PPI：分桶条件化的成对偏好摆幅"></a>PPI：分桶条件化的成对偏好摆幅</h3><p>成对偏好不稳定性 PPI 问的是：当两个候选被放在不同的输入区域时，它们之间的相对偏好概率会不会变。逐位置条件化在 K(K−1) 个有序位置对上只有 M 个样本，过于稀疏，因此作者把位置粗分为头、中、尾等桶 B，对桶对 (b_i,b_j) 计算条件偏好概率 q(i,j|b_i,b_j)，再取该候选对在所有被观测到的桶对上的最大值与最小值之差。对全部候选对平均即得 PPI，越低表示跨输入区域的成对偏好越稳定。</p>
+<h3 id="GPI：加权-Kemeny-目标的近似分歧"><a href="#GPI：加权-Kemeny-目标的近似分歧" class="headerlink" title="GPI：加权 Kemeny 目标的近似分歧"></a>GPI：加权 Kemeny 目标的近似分歧</h3><p>成对偏好稳定并不保证 Q 能被单一全局排序解释。作者定义排序 σ 与 Q 的分歧 D(σ) 为所有候选对上与 σ 相反的偏好质量之和，最优拟合排序 σ* 是 D 的最小化者，这正是以 q(i,j) 为成对权重的加权 Kemeny 秩聚合目标。精确求解需要遍历所有排序，作者先用聚合胜分 s_i&#x3D;Σ_j q(i,j) 降序初始化，再反复执行使 D 下降最多的成对交换直至无改进。GPI 定义为该近似最优排序上的平均分歧，越低表示偏好系统越接近一个全局一致的排序。</p>
+<h3 id="LOC-与边际位置曝光"><a href="#LOC-与边际位置曝光" class="headerlink" title="LOC 与边际位置曝光"></a>LOC 与边际位置曝光</h3><p>列表级输出一致性 LOC 直接用采样排序之间的平均成对一致性衡量，主报告 Kendall’s τ，越高表示等价排列下的完整排序越一致。PPI、GPI、LOC 并非统计独立，而是同一候选顺序敏感性在局部、全局、输出三个层面的刻画。此外，作者测量 top-k 曝光 E_k(p)：候选处于输入位置 p 时进入 top-k 的概率。由于候选位置被随机化，位置不敏感的重排器应给出 E_k(p)&#x3D;k&#x2F;K 的均匀曝光，系统性偏离即边际位置曝光偏差。这一度量只看平均 top 位置分布，不看跨排列一致性，因此与前三者有本质区别。</p>
+<p><img src="/images/14f66a2c965d1ede75caea4d9bd04389.png" alt="PPI 与 GPI 随候选列表长度变化"></p>
+<p>这张图按 K&#x3D;15、25、50 三个列表长度分别画出 PPI 与 GPI 的曲线，横轴是候选列表长度，纵轴是一致性度量，数值越低越好。阅读顺序是先看左图 PPI 再看右图 GPI，两条曲线的方法排序在三个长度上保持一致：SGS 处于最低位，Bootstrapping 居中，STELLA_LW 明显抬升。它支撑的主张是，方法间的一致性差异不是某个列表长度下的偶然现象，而是随 K 变化仍稳定存在的结构性差异。</p>
+<h2 id="二、实验：效果、一致性与成本的三角背离"><a href="#二、实验：效果、一致性与成本的三角背离" class="headerlink" title="二、实验：效果、一致性与成本的三角背离"></a>二、实验：效果、一致性与成本的三角背离</h2><h3 id="数据、模型与实现条件"><a href="#数据、模型与实现条件" class="headerlink" title="数据、模型与实现条件"></a>数据、模型与实现条件</h3><table>
+<thead>
+<tr>
+<th>项目</th>
+<th>设置</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>数据集</td>
+<td>MovieLens-32M、Amazon Books</td>
+</tr>
+<tr>
+<td>划分方式</td>
+<td>用户交互按时间排序，时序划分训练集与评估集</td>
+</tr>
+<tr>
+<td>候选构造</td>
+<td>LightGCN 检索 top-K，K∈{15,25,50}；每个候选集至少含一个留出相关物品</td>
+</tr>
+<tr>
+<td>模型</td>
+<td>Llama-3.2-3B-Instruct、Mistral-7B-Instruct-v0.3、Qwen2.5-7B-Instruct</td>
+</tr>
+<tr>
+<td>排序提取</td>
+<td>从候选标记标识符的 token log-probabilities 提取，非采样生成</td>
+</tr>
+<tr>
+<td>排列采样</td>
+<td>每个查询和方法 M&#x3D;20 个候选排列</td>
+</tr>
+<tr>
+<td>基线</td>
+<td>Zero-shot、Bootstrapping（Borda 聚合）、SGS（顺序选择并重洗）、STELLA_LW（生成式校准 + 贝叶斯后验更新）</td>
+</tr>
+<tr>
+<td>指标</td>
+<td>HR@5、nDCG@5、PPI↓、GPI↓、LOC↑（Kendall’s τ）、top-k 曝光</td>
+</tr>
+<tr>
+<td>未披露</td>
+<td>硬件、软件版本、训练超参数</td>
+</tr>
+</tbody></table>
+<p>STELLA_LW 的校准阶段最多使用 150 个探测候选集，把每个相关候选放在每个输入位置并重复 5 次以估计平滑的位置转移矩阵；推理时最多 10 次后验更新并早停，返回最小熵后验诱导的排序，信息增益可忽略时回退到原始排序。</p>
+<p>STELLA_LW 的校准阶段最多使用 150 个探测候选集，把每个相关候选放在每个输入位置并重复 5 次以估计平滑的位置转移矩阵；推理时最多 10 次后验更新并早停，返回最小熵后验诱导的排序，信息增益可忽略时回退到原始排序。</p>
+<h3 id="主结果：最高-HR-5-对应最差一致性"><a href="#主结果：最高-HR-5-对应最差一致性" class="headerlink" title="主结果：最高 HR@5 对应最差一致性"></a>主结果：最高 HR@5 对应最差一致性</h3><p>最刺眼的一组数字来自 Llama-3B 在 MovieLens-32M 上：STELLA_LW 的 HR@5 为 0.5922，高于 Zero-shot 的 0.5560 和 SGS 的 0.5634，但它的 PPI 高达 0.8331，是 Zero-shot 0.4775 的近两倍，GPI 0.3648 对 0.1149，LOC 仅 0.1181 对 0.6358。也就是说，相关性提升与偏好一致性在这里是反向的。SGS 则给出另一极：PPI 0.1972、GPI 0.0586、LOC 0.8268，三项一致性均为最优，HR@5 也略高于 Zero-shot，但代价在推理成本。</p>
+<p>Bootstrapping 提供了一个中间参照。相对 Zero-shot，它在 Llama-3B&#x2F;MovieLens 上把 PPI 从 0.4775 降到 0.2992、GPI 从 0.1149 降到 0.0827、LOC 从 0.6358 升到 0.7475，但 HR@5 从 0.5560 微降到 0.5480。这种“一致性换效果”的交换在 Mistral-7B 上同样出现（HR@5 0.4794→0.4790），在 Qwen-7B 上则表现为效果与一致性同时小幅改善（HR@5 0.5344→0.5450，PPI 0.5408→0.3288）。</p>
+<p>一致性度量的内部一致性值得单独指出：PPI、GPI、LOC 的方法排序在全部六个模型—数据集组合中完全相同，SGS 最低、Bootstrapping 次之、STELLA_LW 最高。这说明三个层面测到的确实是同一种候选顺序敏感性，而非彼此独立的噪声。但 nDCG@5 的最优方法并不统一：Llama-3B 在 MovieLens 上 SGS 最好（0.2324），Mistral-7B 在两个数据集上都是 STELLA_LW 最好，其余三组是 Bootstrapping。连标准效果指标之间都不完全同向，这进一步削弱了“用单一效果指标判断重排器好坏”的做法。</p>
+<h3 id="曝光曲线：拉平不等于稳定"><a href="#曝光曲线：拉平不等于稳定" class="headerlink" title="曝光曲线：拉平不等于稳定"></a>曝光曲线：拉平不等于稳定</h3><p><img src="/images/c55cfd5ee46da9b8ed30a765278a17d6.png" alt="top-5 曝光随输入位置的变化"></p>
+<p>这张图按 K&#x3D;15、25、50 三个子图展示 top-5 曝光随输入位置的变化，横轴是候选在 prompt 中的输入位置，纵轴是该位置候选进入 top-5 的概率，均匀无偏的参照线是 k&#x2F;K。阅读时先看 Zero-shot 曲线：早期输入位置的曝光明显低于后期位置，呈现系统性偏斜；再看 Bootstrapping，偏斜被压低但没有消失；最后看 STELLA_LW 与 SGS，两条曲线都更接近平坦。它支撑的主张正是论文的关键区分——STELLA_LW 把边际曝光拉平了，却在同一设置下给出最高的 PPI、GPI 和最低的 LOC，因此曝光平坦化不能作为排列一致性的替代证据。</p>
+<h3 id="效率：一致性有明确的推理代价"><a href="#效率：一致性有明确的推理代价" class="headerlink" title="效率：一致性有明确的推理代价"></a>效率：一致性有明确的推理代价</h3><p>这张表解释了为什么“一致性最好”的 SGS 不能无条件推荐：它的一致性来自 K 次顺序前向，K&#x3D;25 时是 Zero-shot 的 25 倍推理次数。STELLA_LW 的推理查询次数少于 SGS，但校准阶段的一次性成本很高。论文没有报告墙钟延迟或显存占用，因此这里的成本比较只能停留在前向次数与探测规模层面，不能外推为端到端服务成本。</p>
+<h3 id="消融与超参数的边界"><a href="#消融与超参数的边界" class="headerlink" title="消融与超参数的边界"></a>消融与超参数的边界</h3><p>论文未报告独立的消融实验，也没有对分桶粒度、排列采样数 M、Kemeny 近似初始化策略做敏感性分析。K∈{15,25,50} 的结果以曲线形式呈现，主表固定在 K&#x3D;25。因此本文能支持的结论是方法排序在三个列表长度上稳定，而不能支持“分桶方式无关紧要”或“M&#x3D;20 已足够收敛”这类更强的主张。</p>
+<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>方法上，这篇论文把等价排列下的排序族读成诱导偏好系统的观测，用分桶条件化的成对偏好摆幅（PPI）、加权 Kemeny 目标的近似分歧（GPI）和 Kendall’s τ 的列表一致性（LOC）分别刻画局部、全局与输出层面的候选顺序敏感性，并用 top-k 曝光单独刻画边际位置偏差。这套拆分的意义在于，它让“位置偏差”从一个笼统的现象变成了三个可分别报告、且被实验证明高度同向的量。</p>
+<p>实验证据给出的最强结论是一个背离：STELLA_LW 在三个模型、两个数据集上取得最高 HR@5（如 Llama-3B&#x2F;MovieLens 的 0.5922），同时 PPI 0.8331、GPI 0.3648、LOC 0.1181 三项一致性全部最差；SGS 一致性最好（PPI 0.1972、GPI 0.0586、LOC 0.8268）却需要 K 次顺序前向；Bootstrapping 以轻微的效果损失换取一致性改善。曝光曲线进一步显示，STELLA_LW 的边际曝光更平坦，却并未带来更稳定的偏好。</p>
+<p>限制同样清楚。评估只覆盖三个 3B–7B 级指令微调模型和两个数据集，排序提取依赖 token log-probabilities，未涉及采样生成式重排器；M&#x3D;20 的排列采样与粗粒度位置分桶是对可计算性的妥协；GPI 使用近似而非精确 Kemeny 解；效率分析只到前向次数，没有端到端成本。这些边界意味着结论应被读作“在这些条件下，效果、曝光与一致性可以背离”，而不是对所有 LLM 重排器的普遍定律。</p>
+<p>可迁移的设计启示是：把排列不变性当作重排序组件的硬性约束来验收，而不是当作效果调优的副产品。具体做法是在评估中同时报告效果指标与 PPI&#x2F;GPI&#x2F;LOC，在数据侧随机化候选序列化顺序并多次采样以暴露顺序敏感性，在架构侧把多排列聚合或顺序选择的推理成本纳入选型——因为一致性最好的方案往往也是最贵的那个。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>Ethan Bito, Yongli Ren, Estrid He. Position Bias Undermines Preference Consistency in Listwise LLM-Based Reranking. RecSys ‘26. <a href="https://arxiv.org/abs/2608.03091">arXiv 2608.03091</a> · <a href="https://doi.org/10.1145/3773078.3831801">DOI 10.1145&#x2F;3773078.3831801</a> · <a href="https://github.com/ejbito/InvariRank">代码</a></p>
+</li>
+<li><p>Yupeng Hou, Junjie Zhang, Zihan Lin, et al. Large Language Models are Zero-Shot Rankers for Recommender Systems. arXiv:2305.08845.</p>
+</li>
+<li><p>Tianhui Ma, Yuan Cheng, Hengshu Zhu, Hui Xiong. Large Language Models are Not Stable Recommender Systems. arXiv:2312.15746.</p>
+</li>
+<li><p>Ethan Bito, Yongli Ren, Estrid He. Evaluating Position Bias in Large Language Model Recommendations. arXiv:2508.02020.</p>
+</li>
+<li><p>Xiangnan He, Kuan Deng, Xiang Wang, et al. LightGCN: Simplifying and Powering Graph Convolution Network for Recommendation. arXiv:2002.02126.</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>论文速递</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>TSPORec：用偏好优化为LLM序列推荐挑选信息Token</title>
     <url>/article/paper-2608.09605/</url>
     <content><![CDATA[<blockquote>
@@ -5908,222 +5908,6 @@
       </tags>
   </entry>
   <entry>
-    <title>SG-UMP：让多模态推荐先滤波、再注意、后融合，并按数据集重排顺序</title>
-    <url>/article/paper-2608.28503/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2608.28503">arXiv 2608.28503</a> · 代码：<a href="https://github.com/esemsc-xz524/SG-UMP">GitHub</a> · PDF：<a href="https://app.notion.com/papers/2608.28503.pdf">本地阅读</a></p>
-</blockquote>
-<p>多模态序列推荐（MSR）的常见做法，是用 CLIP 这类预训练编码器把商品图片和文本压成向量，再交给 SASRec、STOSA 等序列骨干做下一物品预测。问题在于，预训练编码器学到的是通用语义：它知道一件外套“像外套”，却不知道某位用户买外套时其实一直在看墨镜。论文用一张注意力可视化把这种错位摆了出来——预训练编码器把注意力放在外套上，而两位用户分别更关注墨镜和手袋。</p>
-<p>SG-UMP 的定位不是新的序列骨干，而是一个即插即用的多模态嵌入处理插件。它承认两件事：用户对图文的关注是异质的；不同数据集里占主导的模态也不同——电商图片重要，Yelp 这类本地服务平台上评论文本更重要。于是它把多模态处理拆成三个职责不同的模块，并让一个路由器决定这三个模块的执行顺序。</p>
-<p>这两条设计原则——用交互序列引导个性化多模态处理、用模块化可重排流程适应数据集级模态偏差——构成了论文的方法骨架。真正值得看的是它如何把“顺序”变成一个可学习、可正则化的对象：路由器为每个输入计算模块调度分数并排序，再用条件互信息损失防止所有输入退化成同一条固定路径。</p>
-<p>实验覆盖 Amazon Home、Beauty、Office 与 Yelp 四个数据集，骨干包括 SASRec、STOSA 和 Oracle4Rec。论文报告的平均提升分别为 21.96%、24.93% 和 18.91%，并且消融与全排列实验都指向同一个结论：没有一种固定模块顺序在所有数据集上最优。</p>
-<p>需要提前说明边界：可视化中的“用户视角”并非真实眼动或点击反馈，而是用历史交互与显著物品属性近似出来的参照；路由顺序也是在数据集层面学习的，而非逐用户实时切换。这些限制决定了下面结果该被怎样解读。</p>
-<h2 id="一、方法：三个可重排模块与一个受互信息约束的路由器"><a href="#一、方法：三个可重排模块与一个受互信息约束的路由器" class="headerlink" title="一、方法：三个可重排模块与一个受互信息约束的路由器"></a>一、方法：三个可重排模块与一个受互信息约束的路由器</h2><p>SG-UMP 的数据流可以概括为：物品的 ID、图像、文本嵌入先经过模态专属的门控函数，得到三个模态表示；路由器据此为三个功能模块打分并排序；三个模块按该顺序依次处理拼接后的多模态表示；最后经均值池化得到用户表示，送入序列骨干。整个插件不替换骨干，只改变多模态嵌入被加工的方式。</p>
-<p><img src="/images/7b17c7f6036e7b89081f0280c33de9c2.png" alt="SG-UMP 整体框架与各组件结构"></p>
-<p>读这张图可以按 (a) 到 (e) 的顺序展开。(a) 是全局：左侧输入 ID、图像、文本三路嵌入，中间是 Module Combiner 里的三个模块，右侧是 Module Router 给出的排序结果，最终汇入序列骨干。(b) 放大路由器：每个模态先过各自的线性投影与激活，再为三个模块分别算分，汇总后 softmax 得到调度分布，降序排列即执行顺序。(c) 是频率滤波层，嵌入被变换到频域、滤掉高频分量、再重建回时域，输出维度不变。(d) 是层次注意力层，先用 MLP 加 Sigmoid 从 ID 嵌入算出模态重要性，乘到图文表示上，再统一过自注意力。(e) 是多尺度融合层，模态独有专家与模态共享专家并行，由门控网络加权求和。这张图支撑的核心主张是：三个模块的输入输出维度一致，因此可以任意换序而不破坏数据流——这正是“可重排”在工程上成立的前提。</p>
-<p>频率滤波层解决的是预训练嵌入里的高频噪声。它对序列嵌入做 FFT，抑制高频分量后 IFFT 重建，保留稳定的低频模式，层数由参数控制。层次注意力层解决的是“谁该被强调”：它用两层 MLP 加 Sigmoid 从 ID 嵌入预测每个模态的重要性分数，乘到文本和图像表示上，再对三个模态分别做自注意力细化。多尺度融合层则用 MoE 同时保留模态个性与跨模态共性：每个模态有若干专属专家，另有一组共享专家处理三模态拼接后的表示，门控网络用 softmax 分配权重。</p>
-<p>路由器是方法里最有辨识度的部分。对每个模块 k 和模态 m，它计算调度分数，跨模态求和后 softmax 得到分布 D_i，再按 D_i 降序得到排列 π，最终表示为三个模块按 π 依次复合作用的结果。如果只做到这里，路由器可能退化成对所有输入输出同一顺序，于是论文加入条件互信息损失：把 D_i 解释为 P(M_k | e_i)，用调度分数近似模态与模块的联合分布，最大化 I(M; m | e_i)。直观上，图像主导的输入应被路由到偏图像处理的模块，文本主导的输入走另一条路；互信息越高，路由越依赖模态线索，越不容易塌缩成固定路径。训练目标为 BPR 损失加上以 α 加权的该项正则。</p>
-<h2 id="二、实验：四个数据集上的骨干增益、消融与顺序敏感性"><a href="#二、实验：四个数据集上的骨干增益、消融与顺序敏感性" class="headerlink" title="二、实验：四个数据集上的骨干增益、消融与顺序敏感性"></a>二、实验：四个数据集上的骨干增益、消融与顺序敏感性</h2><p>实验设置如下表所示。需要留意的是四个数据集的密度都极低（0.01%–0.05%），Yelp 的序列最长、最稀疏，这会影响后面对顺序实验的解读。</p>
-<p>主结果中，最强的多模态基线是 MP4SR 与 MML，Oracle4Rec 则是传统组里最强的对照。SG-UMP 接入 Oracle4Rec 后在四个数据集上均超过所有基线，相对最强基线的提升在 Yelp 上最小（R@10 为 7.22%），在 Office 的 N@10 上最大（17.61%）。</p>
-<p>骨干层面的平均提升为 SASRec 21.96%、STOSA 24.93%、Oracle4Rec 18.91%。值得注意的是，提升幅度并不均匀：STOSA 在 Home 上的 R@10 从 0.0169 升到 0.0242（+43.20%），而在 Office 上只有 +12.85%；SASRec 在 Office 上的 N@10 提升 8.21%，是表中最小的相对增益之一。这说明插件对骨干的增益依赖骨干本身对多模态信息的利用程度，而非一个恒定倍率。</p>
-<p>消融实验在 STOSA 上进行，移除任一模块都会掉点，但掉点幅度不同。移除层次注意力层在 Beauty 和 Office 上退化最大（Beauty N@10 从 0.0455 降到 0.0408），移除频率滤波层在 Home 上退化明显（N@10 从 0.0144 降到 0.0121），移除 MoE 融合层同样带来一致下降。这组结果支撑的是“三个模块互补”而非“某一个模块独挑大梁”。</p>
-<p>顺序实验是论文验证第二条设计原则的关键。三个模块的全部六种排列在四个数据集上的最优解各不相同：Home 为 c-b-a，Beauty 为 b-a-c，Office 为 a-c-b，Yelp 为 a-b-c。以 Home 的 N@20 为例，最优的 c-b-a 为 0.0167，而最差的 a-c-b 只有 0.0144，差距接近 16%；Office 的 R@20 上，a-c-b 的 0.1454 与 c-a-b 的 0.1295 差距更大。这直接说明固定流水线会付出可观的性能代价，也解释了路由器存在的必要性。论文还观察到 Recall 类指标比 NDCG 对顺序更敏感。</p>
-<p>超参数方面，频率滤波层数从 1 增加到 5 时性能持续下降，最优为 1 层，作者归因于过度滤波会削弱用户相关信号；任务专家数在 4 时最佳，超过 4 后因冗余而下降；共享专家数与互信息权重 α 也做了网格搜索。训练开销可控但非免费：SASRec 在 Home 上从 20.35s 增至 29.23s，在 Yelp 上从 735.32s 增至 772.53s，序列越长、数据越大，相对开销越小。</p>
-<p>可视化分析提供了定性佐证，但论文自己也提醒不要过度解读。</p>
-<p><img src="/images/b33cb9870945f1c29f2e3658c6789eca.png" alt="注意力可视化：预训练编码器、近似用户视角与 SG-UMP+STOSA 的对比"></p>
-<p>三列从左到右分别是：仅用预训练嵌入的 STOSA、由显著物品属性近似出的用户视角、以及 SG-UMP 加 STOSA。红色文字标出重要属性，绿色背景深浅表示模型分配的注意力强度。第一列的注意力比较分散，常常落在与用户兴趣无关的商品特征上；第二列是构造出来的参照，突出与用户历史统计相关的属性；第三列中 SG-UMP 的注意力更集中到这些有意义的特征上。这张图支撑的主张是插件让注意力更贴近用户相关信号，但它是定性证据——参照本身是近似的，论文在讨论部分也明确表示模块有效性主要依据定量结果判断。</p>
-<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>SG-UMP 的机制可以压缩成一句话：把多模态嵌入处理拆成频率滤波、层次注意力和 MoE 融合三个同维模块，用模态感知路由器按输入排序，并以条件互信息正则化防止路由塌缩，整体作为插件挂在序列骨干之前。实验证据显示，它在四个数据集上对三种骨干均有一致增益，相对最强基线的提升在 7.22% 到 17.61% 之间；消融表明三个模块互补，全排列实验表明最优顺序随数据集变化，Home 上最优与最差顺序的 N@20 差距接近 16%。</p>
-<p>边界同样清楚。路由顺序是在数据集层面学习的，不是逐用户实时切换，因此它回应的是数据集级模态偏差，而非个体层面的动态路由；可视化中的用户视角是近似参照，不能当作真实注意力 ground truth；频率滤波层最优仅 1 层，说明去噪收益很快饱和，继续堆叠反而有害；训练时间虽有增加，但论文未给出推理延迟的完整分析。</p>
-<p>可迁移的设计启示在于“顺序即超参数”这一视角：当多个功能模块的输入输出维度一致时，与其固定流水线，不如把排列本身交给一个受信息约束的轻量路由器，并用互信息类正则防止它退化为常数。这一思路对任何需要组合多个预处理或融合组件的多模态系统都适用，代价是需要额外的全排列实验来确认顺序确实敏感。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ol>
-<li><p>Xinyi Zhang, Yutong Li, Peijie Sun. SG-UMP: Sequence-Guided Universal Multimodal Prioritization Calculation Framework. arXiv:2608.28503. <a href="https://arxiv.org/abs/2608.28503">https://arxiv.org/abs/2608.28503</a> · 代码：<a href="https://github.com/esemsc-xz524/SG-UMP">https://github.com/esemsc-xz524/SG-UMP</a></p>
-</li>
-<li><p>Wang-Cheng Kang, Julian McAuley. Self-Attentive Sequential Recommendation. ICDM 2018.</p>
-</li>
-<li><p>Jiaxi Tang, Ke Wang. Personalized Top-N Sequential Recommendation via Convolutional Sequence Embedding. WSDM 2018.</p>
-</li>
-<li><p>Ziwei Fan et al. Modeling Sequential Recommendation as Missing Information Imputation. 相关序列推荐工作.</p>
-</li>
-<li><p>Alec Radford et al. Learning Transferable Visual Models From Natural Language Supervision. ICML 2021.</p>
-</li>
-</ol>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>论文速递</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>OpticalRec：面向多模态推荐的统一光学视觉-语言表示</title>
-    <url>/article/paper-2610.05432/</url>
-    <content><![CDATA[<p><a href="https://arxiv.org/abs/2610.05432">论文链接</a></p>
-<h2 id="一、研究背景与问题"><a href="#一、研究背景与问题" class="headerlink" title="一、研究背景与问题"></a>一、研究背景与问题</h2><p>多模态推荐（multimodal collaborative filtering, MMCF）的核心目标是为每个物品学习一个能够同时刻画视觉外观与文本语义的表示，再与用户交互图结合完成匹配。近年来视觉-语言模型（VLM）的进展为这一任务提供了强大的预训练表示，但论文指出，主流做法仍然沿用“先独立编码、再后融合”的范式：视觉编码器与文本编码器各自处理单一模态，随后通过求和、拼接或图融合等刚性操作合并。这种范式存在两个结构性缺陷：其一，独立编码天然缺失跨模态交互（如跨注意力），两种模态被投影到异质向量空间；其二，后融合是有损压缩，会进一步扭曲跨模态语义。</p>
-<p>作者据此提出两条设计准则：多模态内容应置于统一的输入空间以支持丰富的视觉-语言交互；统一输入应被一次性编码为同质嵌入空间，不再引入破坏性的后融合。基于此，论文提出 OpticalRec——首个面向多模态协同过滤的视觉空间统一编码范式。其关键洞察是“所见即用户所见”：用户浏览商品页时会在商品图与文字之间来回切换注意力，因此把物品的文本元数据渲染为视觉字形（glyph），与商品图共同构成一张“物品卡片”，让图像与文字在同一个像素空间内被视觉编码器原生地联合处理，再经语言解码器完成语义级对齐，从而同时利用现代 VLM 的感知级与语义级双重注意力。论文的主要贡献包括：提出视觉空间统一编码框架；在无需有损后融合的前提下保留视觉-语言相关性，并用互信息与矩阵有效秩给出理论支撑；在多个 Amazon 基准与多种推荐骨干上取得一致提升；以及该模块轻量、即插即用、对渲染布局&#x2F;字体&#x2F;颜色鲁棒。</p>
-<h2 id="二、方法"><a href="#二、方法" class="headerlink" title="二、方法"></a>二、方法</h2><p>任务定义。设用户集合 $\mathcal{U}&#x3D;{u_1,\dots,u_M}$、物品集合 $\mathcal{I}&#x3D;{i_1,\dots,i_N}$，物品 $i$ 由图像 $\mathbf{v}_i$ 与文本描述 $\mathbf{t}_i$ 描述。物品嵌入由编码器 $f$ 给出，用户表示由交互物品聚合得到：</p>
-<p>$$</p>
-<p>\mathbf{q}_i &#x3D; f(\mathbf{v}_i, \mathbf{t}_i), \quad \mathbf{p}_u &#x3D; \mathcal{A}({\mathbf{q}<em>i}</em>{i\in\mathcal{N}_u})</p>
-<p>$$</p>
-<p>推荐器 $\mathcal{F}(\cdot)$ 进一步结合用户-物品图 $\mathcal{G}$ 得到 $(\mathbf{p}_u’, \mathbf{q}_i’)&#x3D;\mathcal{F}(\mathbf{p}_u,\mathbf{q}<em>i,\mathcal{G})$，最终打分由内积 $y</em>{ui}&#x3D;\langle \mathbf{p}_u’, \mathbf{q}_i’\rangle$ 给出。</p>
-<p>独立编码与后融合。传统范式先用视觉、语言编码器 $f_V,f_T$ 得到模态特定向量，再用融合算子 $g$ 合并：</p>
-<p>$$</p>
-<p>(\mathbf{v}_i,\mathbf{t}_i) \xrightarrow{f_V,f_T} \mathbf{z}_i^{\mathrm{LF}} \triangleq (\mathbf{z}_i^{v},\mathbf{z}_i^{t}) \xrightarrow{g} \mathbf{q}_i^{\mathrm{LF}}</p>
-<p>$$</p>
-<p>基于提示（prompt）的编码虽在语言解码器层引入了语义级交互，但图像 token 与文本 token 仍是分别编码后拼接，本质上仍属后融合。</p>
-<p>统一像素空间编码。OpticalRec 首先用一次高效的渲染操作 $\mathcal{R}(\cdot)$ 把物品图像 $\mathbf{v}_i$、文本描述 $\mathbf{t}_i$ 以及图文版式结构 $\mathbf{s}_i^{vt}$ 统一映射到像素空间：</p>
-<p>$$</p>
-<p>\tilde{\mathbf{v}}_i &#x3D; \mathcal{R}(\mathbf{v}_i, \mathbf{t}_i, \mathbf{s}_i^{vt})</p>
-<p>$$</p>
-<p>具体渲染步骤为：创建 $m\times m$ 的方形空白画布并设定图像高度 $h$（$h&lt;m$）；按原始宽高比缩放物品图并置于画布上方；从物品 id 检索 {标题, 品牌, 类别, 价格} 文本元数据，渲染到剩余的 $m\times(m-h)$ 区域，版式与配色大致遵循电商页面风格。随后统一输入经单一（冻结的）视觉-语言编码器 $f_\Phi$ 一次性编码：</p>
-<p>$$</p>
-<p>(\mathbf{v}_i,\mathbf{t}_i,\mathbf{s}_i^{vt}) \xrightarrow{\mathcal{R}} \tilde{\mathbf{v}}_i \xrightarrow{f_\Phi} \mathbf{z}_i^{\mathrm{OR}} &#x3D; \mathbf{q}_i^{\mathrm{OR}}</p>
-<p>$$</p>
-<p>由此，跨模态交互同时发生在视觉编码器的 patch 级（感知层，图像区域与渲染字形的区域匹配）与语言解码器的 token 级（语义层），且输出为同质嵌入，无需任何后融合。</p>
-<p>互信息视角的理论分析。论文将两种范式的信息保留差异分解为跨模态增益与融合损失之和：</p>
-<p>$$</p>
-<p>I(\mathbf{q}_i^{\mathrm{OR}};(\mathbf{v}_i,\mathbf{t}_i)) - I(\mathbf{q}_i^{\mathrm{LF}};(\mathbf{v}<em>i,\mathbf{t}<em>i)) &#x3D; \mathcal{I}</em>{\mathrm{cross}}^{\mathrm{OR}} + \mathcal{D}</em>{\mathrm{intra}}^{\mathrm{LF}}</p>
-<p>$$</p>
-<p>其中 $\mathcal{I}_{\mathrm{cross}}^{\mathrm{OR}} \triangleq I(\mathbf{q}_i^{\mathrm{OR}};\mathbf{x}_i) - I(\mathbf{z}_i^{\mathrm{LF}};\mathbf{x}<em>i)$ 为正，因为独立编码无法完整保留跨模态信息，而统一编码将两种模态暴露给同一编码器；$\mathcal{D}</em>{\mathrm{intra}}^{\mathrm{LF}} \triangleq I(\mathbf{z}_i^{\mathrm{LF}};\mathbf{x}_i) - I(\mathbf{q}_i^{\mathrm{LF}};\mathbf{x}_i)$ 为正，因为 $\mathbf{x}_i \to \mathbf{z}_i^{\mathrm{LF}} \to \mathbf{q}_i^{\mathrm{LF}}$ 构成马尔可夫链，由数据处理不等式可知有损融合必然造成严格的信息损失。附录进一步给出跨模态交互预算的规模估计，说明该差距在实际规模下相当可观。</p>
-<p>矩阵有效秩分析。为刻画表示是否塌缩，论文采用有效秩 $\mathrm{erank}(\mathbf{X})&#x3D;\exp\left(-\sum_{i&#x3D;1}^{n} p_i \log p_i\right)$，其中 $p_i&#x3D;\sigma_i&#x2F;\sum_j \sigma_j$ 为归一化奇异值分布；取值越低表示表示塌缩，越高表示信息分布越丰富。</p>
-<p><img src="/images/130c4ed4bfaed98ca0d5c3273edb0b72.png" alt="方法图 1"></p>
-<p>该图对比三种编码路径：传统独立编码加后融合、基于提示的 VLM 编码，以及 OpticalRec 的统一像素空间编码。前两者在融合前都缺少跨模态交互，而 OpticalRec 让图像与渲染文字在同一视觉编码器内完成 patch 级交互，再经语言解码器完成语义级对齐，全程无需后融合。</p>
-<h2 id="三、实验"><a href="#三、实验" class="headerlink" title="三、实验"></a>三、实验</h2><p>数据集与设置。实验采用 Amazon 评论数据中三个常用 MMCF 基准：Baby（108,897 用户 &#x2F; 17,836 物品 &#x2F; 330,771 交互，稀疏度 99.983%）、Pets（461,828 &#x2F; 61,060 &#x2F; 1,772,584，99.993%）与 Clothing（398,796 &#x2F; 75,616 &#x2F; 2,109,975，99.993%），预处理采用 5-core 过滤并剔除缺失特征的物品。骨干模型包括 VBPR、LATTICE、FREEDOM、BM3 与 LGMRec，并额外构造基于提示的 VLM 基线以隔离感知级交互的贡献。主实验使用 Qwen3-VL-8B 且全程冻结，推荐模型用 AdamW 训练并早停，评价指标为 NDCG@20、Recall@20 与 Hit Ratio@20。</p>
-<p>主结果。OpticalRec 在所有骨干与数据集上一致优于最强基线：全部模型、指标与数据集上的平均增益为 2.12%，其中 Pets 上平均提升 3.21%（FREEDOM 的 NDCG@20 最高提升 5.82%），Baby 与 Clothing 分别为 1.65% 与 1.51%。NDCG@20 的提升（2.41%）大于 Recall@20（1.97%），说明不仅召回更强，排序质量也更好。图结构骨干受益更多：LATTICE、FREEDOM、LGMRec 的平均增益分别为 2.29%、2.88%、2.29%，而 VBPR 为 1.09%，表明更丰富的多模态物品表示能进一步促进交互图上的语义传播。以 InternVL3.5-8B 作为编码 VLM 的补充实验同样显示 OpticalRec 全面最优，相对次优基线平均提升 2.51%，体现即插即用特性。</p>
-<p>双重注意力行为。作者以一件“圣诞猫衣”物品卡片为例，用 Cat、Christmas、Clothes 对应的 patch 作为查询可视化注意力：视觉编码器的注意力广泛覆盖商品图与相关文本区域，体现感知级的上下文构建；语言解码器的注意力则更集中于语义匹配的图文区域，体现语义级的精细对齐。两者互补，印证了统一编码在两个阶段完成跨模态交互。</p>
-<p>嵌入几何与有效秩。PCA 可视化显示 OpticalRec 在图像与文本表示之间形成统一流形，而后融合则偏向单一模态（VBPR 偏文本、LATTICE 偏图像），说明事后融合难以平衡异质模态分布。有效秩方面，OpticalRec 取得最高平均有效秩 155.6，比后融合高 22.81%，比最强的单模态基线（纯文本编码）高 11.54%；后融合平均有效秩仅 126.7，比纯文本编码低 9.18%，呈现维度塌缩。附录的 Spearman 分析显示有效秩与 Recall@20 整体呈强正相关（$\rho&#x3D;0.85$，$p&lt;0.001$）。</p>
-<p>消融与鲁棒性。渲染分辨率方面，$544\times544$ 整体最优，更低或更高分辨率均略有下降，说明中等分辨率已足以保留视觉-语言语义并避免不必要的高分辨率推理开销。版式、字号与颜色扰动实验（50% 数据随机打乱 {标题, 品牌, 类别, 价格} 位置、字号缩放 ±25%、文字改为黑白）显示所有结果相对默认设置均在 ±1% 以内。更长文本实验表明加入物品详细描述可带来 +0.7% 至 +1.6% 的提升，且在 1000 字符阈值附近饱和（+1.14%），说明默认仅用标题、品牌、类别、价格已提供较强的推荐信号。效率方面，渲染为一次性离线过程：Baby 的 17,836 件物品用 8 个 worker 耗时 13.5 分钟、占用 2.4 GB；Pets 为 46.0 分钟、8.1 GB；Clothing 为 57.0 分钟、10.1 GB，开销在现代机器上可接受。</p>
-<p><img src="/images/bf61fce1ecd00b3d16eec487298200ea.png" alt="实验图 1"></p>
-<p>该图以圣诞猫衣物品卡片为例，用 Cat、Christmas、Clothes 对应 patch 作为查询展示双重注意力：视觉编码器注意力较宽泛地覆盖商品图与相关文字区域，语言解码器注意力更集中于语义匹配的图文区域，说明感知层与语义层承担互补的跨模态对齐角色。</p>
-<p><img src="/images/5ee4ec6fee98d276761bd613a6cfb27e.png" alt="实验图 2"></p>
-<p>该图用 PCA 与 50% 置信椭圆展示嵌入分布：OpticalRec 在图像与文本表示之间形成统一流形，而后融合明显偏向单一模态，说明事后融合难以平衡异质模态分布，统一编码的跨模态对齐更好。</p>
-<p><img src="/images/8d3c63ffe66d63a1db435082a3cd8fad.png" alt="实验图 3"></p>
-<p>该图比较单模态编码、后融合与 OpticalRec 的矩阵有效秩。灰色区域标出后融合造成的有效秩下降，而 OpticalRec 在各设置下均最高，说明其嵌入空间保留了更丰富的视觉-语言变化、塌缩更少。</p>
-<p><img src="/images/909f446c7b2aec4844530e19f791c245.png" alt="实验图 4"></p>
-<p>该图展示不同物品卡片渲染分辨率下的性能变化，$544\times544$ 在多个数据集与骨干上整体最优，过低或过高分辨率均略有下降，说明中等分辨率已足以承载视觉-语言语义并降低推理开销。</p>
-<p><img src="/images/6b5b6f94d4521f6278b9c3f2a31d8bd5.png" alt="实验图 5"></p>
-<p>该图作为分辨率鲁棒性分析的补充面板，进一步呈现不同渲染分辨率对推荐指标的影响趋势，与主图结论一致：中等分辨率即可稳定取得最佳或接近最佳的表现，便于实际部署时固定渲染配置。</p>
-<h2 id="四、总结"><a href="#四、总结" class="headerlink" title="四、总结"></a>四、总结</h2><p>论文提出 OpticalRec，一种面向多模态协同过滤的统一光学视觉-语言编码框架。它通过将物品文本与图像渲染到共享视觉空间，使跨模态交互同时发生在视觉编码器的感知层与语言解码器的语义层，从而避免破坏性的后融合。跨数据集、跨推荐骨干的实验显示出一致增益，并伴随更高的嵌入有效秩、对渲染变化的鲁棒性以及可接受的一次性预处理成本。作者也指出局限：本文聚焦于基于特征的多模态协同过滤这一大规模物品编码的主流设定，尽管已评估多种骨干、渲染设置、文本长度与 VLM 规模，向视频推荐等更多推荐领域的推广验证仍值得未来研究。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>Shuai Bai, Yuxuan Cai, and 1 others. 2025. Qwen3-vl technical report. Preprint, arXiv:2511.21631.</p>
-</li>
-<li><p>Jingyuan Chen, Hanwang Zhang, Xiangnan He, Liqiang Nie, Wei Liu, and Tat-Seng Chua. 2017. Attentive collaborative filtering: Multimedia recommendation with item-and component-level attention. In Proceedings of the 40th International ACM SIGIR Conference on Research and Development in Information Retrieval, pages 335–344.</p>
-</li>
-<li><p>Thomas M. Cover and Joy A. Thomas. 2006. Elements of Information Theory, 2nd edition. John Wiley &amp; Sons, Hoboken, NJ.</p>
-</li>
-<li><p>Zhiqiang Guo, Jianjun Li, Guohui Li, Chaoyang Wang, Si Shi, and Bin Ruan. 2024. Lgmrec: Local and global graph learning for multimodal recommendation. In Proceedings of the AAAI Conference on Artificial Intelligence, volume 38, pages 8454–8462.</p>
-</li>
-<li><p>Ruining He and Julian McAuley. 2016. Vbpr: visual bayesian personalized ranking from implicit feedback. In Proceedings of the AAAI conference on artificial intelligence, volume 30.</p>
-</li>
-<li><p>Yicheng He, Zhou Kaiyu, Haoyue Bai, Fengbin Zhu, and Yonghui Yang. 2025. Understanding embedding scaling in collaborative filtering. arXiv preprint arXiv:2509.15709.</p>
-</li>
-<li><p>Yupeng Hou, Jiacheng Li, Zhankui He, An Yan, Xiusi Chen, and Julian McAuley. 2024. Bridging language and items for retrieval and recommendation. Preprint, arXiv:2403.03952.</p>
-</li>
-<li><p>Kibum Kim, Jiwan Kim, Kyle Min, Yueqi Wang, Jinyoung Moon, Julian McAuley, and Chanyoung Park. 2026. Sink-token-aware pruning for fine-grained video understanding in efficient video llms. arXiv preprint arXiv:2604.20937.</p>
-</li>
-<li><p>Zijie Lei, Tao Feng, Zhigang Hua, Yan Xie, Guanyu Lin, Shuang Yang, Ge Liu, and Jiaxuan You. 2026. Unirec: Unified multimodal encoding for llm-based recommendations. arXiv preprint arXiv:2601.19423.</p>
-</li>
-<li><p>Bo Li, Yuanhan Zhang, Dong Guo, Renrui Zhang, Feng Li, Hao Zhang, Kaichen Zhang, Peiyuan Zhang, Yanwei Li, Ziwei Liu, and 1 others. 2024a. Llava-onevision: Easy visual task transfer. arXiv preprint arXiv:2408.03326.</p>
-</li>
-<li><p>Feng Li, Renrui Zhang, Hao Zhang, Yuanhan Zhang, Bo Li, Wei Li, Zejun Ma, and Chunyuan Li. 2024b. Llava-next-interleave: Tackling multi-image, video, and 3d in large multimodal models. arXiv preprint arXiv:2407.07895.</p>
-</li>
-<li><p>Guohui Li, Li Zou, Zhiying Deng, and Qi Chen. 2024c. Neighborhood-enhanced multimodal collaborative filtering for item cold start recommendation. In ICASSP 2024-2024 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP), pages 7815–7819. IEEE.</p>
-</li>
-<li><p>Kang Liu, Feng Xue, Dan Guo, Le Wu, Shujie Li, and Richang Hong. 2023. Megcf: Multimodal entity graph collaborative filtering for personalized recommendation. ACM transactions on information systems, 41(2):1–27.</p>
-</li>
-<li><p>Shiqin Liu, Chaozhuo Li, Minjun Zhao, Litian Zhang, and Jiajun Bu. 2025. Modalsync: Synchronizing user behavior with multimodal features for multimodal pre-training recommendation. In Companion Proceedings of the ACM on Web Conference 2025, pages 2278–2287.</p>
-</li>
-<li><p>Daniele Malitesta, Giandomenico Cornacchia, Claudio Pomo, Felice Antonio Merra, Tommaso Di Noia, and Eugenio Di Sciascio. 2025. Formalizing multimedia recommendation through multimodal deep learning. ACM Transactions on Recommender Systems, 3(3):1–33.</p>
-</li>
-<li><p>Daniele Malitesta, Emanuele Rossi, Claudio Pomo, Tommaso Di Noia, and Fragkiskos D Malliaros. 2024. Do we really need to drop items with missing modalities in multimodal recommendation? In Proceedings of the 33rd ACM International Conference on Information and Knowledge Management, pages 3943–3948.</p>
-</li>
-<li><p>Rongqing Kenneth Ong and Andy WH Khong. 2025. Spectrum-based modality representation fusion graph convolutional network for multimodal recommendation. In Proceedings of the Eighteenth ACM International Conference on Web Search and Data Mining, pages 773–781.</p>
-</li>
-<li><p>OpenAI. 2026. OpenAI gpt-5 system card. Preprint, arXiv:2601.03267.</p>
-</li>
-<li><p>OpenGV. 2025. Internvl3.5: Advancing open-source multimodal models in versatility, reasoning, and efficiency. Preprint, arXiv:2508.18265.</p>
-</li>
-<li><p>Claudio Pomo, Matteo Attimonelli, Danilo Danese, Fedelucio Narducci, and Tommaso Di Noia. 2025. Do recommender systems really leverage multimodal content? a comprehensive analysis on multimodal representations for recommendation. In Proceedings of the 34th ACM International Conference on Information and Knowledge Management, pages 2377–2387.</p>
-</li>
-<li><p>Shutong Qiao, Wei Yuan, Tong Chen, Xiangyu Zhao, Quoc Viet Hung Nguyen, and Hongzhi Yin. 2026. When text-as-vision meets semantic ids in generative recommendation: An empirical study. arXiv preprint arXiv:2601.14697.</p>
-</li>
-<li><p>Olivier Roy and Martin Vetterli. 2007. The effective rank: A measure of effective dimensionality. In 2007 15th European Signal Processing Conference, pages 606–610. IEEE.</p>
-</li>
-<li><p>Leheng Sheng, An Zhang, Yi Zhang, Yuxin Chen, Xiang Wang, and Tat-Seng Chua. 2024. Language representations can be what recommenders need: Findings and potentials. arXiv preprint arXiv:2407.05441.</p>
-</li>
-<li><p>Jianlin Su. 2025. Effective rank construction and computation.</p>
-</li>
-<li><p>Qifan Wang, Yinwei Wei, Jianhua Yin, Jianlong Wu, Xuemeng Song, and Liqiang Nie. 2021. Dualgnn: Dual graph neural network for multimedia recommendation. IEEE Transactions on Multimedia, 25:1074–1084.</p>
-</li>
-<li><p>Yueqi Wang, Zhankui He, Zhenrui Yue, Julian McAuley, and Dong Wang. 2025a. Your causal self-attentive recommender hosts a lonely neighborhood. In Proceedings of the Eighteenth ACM International Conference on Web Search and Data Mining, pages 688–696.</p>
-</li>
-<li><p>Yueqi Wang, Zhenrui Yue, Huimin Zeng, Dong Wang, and Julian McAuley. 2024. Train once, deploy anywhere: Matryoshka representation learning for multimodal recommendation. In Findings of the Association for Computational Linguistics: EMNLP 2024, pages 13461–13472.</p>
-</li>
-<li><p>Yuxiang Wang, Xin Shi, and Xueqing Zhao. 2025b. Mllm4rec: multimodal information enhancing llm for sequential recommendation. Journal of Intelligent Information Systems, 63(3):745–761.</p>
-</li>
-<li><p>Yinwei Wei, Xiang Wang, Liqiang Nie, Xiangnan He, and Tat-Seng Chua. 2020. Graph-refined convolutional network for multimedia recommendation with implicit feedback. In Proceedings of the 28th ACM international conference on multimedia, pages 3541–3549.</p>
-</li>
-<li><p>Yinwei Wei, Xiang Wang, Liqiang Nie, Xiangnan He, Richang Hong, and Tat-Seng Chua. 2019. Mmgcn: Multi-modal graph convolution network for personalized recommendation of micro-video. In Proceedings of the 27th ACM international conference on multimedia, pages 1437–1445.</p>
-</li>
-<li><p>Xin Xin, Xiangnan He, Yongfeng Zhang, Yongdong Zhang, and Joemon Jose. 2019. Relational collaborative filtering: Modeling multiple item relations for recommendation. In Proceedings of the 42nd international ACM SIGIR conference on research and development in information retrieval, pages 125–134.</p>
-</li>
-<li><p>Shuo Xing, Peiran Li, Yuping Wang, Ruizheng Bai, Yueqi Wang, Chan-Wei Hu, Chengxuan Qian, Huaxiu Yao, and Zhengzhong Tu. 2025. Re-align: Aligning vision language models via retrieval-augmented direct preference optimization. In Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing, pages 2379–2397.</p>
-</li>
-<li><p>Jinfeng Xu, Zheyu Chen, Shuo Yang, Jinze Li, Wei Wang, Xiping Hu, Steven Hoi, and Edith Ngai. 2025. A survey on multimodal recommender systems: Recent advances and future directions. arXiv preprint arXiv:2502.15711.</p>
-</li>
-<li><p>Yu Ye, Junchen Fu, Yu Song, Kaiwen Zheng, and Joemon M Jose. 2025. Are multimodal embeddings truly beneficial for recommendation? a deep dive into whole vs. individual modalities. arXiv preprint arXiv:2508.07399.</p>
-</li>
-<li><p>Penghang Yu, Zhiyi Tan, Guanming Lu, and Bing-Kun Bao. 2023. Multi-view graph convolutional network for multimedia recommendation. In Proceedings of the 31st ACM international conference on multimedia, pages 6576–6585.</p>
-</li>
-<li><p>Penghang Yu, Zhiyi Tan, Guanming Lu, and Bing-Kun Bao. 2025. Mind individual information! principal graph learning for multimedia recommendation. In Proceedings of the AAAI conference on artificial intelligence, volume 39, pages 13096–13105.</p>
-</li>
-<li><p>Zhenrui Yue, Yueqi Wang, Zhankui He, Huimin Zeng, Julian McAuley, and Dong Wang. 2024. Linear recurrent units for sequential recommendation. In Proceedings of the 17th ACM international conference on web search and data mining, pages 930–938.</p>
-</li>
-<li><p>Zhenrui Yue, Huimin Zeng, Yueqi Wang, Julian McAuley, and Dong Wang. 2025. Preference-optimized retrieval and ranking for efficient multimodal recommendation. In Proceedings of the 31st ACM SIGKDD Conference on Knowledge Discovery and Data Mining V. 2, pages 3692–3703.</p>
-</li>
-<li><p>Jianyang Zhai, Zi-Feng Mai, Chang-Dong Wang, Feidiao Yang, Xiawu Zheng, Hui Li, and Yonghong Tian. 2025. Multimodal quantitative language for generative recommendation. In The Thirteenth International Conference on Learning Representations.</p>
-</li>
-<li><p>Jinghao Zhang, Yanqiao Zhu, Qiang Liu, Shu Wu, Shuhui Wang, and Liang Wang. 2021. Mining latent structures for multimedia recommendation. In Proceedings of the 29th ACM international conference on multimedia, pages 3872–3880.</p>
-</li>
-<li><p>Bowen Zheng, Junjie Zhang, Hongyu Lu, Yu Chen, Ming Chen, Wayne Xin Zhao, and Ji-Rong Wen. 2024. Enhancing graph contrastive learning with reliable and informative augmentation for recommendation. arXiv preprint arXiv:2409.05633.</p>
-</li>
-<li><p>Hongyu Zhou, Yinan Zhang, Aixin Sun, and Zhiqi Shen. 2025a. Does multimodality improve recommender systems as expected? a critical analysis and future directions. Preprint, arXiv:2508.05377.</p>
-</li>
-<li><p>Hongyu Zhou, Xin Zhou, Lingzi Zhang, and Zhiqi Shen. 2023a. Enhancing dyadic relations with homogeneous graphs for multimodal recommendation. arXiv preprint arXiv:2301.12097.</p>
-</li>
-<li><p>Xin Zhou. 2023. Mmrec: Simplifying multimodal recommendation. In Proceedings of the 5th ACM International Conference on Multimedia in Asia Workshops, pages 1–2.</p>
-</li>
-<li><p>Xin Zhou and Zhiqi Shen. 2023. A tale of two graphs: Freezing and denoising graph structures for multimodal recommendation. In Proceedings of the 31st ACM international conference on multimedia, pages 935–943.</p>
-</li>
-<li><p>Xin Zhou, Xiaoxiong Zhang, Dusit Niyato, and Zhiqi Shen. 2025b. Learning item representations directly from multimodal features for effective recommendation. arXiv preprint arXiv:2505.04960.</p>
-</li>
-<li><p>Xin Zhou, Hongyu Zhou, Yong Liu, Zhiwei Zeng, Chunyan Miao, Pengwei Wang, Yuan You, and Feijun Jiang. 2023b. Bootstrap latent representations for multi-modal recommendation. In Proceedings of the ACM web conference 2023, pages 845–854.</p>
-</li>
-</ul>
-<!-- related-reading:start -->
-
-<h2 id="补充阅读"><a href="#补充阅读" class="headerlink" title="补充阅读"></a>补充阅读</h2><h3 id="1-Sink-token-aware-pruning-for-fine-grained-video-understanding-in-efficient-video-llms"><a href="#1-Sink-token-aware-pruning-for-fine-grained-video-understanding-in-efficient-video-llms" class="headerlink" title="1. Sink-token-aware pruning for fine-grained video understanding in efficient video llms"></a>1. Sink-token-aware pruning for fine-grained video understanding in efficient video llms</h3><p>年份：2026</p>
-<p><a href="https://arxiv.org/abs/2604.20937">论文链接</a></p>
-<h3 id="2-Openai-gpt-5-system-card"><a href="#2-Openai-gpt-5-system-card" class="headerlink" title="2. Openai gpt-5 system card"></a>2. Openai gpt-5 system card</h3><p>年份：2026</p>
-<p><a href="https://arxiv.org/abs/2601.03267">论文链接</a></p>
-<!-- related-reading:end -->
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>多模态推荐</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-        <tag>统一编码</tag>
-        <tag>视觉空间渲染</tag>
-        <tag>跨模态交互</tag>
-        <tag>即插即用</tag>
-        <tag>有效秩</tag>
-        <tag>互信息</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>管道流简化随机模型中湍流转变概率</title>
     <url>/article/pipe-flow-turbulence-transition/</url>
     <content><![CDATA[<blockquote>
@@ -6227,6 +6011,210 @@
 ]]></content>
       <categories>
         <category>跨学科与基础</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>OpticalRec：面向多模态推荐的统一光学视觉-语言表示</title>
+    <url>/article/paper-2610.05432/</url>
+    <content><![CDATA[<p><a href="https://arxiv.org/abs/2610.05432">论文链接</a></p>
+<h2 id="一、研究背景与问题"><a href="#一、研究背景与问题" class="headerlink" title="一、研究背景与问题"></a>一、研究背景与问题</h2><p>多模态推荐（multimodal collaborative filtering, MMCF）的核心目标是为每个物品学习一个能够同时刻画视觉外观与文本语义的表示，再与用户交互图结合完成匹配。近年来视觉-语言模型（VLM）的进展为这一任务提供了强大的预训练表示，但论文指出，主流做法仍然沿用“先独立编码、再后融合”的范式：视觉编码器与文本编码器各自处理单一模态，随后通过求和、拼接或图融合等刚性操作合并。这种范式存在两个结构性缺陷：其一，独立编码天然缺失跨模态交互（如跨注意力），两种模态被投影到异质向量空间；其二，后融合是有损压缩，会进一步扭曲跨模态语义。</p>
+<p>作者据此提出两条设计准则：多模态内容应置于统一的输入空间以支持丰富的视觉-语言交互；统一输入应被一次性编码为同质嵌入空间，不再引入破坏性的后融合。基于此，论文提出 OpticalRec——首个面向多模态协同过滤的视觉空间统一编码范式。其关键洞察是“所见即用户所见”：用户浏览商品页时会在商品图与文字之间来回切换注意力，因此把物品的文本元数据渲染为视觉字形（glyph），与商品图共同构成一张“物品卡片”，让图像与文字在同一个像素空间内被视觉编码器原生地联合处理，再经语言解码器完成语义级对齐，从而同时利用现代 VLM 的感知级与语义级双重注意力。论文的主要贡献包括：提出视觉空间统一编码框架；在无需有损后融合的前提下保留视觉-语言相关性，并用互信息与矩阵有效秩给出理论支撑；在多个 Amazon 基准与多种推荐骨干上取得一致提升；以及该模块轻量、即插即用、对渲染布局&#x2F;字体&#x2F;颜色鲁棒。</p>
+<h2 id="二、方法"><a href="#二、方法" class="headerlink" title="二、方法"></a>二、方法</h2><p>任务定义。设用户集合 <span class="math-inline">(\mathcal{U}&#x3D;{u_1,\dots,u_M})</span>、物品集合 <span class="math-inline">(\mathcal{I}&#x3D;{i_1,\dots,i_N})</span>，物品 <span class="math-inline">(i)</span> 由图像 <span class="math-inline">(\mathbf{v}_i)</span> 与文本描述 <span class="math-inline">(\mathbf{t}_i)</span> 描述。物品嵌入由编码器 <span class="math-inline">(f)</span> 给出，用户表示由交互物品聚合得到：</p>
+<div class="math-display">\[\mathbf{q}_i = f(\mathbf{v}_i, \mathbf{t}_i), \quad \mathbf{p}_u = \mathcal{A}(\{\mathbf{q}_i\}_{i\in\mathcal{N}_u})\]</div>
+
+<p>推荐器 <span class="math-inline">(\mathcal{F}(\cdot))</span> 进一步结合用户-物品图 <span class="math-inline">(\mathcal{G})</span> 得到 <span class="math-inline">((\mathbf{p}_u’, \mathbf{q}_i’)&#x3D;\mathcal{F}(\mathbf{p}_u,\mathbf{q}<em>i,\mathcal{G}))</span>，最终打分由内积 <span class="math-inline">(y</em>{ui}&#x3D;\langle \mathbf{p}_u’, \mathbf{q}_i’\rangle)</span> 给出。</p>
+<p>独立编码与后融合。传统范式先用视觉、语言编码器 <span class="math-inline">(f_V,f_T)</span> 得到模态特定向量，再用融合算子 <span class="math-inline">(g)</span> 合并：</p>
+<div class="math-display">\[(\mathbf{v}_i,\mathbf{t}_i) \xrightarrow{f_V,f_T} \mathbf{z}_i^{\mathrm{LF}} \triangleq (\mathbf{z}_i^{v},\mathbf{z}_i^{t}) \xrightarrow{g} \mathbf{q}_i^{\mathrm{LF}}\]</div>
+
+<p>基于提示（prompt）的编码虽在语言解码器层引入了语义级交互，但图像 token 与文本 token 仍是分别编码后拼接，本质上仍属后融合。</p>
+<p>统一像素空间编码。OpticalRec 首先用一次高效的渲染操作 <span class="math-inline">(\mathcal{R}(\cdot))</span> 把物品图像 <span class="math-inline">(\mathbf{v}_i)</span>、文本描述 <span class="math-inline">(\mathbf{t}_i)</span> 以及图文版式结构 <span class="math-inline">(\mathbf{s}_i^{vt})</span> 统一映射到像素空间：</p>
+<div class="math-display">\[\tilde{\mathbf{v}}_i = \mathcal{R}(\mathbf{v}_i, \mathbf{t}_i, \mathbf{s}_i^{vt})\]</div>
+
+<p>具体渲染步骤为：创建 <span class="math-inline">(m\times m)</span> 的方形空白画布并设定图像高度 <span class="math-inline">(h)</span>（<span class="math-inline">(h&lt;m)</span>）；按原始宽高比缩放物品图并置于画布上方；从物品 id 检索 {标题, 品牌, 类别, 价格} 文本元数据，渲染到剩余的 <span class="math-inline">(m\times(m-h))</span> 区域，版式与配色大致遵循电商页面风格。随后统一输入经单一（冻结的）视觉-语言编码器 <span class="math-inline">(f_\Phi)</span> 一次性编码：</p>
+<div class="math-display">\[(\mathbf{v}_i,\mathbf{t}_i,\mathbf{s}_i^{vt}) \xrightarrow{\mathcal{R}} \tilde{\mathbf{v}}_i \xrightarrow{f_\Phi} \mathbf{z}_i^{\mathrm{OR}} = \mathbf{q}_i^{\mathrm{OR}}\]</div>
+
+<p>由此，跨模态交互同时发生在视觉编码器的 patch 级（感知层，图像区域与渲染字形的区域匹配）与语言解码器的 token 级（语义层），且输出为同质嵌入，无需任何后融合。</p>
+<p>互信息视角的理论分析。论文将两种范式的信息保留差异分解为跨模态增益与融合损失之和：</p>
+<div class="math-display">\[I(\mathbf{q}_i^{\mathrm{OR}};(\mathbf{v}_i,\mathbf{t}_i)) - I(\mathbf{q}_i^{\mathrm{LF}};(\mathbf{v}_i,\mathbf{t}_i)) = \mathcal{I}_{\mathrm{cross}}^{\mathrm{OR}} + \mathcal{D}_{\mathrm{intra}}^{\mathrm{LF}}\]</div>
+
+<p>其中 <span class="math-inline">(\mathcal{I}_{\mathrm{cross}}^{\mathrm{OR}} \triangleq I(\mathbf{q}_i^{\mathrm{OR}};\mathbf{x}_i) - I(\mathbf{z}_i^{\mathrm{LF}};\mathbf{x}<em>i))</span> 为正，因为独立编码无法完整保留跨模态信息，而统一编码将两种模态暴露给同一编码器；<span class="math-inline">(\mathcal{D}</em>{\mathrm{intra}}^{\mathrm{LF}} \triangleq I(\mathbf{z}_i^{\mathrm{LF}};\mathbf{x}_i) - I(\mathbf{q}_i^{\mathrm{LF}};\mathbf{x}_i))</span> 为正，因为 <span class="math-inline">(\mathbf{x}_i \to \mathbf{z}_i^{\mathrm{LF}} \to \mathbf{q}_i^{\mathrm{LF}})</span> 构成马尔可夫链，由数据处理不等式可知有损融合必然造成严格的信息损失。附录进一步给出跨模态交互预算的规模估计，说明该差距在实际规模下相当可观。</p>
+<p>矩阵有效秩分析。为刻画表示是否塌缩，论文采用有效秩 <span class="math-inline">(\mathrm{erank}(\mathbf{X})&#x3D;\exp\left(-\sum_{i&#x3D;1}^{n} p_i \log p_i\right))</span>，其中 <span class="math-inline">(p_i&#x3D;\sigma_i&#x2F;\sum_j \sigma_j)</span> 为归一化奇异值分布；取值越低表示表示塌缩，越高表示信息分布越丰富。</p>
+<p><img src="/images/cb6d66ae554a6633322ba4ddb273c71e.png" alt="方法图 1"></p>
+<p>该图对比三种编码路径：传统独立编码加后融合、基于提示的 VLM 编码，以及 OpticalRec 的统一像素空间编码。前两者在融合前都缺少跨模态交互，而 OpticalRec 让图像与渲染文字在同一视觉编码器内完成 patch 级交互，再经语言解码器完成语义级对齐，全程无需后融合。</p>
+<h2 id="三、实验"><a href="#三、实验" class="headerlink" title="三、实验"></a>三、实验</h2><p>数据集与设置。实验采用 Amazon 评论数据中三个常用 MMCF 基准：Baby（108,897 用户 &#x2F; 17,836 物品 &#x2F; 330,771 交互，稀疏度 99.983%）、Pets（461,828 &#x2F; 61,060 &#x2F; 1,772,584，99.993%）与 Clothing（398,796 &#x2F; 75,616 &#x2F; 2,109,975，99.993%），预处理采用 5-core 过滤并剔除缺失特征的物品。骨干模型包括 VBPR、LATTICE、FREEDOM、BM3 与 LGMRec，并额外构造基于提示的 VLM 基线以隔离感知级交互的贡献。主实验使用 Qwen3-VL-8B 且全程冻结，推荐模型用 AdamW 训练并早停，评价指标为 NDCG@20、Recall@20 与 Hit Ratio@20。</p>
+<p>主结果。OpticalRec 在所有骨干与数据集上一致优于最强基线：全部模型、指标与数据集上的平均增益为 2.12%，其中 Pets 上平均提升 3.21%（FREEDOM 的 NDCG@20 最高提升 5.82%），Baby 与 Clothing 分别为 1.65% 与 1.51%。NDCG@20 的提升（2.41%）大于 Recall@20（1.97%），说明不仅召回更强，排序质量也更好。图结构骨干受益更多：LATTICE、FREEDOM、LGMRec 的平均增益分别为 2.29%、2.88%、2.29%，而 VBPR 为 1.09%，表明更丰富的多模态物品表示能进一步促进交互图上的语义传播。以 InternVL3.5-8B 作为编码 VLM 的补充实验同样显示 OpticalRec 全面最优，相对次优基线平均提升 2.51%，体现即插即用特性。</p>
+<p>双重注意力行为。作者以一件“圣诞猫衣”物品卡片为例，用 Cat、Christmas、Clothes 对应的 patch 作为查询可视化注意力：视觉编码器的注意力广泛覆盖商品图与相关文本区域，体现感知级的上下文构建；语言解码器的注意力则更集中于语义匹配的图文区域，体现语义级的精细对齐。两者互补，印证了统一编码在两个阶段完成跨模态交互。</p>
+<p>嵌入几何与有效秩。PCA 可视化显示 OpticalRec 在图像与文本表示之间形成统一流形，而后融合则偏向单一模态（VBPR 偏文本、LATTICE 偏图像），说明事后融合难以平衡异质模态分布。有效秩方面，OpticalRec 取得最高平均有效秩 155.6，比后融合高 22.81%，比最强的单模态基线（纯文本编码）高 11.54%；后融合平均有效秩仅 126.7，比纯文本编码低 9.18%，呈现维度塌缩。附录的 Spearman 分析显示有效秩与 Recall@20 整体呈强正相关（<span class="math-inline">(\rho&#x3D;0.85)</span>，<span class="math-inline">(p&lt;0.001)</span>）。</p>
+<p>消融与鲁棒性。渲染分辨率方面，<span class="math-inline">(544\times544)</span> 整体最优，更低或更高分辨率均略有下降，说明中等分辨率已足以保留视觉-语言语义并避免不必要的高分辨率推理开销。版式、字号与颜色扰动实验（50% 数据随机打乱 {标题, 品牌, 类别, 价格} 位置、字号缩放 ±25%、文字改为黑白）显示所有结果相对默认设置均在 ±1% 以内。更长文本实验表明加入物品详细描述可带来 +0.7% 至 +1.6% 的提升，且在 1000 字符阈值附近饱和（+1.14%），说明默认仅用标题、品牌、类别、价格已提供较强的推荐信号。效率方面，渲染为一次性离线过程：Baby 的 17,836 件物品用 8 个 worker 耗时 13.5 分钟、占用 2.4 GB；Pets 为 46.0 分钟、8.1 GB；Clothing 为 57.0 分钟、10.1 GB，开销在现代机器上可接受。</p>
+<p><img src="/images/1ebfcd71f7be071bb1682b4efb1b65be.png" alt="实验图 1"></p>
+<p>该图以圣诞猫衣物品卡片为例，用 Cat、Christmas、Clothes 对应 patch 作为查询展示双重注意力：视觉编码器注意力较宽泛地覆盖商品图与相关文字区域，语言解码器注意力更集中于语义匹配的图文区域，说明感知层与语义层承担互补的跨模态对齐角色。</p>
+<p><img src="/images/1374d62fafc2ce749d28b69e55827f4f.png" alt="实验图 2"></p>
+<p>该图用 PCA 与 50% 置信椭圆展示嵌入分布：OpticalRec 在图像与文本表示之间形成统一流形，而后融合明显偏向单一模态，说明事后融合难以平衡异质模态分布，统一编码的跨模态对齐更好。</p>
+<p><img src="/images/a4a36a82ac2fc18fb49a791433c534fc.png" alt="实验图 3"></p>
+<p>该图比较单模态编码、后融合与 OpticalRec 的矩阵有效秩。灰色区域标出后融合造成的有效秩下降，而 OpticalRec 在各设置下均最高，说明其嵌入空间保留了更丰富的视觉-语言变化、塌缩更少。</p>
+<p><img src="/images/faa790e1a8210455a5f23f2f49c4b6c6.png" alt="实验图 4"></p>
+<p>该图展示不同物品卡片渲染分辨率下的性能变化，<span class="math-inline">(544\times544)</span> 在多个数据集与骨干上整体最优，过低或过高分辨率均略有下降，说明中等分辨率已足以承载视觉-语言语义并降低推理开销。</p>
+<p><img src="/images/84396bad91776bc195efae52e5deed05.png" alt="实验图 5"></p>
+<p>该图作为分辨率鲁棒性分析的补充面板，进一步呈现不同渲染分辨率对推荐指标的影响趋势，与主图结论一致：中等分辨率即可稳定取得最佳或接近最佳的表现，便于实际部署时固定渲染配置。</p>
+<h2 id="四、总结"><a href="#四、总结" class="headerlink" title="四、总结"></a>四、总结</h2><p>论文提出 OpticalRec，一种面向多模态协同过滤的统一光学视觉-语言编码框架。它通过将物品文本与图像渲染到共享视觉空间，使跨模态交互同时发生在视觉编码器的感知层与语言解码器的语义层，从而避免破坏性的后融合。跨数据集、跨推荐骨干的实验显示出一致增益，并伴随更高的嵌入有效秩、对渲染变化的鲁棒性以及可接受的一次性预处理成本。作者也指出局限：本文聚焦于基于特征的多模态协同过滤这一大规模物品编码的主流设定，尽管已评估多种骨干、渲染设置、文本长度与 VLM 规模，向视频推荐等更多推荐领域的推广验证仍值得未来研究。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>Shuai Bai, Yuxuan Cai, and 1 others. 2025. Qwen3-vl technical report. Preprint, arXiv:2511.21631.</p>
+</li>
+<li><p>Jingyuan Chen, Hanwang Zhang, Xiangnan He, Liqiang Nie, Wei Liu, and Tat-Seng Chua. 2017. Attentive collaborative filtering: Multimedia recommendation with item-and component-level attention. In Proceedings of the 40th International ACM SIGIR Conference on Research and Development in Information Retrieval, pages 335–344.</p>
+</li>
+<li><p>Thomas M. Cover and Joy A. Thomas. 2006. Elements of Information Theory, 2nd edition. John Wiley &amp; Sons, Hoboken, NJ.</p>
+</li>
+<li><p>Zhiqiang Guo, Jianjun Li, Guohui Li, Chaoyang Wang, Si Shi, and Bin Ruan. 2024. Lgmrec: Local and global graph learning for multimodal recommendation. In Proceedings of the AAAI Conference on Artificial Intelligence, volume 38, pages 8454–8462.</p>
+</li>
+<li><p>Ruining He and Julian McAuley. 2016. Vbpr: visual bayesian personalized ranking from implicit feedback. In Proceedings of the AAAI conference on artificial intelligence, volume 30.</p>
+</li>
+<li><p>Yicheng He, Zhou Kaiyu, Haoyue Bai, Fengbin Zhu, and Yonghui Yang. 2025. Understanding embedding scaling in collaborative filtering. arXiv preprint arXiv:2509.15709.</p>
+</li>
+<li><p>Yupeng Hou, Jiacheng Li, Zhankui He, An Yan, Xiusi Chen, and Julian McAuley. 2024. Bridging language and items for retrieval and recommendation. Preprint, arXiv:2403.03952.</p>
+</li>
+<li><p>Kibum Kim, Jiwan Kim, Kyle Min, Yueqi Wang, Jinyoung Moon, Julian McAuley, and Chanyoung Park. 2026. Sink-token-aware pruning for fine-grained video understanding in efficient video llms. arXiv preprint arXiv:2604.20937. <a href="https://arxiv.org/abs/2604.20937">论文链接</a> · <a href="https://github.com/rlqja1107/SToP">代码链接</a></p>
+</li>
+<li><p>Zijie Lei, Tao Feng, Zhigang Hua, Yan Xie, Guanyu Lin, Shuang Yang, Ge Liu, and Jiaxuan You. 2026. Unirec: Unified multimodal encoding for llm-based recommendations. arXiv preprint arXiv:2601.19423.</p>
+</li>
+<li><p>Bo Li, Yuanhan Zhang, Dong Guo, Renrui Zhang, Feng Li, Hao Zhang, Kaichen Zhang, Peiyuan Zhang, Yanwei Li, Ziwei Liu, and 1 others. 2024a. Llava-onevision: Easy visual task transfer. arXiv preprint arXiv:2408.03326.</p>
+</li>
+<li><p>Feng Li, Renrui Zhang, Hao Zhang, Yuanhan Zhang, Bo Li, Wei Li, Zejun Ma, and Chunyuan Li. 2024b. Llava-next-interleave: Tackling multi-image, video, and 3d in large multimodal models. arXiv preprint arXiv:2407.07895.</p>
+</li>
+<li><p>Guohui Li, Li Zou, Zhiying Deng, and Qi Chen. 2024c. Neighborhood-enhanced multimodal collaborative filtering for item cold start recommendation. In ICASSP 2024-2024 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP), pages 7815–7819. IEEE.</p>
+</li>
+<li><p>Kang Liu, Feng Xue, Dan Guo, Le Wu, Shujie Li, and Richang Hong. 2023. Megcf: Multimodal entity graph collaborative filtering for personalized recommendation. ACM transactions on information systems, 41(2):1–27.</p>
+</li>
+<li><p>Shiqin Liu, Chaozhuo Li, Minjun Zhao, Litian Zhang, and Jiajun Bu. 2025. Modalsync: Synchronizing user behavior with multimodal features for multimodal pre-training recommendation. In Companion Proceedings of the ACM on Web Conference 2025, pages 2278–2287.</p>
+</li>
+<li><p>Daniele Malitesta, Giandomenico Cornacchia, Claudio Pomo, Felice Antonio Merra, Tommaso Di Noia, and Eugenio Di Sciascio. 2025. Formalizing multimedia recommendation through multimodal deep learning. ACM Transactions on Recommender Systems, 3(3):1–33.</p>
+</li>
+<li><p>Daniele Malitesta, Emanuele Rossi, Claudio Pomo, Tommaso Di Noia, and Fragkiskos D Malliaros. 2024. Do we really need to drop items with missing modalities in multimodal recommendation? In Proceedings of the 33rd ACM International Conference on Information and Knowledge Management, pages 3943–3948.</p>
+</li>
+<li><p>Rongqing Kenneth Ong and Andy WH Khong. 2025. Spectrum-based modality representation fusion graph convolutional network for multimodal recommendation. In Proceedings of the Eighteenth ACM International Conference on Web Search and Data Mining, pages 773–781.</p>
+</li>
+<li><p>OpenAI. 2026. OpenAI gpt-5 system card. Preprint, arXiv:2601.03267. <a href="https://arxiv.org/abs/2601.03267">论文链接</a></p>
+</li>
+<li><p>OpenGV. 2025. Internvl3.5: Advancing open-source multimodal models in versatility, reasoning, and efficiency. Preprint, arXiv:2508.18265.</p>
+</li>
+<li><p>Claudio Pomo, Matteo Attimonelli, Danilo Danese, Fedelucio Narducci, and Tommaso Di Noia. 2025. Do recommender systems really leverage multimodal content? a comprehensive analysis on multimodal representations for recommendation. In Proceedings of the 34th ACM International Conference on Information and Knowledge Management, pages 2377–2387.</p>
+</li>
+<li><p>Shutong Qiao, Wei Yuan, Tong Chen, Xiangyu Zhao, Quoc Viet Hung Nguyen, and Hongzhi Yin. 2026. When text-as-vision meets semantic ids in generative recommendation: An empirical study. arXiv preprint arXiv:2601.14697.</p>
+</li>
+<li><p>Olivier Roy and Martin Vetterli. 2007. The effective rank: A measure of effective dimensionality. In 2007 15th European Signal Processing Conference, pages 606–610. IEEE.</p>
+</li>
+<li><p>Leheng Sheng, An Zhang, Yi Zhang, Yuxin Chen, Xiang Wang, and Tat-Seng Chua. 2024. Language representations can be what recommenders need: Findings and potentials. arXiv preprint arXiv:2407.05441.</p>
+</li>
+<li><p>Jianlin Su. 2025. Effective rank construction and computation.</p>
+</li>
+<li><p>Qifan Wang, Yinwei Wei, Jianhua Yin, Jianlong Wu, Xuemeng Song, and Liqiang Nie. 2021. Dualgnn: Dual graph neural network for multimedia recommendation. IEEE Transactions on Multimedia, 25:1074–1084.</p>
+</li>
+<li><p>Yueqi Wang, Zhankui He, Zhenrui Yue, Julian McAuley, and Dong Wang. 2025a. Your causal self-attentive recommender hosts a lonely neighborhood. In Proceedings of the Eighteenth ACM International Conference on Web Search and Data Mining, pages 688–696.</p>
+</li>
+<li><p>Yueqi Wang, Zhenrui Yue, Huimin Zeng, Dong Wang, and Julian McAuley. 2024. Train once, deploy anywhere: Matryoshka representation learning for multimodal recommendation. In Findings of the Association for Computational Linguistics: EMNLP 2024, pages 13461–13472.</p>
+</li>
+<li><p>Yuxiang Wang, Xin Shi, and Xueqing Zhao. 2025b. Mllm4rec: multimodal information enhancing llm for sequential recommendation. Journal of Intelligent Information Systems, 63(3):745–761.</p>
+</li>
+<li><p>Yinwei Wei, Xiang Wang, Liqiang Nie, Xiangnan He, and Tat-Seng Chua. 2020. Graph-refined convolutional network for multimedia recommendation with implicit feedback. In Proceedings of the 28th ACM international conference on multimedia, pages 3541–3549.</p>
+</li>
+<li><p>Yinwei Wei, Xiang Wang, Liqiang Nie, Xiangnan He, Richang Hong, and Tat-Seng Chua. 2019. Mmgcn: Multi-modal graph convolution network for personalized recommendation of micro-video. In Proceedings of the 27th ACM international conference on multimedia, pages 1437–1445.</p>
+</li>
+<li><p>Xin Xin, Xiangnan He, Yongfeng Zhang, Yongdong Zhang, and Joemon Jose. 2019. Relational collaborative filtering: Modeling multiple item relations for recommendation. In Proceedings of the 42nd international ACM SIGIR conference on research and development in information retrieval, pages 125–134.</p>
+</li>
+<li><p>Shuo Xing, Peiran Li, Yuping Wang, Ruizheng Bai, Yueqi Wang, Chan-Wei Hu, Chengxuan Qian, Huaxiu Yao, and Zhengzhong Tu. 2025. Re-align: Aligning vision language models via retrieval-augmented direct preference optimization. In Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing, pages 2379–2397.</p>
+</li>
+<li><p>Jinfeng Xu, Zheyu Chen, Shuo Yang, Jinze Li, Wei Wang, Xiping Hu, Steven Hoi, and Edith Ngai. 2025. A survey on multimodal recommender systems: Recent advances and future directions. arXiv preprint arXiv:2502.15711.</p>
+</li>
+<li><p>Yu Ye, Junchen Fu, Yu Song, Kaiwen Zheng, and Joemon M Jose. 2025. Are multimodal embeddings truly beneficial for recommendation? a deep dive into whole vs. individual modalities. arXiv preprint arXiv:2508.07399.</p>
+</li>
+<li><p>Penghang Yu, Zhiyi Tan, Guanming Lu, and Bing-Kun Bao. 2023. Multi-view graph convolutional network for multimedia recommendation. In Proceedings of the 31st ACM international conference on multimedia, pages 6576–6585.</p>
+</li>
+<li><p>Penghang Yu, Zhiyi Tan, Guanming Lu, and Bing-Kun Bao. 2025. Mind individual information! principal graph learning for multimedia recommendation. In Proceedings of the AAAI conference on artificial intelligence, volume 39, pages 13096–13105.</p>
+</li>
+<li><p>Zhenrui Yue, Yueqi Wang, Zhankui He, Huimin Zeng, Julian McAuley, and Dong Wang. 2024. Linear recurrent units for sequential recommendation. In Proceedings of the 17th ACM international conference on web search and data mining, pages 930–938.</p>
+</li>
+<li><p>Zhenrui Yue, Huimin Zeng, Yueqi Wang, Julian McAuley, and Dong Wang. 2025. Preference-optimized retrieval and ranking for efficient multimodal recommendation. In Proceedings of the 31st ACM SIGKDD Conference on Knowledge Discovery and Data Mining V. 2, pages 3692–3703.</p>
+</li>
+<li><p>Jianyang Zhai, Zi-Feng Mai, Chang-Dong Wang, Feidiao Yang, Xiawu Zheng, Hui Li, and Yonghong Tian. 2025. Multimodal quantitative language for generative recommendation. In The Thirteenth International Conference on Learning Representations.</p>
+</li>
+<li><p>Jinghao Zhang, Yanqiao Zhu, Qiang Liu, Shu Wu, Shuhui Wang, and Liang Wang. 2021. Mining latent structures for multimedia recommendation. In Proceedings of the 29th ACM international conference on multimedia, pages 3872–3880.</p>
+</li>
+<li><p>Bowen Zheng, Junjie Zhang, Hongyu Lu, Yu Chen, Ming Chen, Wayne Xin Zhao, and Ji-Rong Wen. 2024. Enhancing graph contrastive learning with reliable and informative augmentation for recommendation. arXiv preprint arXiv:2409.05633.</p>
+</li>
+<li><p>Hongyu Zhou, Yinan Zhang, Aixin Sun, and Zhiqi Shen. 2025a. Does multimodality improve recommender systems as expected? a critical analysis and future directions. Preprint, arXiv:2508.05377.</p>
+</li>
+<li><p>Hongyu Zhou, Xin Zhou, Lingzi Zhang, and Zhiqi Shen. 2023a. Enhancing dyadic relations with homogeneous graphs for multimodal recommendation. arXiv preprint arXiv:2301.12097.</p>
+</li>
+<li><p>Xin Zhou. 2023. Mmrec: Simplifying multimodal recommendation. In Proceedings of the 5th ACM International Conference on Multimedia in Asia Workshops, pages 1–2.</p>
+</li>
+<li><p>Xin Zhou and Zhiqi Shen. 2023. A tale of two graphs: Freezing and denoising graph structures for multimodal recommendation. In Proceedings of the 31st ACM international conference on multimedia, pages 935–943.</p>
+</li>
+<li><p>Xin Zhou, Xiaoxiong Zhang, Dusit Niyato, and Zhiqi Shen. 2025b. Learning item representations directly from multimodal features for effective recommendation. arXiv preprint arXiv:2505.04960.</p>
+</li>
+<li><p>Xin Zhou, Hongyu Zhou, Yong Liu, Zhiwei Zeng, Chunyan Miao, Pengwei Wang, Yuan You, and Feijun Jiang. 2023b. Bootstrap latent representations for multi-modal recommendation. In Proceedings of the ACM web conference 2023, pages 845–854.</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>多模态推荐</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+        <tag>统一编码</tag>
+        <tag>视觉空间渲染</tag>
+        <tag>跨模态交互</tag>
+        <tag>即插即用</tag>
+        <tag>有效秩</tag>
+        <tag>互信息</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>SG-UMP：让多模态推荐先滤波、再注意、后融合，并按数据集重排顺序</title>
+    <url>/article/paper-2608.28503/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://arxiv.org/abs/2608.28503">arXiv 2608.28503</a> · 代码：<a href="https://github.com/esemsc-xz524/SG-UMP">GitHub</a> · PDF：<a href="https://app.notion.com/papers/2608.28503.pdf">本地阅读</a></p>
+</blockquote>
+<p>多模态序列推荐（MSR）的常见做法，是用 CLIP 这类预训练编码器把商品图片和文本压成向量，再交给 SASRec、STOSA 等序列骨干做下一物品预测。问题在于，预训练编码器学到的是通用语义：它知道一件外套“像外套”，却不知道某位用户买外套时其实一直在看墨镜。论文用一张注意力可视化把这种错位摆了出来——预训练编码器把注意力放在外套上，而两位用户分别更关注墨镜和手袋。</p>
+<p>SG-UMP 的定位不是新的序列骨干，而是一个即插即用的多模态嵌入处理插件。它承认两件事：用户对图文的关注是异质的；不同数据集里占主导的模态也不同——电商图片重要，Yelp 这类本地服务平台上评论文本更重要。于是它把多模态处理拆成三个职责不同的模块，并让一个路由器决定这三个模块的执行顺序。</p>
+<p>这两条设计原则——用交互序列引导个性化多模态处理、用模块化可重排流程适应数据集级模态偏差——构成了论文的方法骨架。真正值得看的是它如何把“顺序”变成一个可学习、可正则化的对象：路由器为每个输入计算模块调度分数并排序，再用条件互信息损失防止所有输入退化成同一条固定路径。</p>
+<p>实验覆盖 Amazon Home、Beauty、Office 与 Yelp 四个数据集，骨干包括 SASRec、STOSA 和 Oracle4Rec。论文报告的平均提升分别为 21.96%、24.93% 和 18.91%，并且消融与全排列实验都指向同一个结论：没有一种固定模块顺序在所有数据集上最优。</p>
+<p>需要提前说明边界：可视化中的“用户视角”并非真实眼动或点击反馈，而是用历史交互与显著物品属性近似出来的参照；路由顺序也是在数据集层面学习的，而非逐用户实时切换。这些限制决定了下面结果该被怎样解读。</p>
+<h2 id="一、方法：三个可重排模块与一个受互信息约束的路由器"><a href="#一、方法：三个可重排模块与一个受互信息约束的路由器" class="headerlink" title="一、方法：三个可重排模块与一个受互信息约束的路由器"></a>一、方法：三个可重排模块与一个受互信息约束的路由器</h2><p>SG-UMP 的数据流可以概括为：物品的 ID、图像、文本嵌入先经过模态专属的门控函数，得到三个模态表示；路由器据此为三个功能模块打分并排序；三个模块按该顺序依次处理拼接后的多模态表示；最后经均值池化得到用户表示，送入序列骨干。整个插件不替换骨干，只改变多模态嵌入被加工的方式。</p>
+<p><img src="/images/7b17c7f6036e7b89081f0280c33de9c2.png" alt="SG-UMP 整体框架与各组件结构"></p>
+<p>读这张图可以按 (a) 到 (e) 的顺序展开。(a) 是全局：左侧输入 ID、图像、文本三路嵌入，中间是 Module Combiner 里的三个模块，右侧是 Module Router 给出的排序结果，最终汇入序列骨干。(b) 放大路由器：每个模态先过各自的线性投影与激活，再为三个模块分别算分，汇总后 softmax 得到调度分布，降序排列即执行顺序。(c) 是频率滤波层，嵌入被变换到频域、滤掉高频分量、再重建回时域，输出维度不变。(d) 是层次注意力层，先用 MLP 加 Sigmoid 从 ID 嵌入算出模态重要性，乘到图文表示上，再统一过自注意力。(e) 是多尺度融合层，模态独有专家与模态共享专家并行，由门控网络加权求和。这张图支撑的核心主张是：三个模块的输入输出维度一致，因此可以任意换序而不破坏数据流——这正是“可重排”在工程上成立的前提。</p>
+<p>频率滤波层解决的是预训练嵌入里的高频噪声。它对序列嵌入做 FFT，抑制高频分量后 IFFT 重建，保留稳定的低频模式，层数由参数控制。层次注意力层解决的是“谁该被强调”：它用两层 MLP 加 Sigmoid 从 ID 嵌入预测每个模态的重要性分数，乘到文本和图像表示上，再对三个模态分别做自注意力细化。多尺度融合层则用 MoE 同时保留模态个性与跨模态共性：每个模态有若干专属专家，另有一组共享专家处理三模态拼接后的表示，门控网络用 softmax 分配权重。</p>
+<p>路由器是方法里最有辨识度的部分。对每个模块 k 和模态 m，它计算调度分数，跨模态求和后 softmax 得到分布 D_i，再按 D_i 降序得到排列 π，最终表示为三个模块按 π 依次复合作用的结果。如果只做到这里，路由器可能退化成对所有输入输出同一顺序，于是论文加入条件互信息损失：把 D_i 解释为 P(M_k | e_i)，用调度分数近似模态与模块的联合分布，最大化 I(M; m | e_i)。直观上，图像主导的输入应被路由到偏图像处理的模块，文本主导的输入走另一条路；互信息越高，路由越依赖模态线索，越不容易塌缩成固定路径。训练目标为 BPR 损失加上以 α 加权的该项正则。</p>
+<h2 id="二、实验：四个数据集上的骨干增益、消融与顺序敏感性"><a href="#二、实验：四个数据集上的骨干增益、消融与顺序敏感性" class="headerlink" title="二、实验：四个数据集上的骨干增益、消融与顺序敏感性"></a>二、实验：四个数据集上的骨干增益、消融与顺序敏感性</h2><p>实验设置如下表所示。需要留意的是四个数据集的密度都极低（0.01%–0.05%），Yelp 的序列最长、最稀疏，这会影响后面对顺序实验的解读。</p>
+<p>主结果中，最强的多模态基线是 MP4SR 与 MML，Oracle4Rec 则是传统组里最强的对照。SG-UMP 接入 Oracle4Rec 后在四个数据集上均超过所有基线，相对最强基线的提升在 Yelp 上最小（R@10 为 7.22%），在 Office 的 N@10 上最大（17.61%）。</p>
+<p>骨干层面的平均提升为 SASRec 21.96%、STOSA 24.93%、Oracle4Rec 18.91%。值得注意的是，提升幅度并不均匀：STOSA 在 Home 上的 R@10 从 0.0169 升到 0.0242（+43.20%），而在 Office 上只有 +12.85%；SASRec 在 Office 上的 N@10 提升 8.21%，是表中最小的相对增益之一。这说明插件对骨干的增益依赖骨干本身对多模态信息的利用程度，而非一个恒定倍率。</p>
+<p>消融实验在 STOSA 上进行，移除任一模块都会掉点，但掉点幅度不同。移除层次注意力层在 Beauty 和 Office 上退化最大（Beauty N@10 从 0.0455 降到 0.0408），移除频率滤波层在 Home 上退化明显（N@10 从 0.0144 降到 0.0121），移除 MoE 融合层同样带来一致下降。这组结果支撑的是“三个模块互补”而非“某一个模块独挑大梁”。</p>
+<p>顺序实验是论文验证第二条设计原则的关键。三个模块的全部六种排列在四个数据集上的最优解各不相同：Home 为 c-b-a，Beauty 为 b-a-c，Office 为 a-c-b，Yelp 为 a-b-c。以 Home 的 N@20 为例，最优的 c-b-a 为 0.0167，而最差的 a-c-b 只有 0.0144，差距接近 16%；Office 的 R@20 上，a-c-b 的 0.1454 与 c-a-b 的 0.1295 差距更大。这直接说明固定流水线会付出可观的性能代价，也解释了路由器存在的必要性。论文还观察到 Recall 类指标比 NDCG 对顺序更敏感。</p>
+<p>超参数方面，频率滤波层数从 1 增加到 5 时性能持续下降，最优为 1 层，作者归因于过度滤波会削弱用户相关信号；任务专家数在 4 时最佳，超过 4 后因冗余而下降；共享专家数与互信息权重 α 也做了网格搜索。训练开销可控但非免费：SASRec 在 Home 上从 20.35s 增至 29.23s，在 Yelp 上从 735.32s 增至 772.53s，序列越长、数据越大，相对开销越小。</p>
+<p>可视化分析提供了定性佐证，但论文自己也提醒不要过度解读。</p>
+<p><img src="/images/b33cb9870945f1c29f2e3658c6789eca.png" alt="注意力可视化：预训练编码器、近似用户视角与 SG-UMP+STOSA 的对比"></p>
+<p>三列从左到右分别是：仅用预训练嵌入的 STOSA、由显著物品属性近似出的用户视角、以及 SG-UMP 加 STOSA。红色文字标出重要属性，绿色背景深浅表示模型分配的注意力强度。第一列的注意力比较分散，常常落在与用户兴趣无关的商品特征上；第二列是构造出来的参照，突出与用户历史统计相关的属性；第三列中 SG-UMP 的注意力更集中到这些有意义的特征上。这张图支撑的主张是插件让注意力更贴近用户相关信号，但它是定性证据——参照本身是近似的，论文在讨论部分也明确表示模块有效性主要依据定量结果判断。</p>
+<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>SG-UMP 的机制可以压缩成一句话：把多模态嵌入处理拆成频率滤波、层次注意力和 MoE 融合三个同维模块，用模态感知路由器按输入排序，并以条件互信息正则化防止路由塌缩，整体作为插件挂在序列骨干之前。实验证据显示，它在四个数据集上对三种骨干均有一致增益，相对最强基线的提升在 7.22% 到 17.61% 之间；消融表明三个模块互补，全排列实验表明最优顺序随数据集变化，Home 上最优与最差顺序的 N@20 差距接近 16%。</p>
+<p>边界同样清楚。路由顺序是在数据集层面学习的，不是逐用户实时切换，因此它回应的是数据集级模态偏差，而非个体层面的动态路由；可视化中的用户视角是近似参照，不能当作真实注意力 ground truth；频率滤波层最优仅 1 层，说明去噪收益很快饱和，继续堆叠反而有害；训练时间虽有增加，但论文未给出推理延迟的完整分析。</p>
+<p>可迁移的设计启示在于“顺序即超参数”这一视角：当多个功能模块的输入输出维度一致时，与其固定流水线，不如把排列本身交给一个受信息约束的轻量路由器，并用互信息类正则防止它退化为常数。这一思路对任何需要组合多个预处理或融合组件的多模态系统都适用，代价是需要额外的全排列实验来确认顺序确实敏感。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ol>
+<li><p>Xinyi Zhang, Yutong Li, Peijie Sun. SG-UMP: Sequence-Guided Universal Multimodal Prioritization Calculation Framework. arXiv:2608.28503. <a href="https://arxiv.org/abs/2608.28503">https://arxiv.org/abs/2608.28503</a> · 代码：<a href="https://github.com/esemsc-xz524/SG-UMP">https://github.com/esemsc-xz524/SG-UMP</a></p>
+</li>
+<li><p>Wang-Cheng Kang, Julian McAuley. Self-Attentive Sequential Recommendation. ICDM 2018.</p>
+</li>
+<li><p>Jiaxi Tang, Ke Wang. Personalized Top-N Sequential Recommendation via Convolutional Sequence Embedding. WSDM 2018.</p>
+</li>
+<li><p>Ziwei Fan et al. Modeling Sequential Recommendation as Missing Information Imputation. 相关序列推荐工作.</p>
+</li>
+<li><p>Alec Radford et al. Learning Transferable Visual Models From Natural Language Supervision. ICML 2021.</p>
+</li>
+</ol>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>论文速递</category>
       </categories>
       <tags>
         <tag>论文速读</tag>
