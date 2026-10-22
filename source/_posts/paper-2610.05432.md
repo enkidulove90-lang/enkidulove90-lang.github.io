@@ -78,7 +78,7 @@ $$
 
 矩阵有效秩分析。为刻画表示是否塌缩，论文采用有效秩 $\mathrm{erank}(\mathbf{X})=\exp\left(-\sum_{i=1}^{n} p_i \log p_i\right)$，其中 $p_i=\sigma_i/\sum_j \sigma_j$ 为归一化奇异值分布；取值越低表示表示塌缩，越高表示信息分布越丰富。
 
-![方法图 1](/images/130c4ed4bfaed98ca0d5c3273edb0b72.png)
+![方法图 1](/images/cb6d66ae554a6633322ba4ddb273c71e.png)
 
 该图对比三种编码路径：传统独立编码加后融合、基于提示的 VLM 编码，以及 OpticalRec 的统一像素空间编码。前两者在融合前都缺少跨模态交互，而 OpticalRec 让图像与渲染文字在同一视觉编码器内完成 patch 级交互，再经语言解码器完成语义级对齐，全程无需后融合。
 
@@ -94,23 +94,23 @@ $$
 
 消融与鲁棒性。渲染分辨率方面，$544\times544$ 整体最优，更低或更高分辨率均略有下降，说明中等分辨率已足以保留视觉-语言语义并避免不必要的高分辨率推理开销。版式、字号与颜色扰动实验（50% 数据随机打乱 {标题, 品牌, 类别, 价格} 位置、字号缩放 ±25%、文字改为黑白）显示所有结果相对默认设置均在 ±1% 以内。更长文本实验表明加入物品详细描述可带来 +0.7% 至 +1.6% 的提升，且在 1000 字符阈值附近饱和（+1.14%），说明默认仅用标题、品牌、类别、价格已提供较强的推荐信号。效率方面，渲染为一次性离线过程：Baby 的 17,836 件物品用 8 个 worker 耗时 13.5 分钟、占用 2.4 GB；Pets 为 46.0 分钟、8.1 GB；Clothing 为 57.0 分钟、10.1 GB，开销在现代机器上可接受。
 
-![实验图 1](/images/bf61fce1ecd00b3d16eec487298200ea.png)
+![实验图 1](/images/1ebfcd71f7be071bb1682b4efb1b65be.png)
 
 该图以圣诞猫衣物品卡片为例，用 Cat、Christmas、Clothes 对应 patch 作为查询展示双重注意力：视觉编码器注意力较宽泛地覆盖商品图与相关文字区域，语言解码器注意力更集中于语义匹配的图文区域，说明感知层与语义层承担互补的跨模态对齐角色。
 
-![实验图 2](/images/5ee4ec6fee98d276761bd613a6cfb27e.png)
+![实验图 2](/images/1374d62fafc2ce749d28b69e55827f4f.png)
 
 该图用 PCA 与 50% 置信椭圆展示嵌入分布：OpticalRec 在图像与文本表示之间形成统一流形，而后融合明显偏向单一模态，说明事后融合难以平衡异质模态分布，统一编码的跨模态对齐更好。
 
-![实验图 3](/images/8d3c63ffe66d63a1db435082a3cd8fad.png)
+![实验图 3](/images/a4a36a82ac2fc18fb49a791433c534fc.png)
 
 该图比较单模态编码、后融合与 OpticalRec 的矩阵有效秩。灰色区域标出后融合造成的有效秩下降，而 OpticalRec 在各设置下均最高，说明其嵌入空间保留了更丰富的视觉-语言变化、塌缩更少。
 
-![实验图 4](/images/909f446c7b2aec4844530e19f791c245.png)
+![实验图 4](/images/faa790e1a8210455a5f23f2f49c4b6c6.png)
 
 该图展示不同物品卡片渲染分辨率下的性能变化，$544\times544$ 在多个数据集与骨干上整体最优，过低或过高分辨率均略有下降，说明中等分辨率已足以承载视觉-语言语义并降低推理开销。
 
-![实验图 5](/images/6b5b6f94d4521f6278b9c3f2a31d8bd5.png)
+![实验图 5](/images/84396bad91776bc195efae52e5deed05.png)
 
 该图作为分辨率鲁棒性分析的补充面板，进一步呈现不同渲染分辨率对推荐指标的影响趋势，与主图结论一致：中等分辨率即可稳定取得最佳或接近最佳的表现，便于实际部署时固定渲染配置。
 
@@ -133,6 +133,7 @@ $$
 - Yicheng He, Zhou Kaiyu, Haoyue Bai, Fengbin Zhu, and Yonghui Yang. 2025. Understanding embedding scaling in collaborative filtering. arXiv preprint arXiv:2509.15709.
 
 - Yupeng Hou, Jiacheng Li, Zhankui He, An Yan, Xiusi Chen, and Julian McAuley. 2024. Bridging language and items for retrieval and recommendation. Preprint, arXiv:2403.03952.
+
 - Kibum Kim, Jiwan Kim, Kyle Min, Yueqi Wang, Jinyoung Moon, Julian McAuley, and Chanyoung Park. 2026. Sink-token-aware pruning for fine-grained video understanding in efficient video llms. arXiv preprint arXiv:2604.20937. [论文链接](https://arxiv.org/abs/2604.20937) · [代码链接](https://github.com/rlqja1107/SToP)
 
 - Zijie Lei, Tao Feng, Zhigang Hua, Yan Xie, Guanyu Lin, Shuang Yang, Ge Liu, and Jiaxuan You. 2026. Unirec: Unified multimodal encoding for llm-based recommendations. arXiv preprint arXiv:2601.19423.
@@ -152,6 +153,7 @@ $$
 - Daniele Malitesta, Emanuele Rossi, Claudio Pomo, Tommaso Di Noia, and Fragkiskos D Malliaros. 2024. Do we really need to drop items with missing modalities in multimodal recommendation? In Proceedings of the 33rd ACM International Conference on Information and Knowledge Management, pages 3943–3948.
 
 - Rongqing Kenneth Ong and Andy WH Khong. 2025. Spectrum-based modality representation fusion graph convolutional network for multimodal recommendation. In Proceedings of the Eighteenth ACM International Conference on Web Search and Data Mining, pages 773–781.
+
 - OpenAI. 2026. OpenAI gpt-5 system card. Preprint, arXiv:2601.03267. [论文链接](https://arxiv.org/abs/2601.03267)
 
 - OpenGV. 2025. Internvl3.5: Advancing open-source multimodal models in versatility, reasoning, and efficiency. Preprint, arXiv:2508.18265.
