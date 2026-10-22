@@ -11,8 +11,12 @@ test('publish workflow reports repository-dispatch completion to the intake gate
   assert.match(yaml, /PAPER_INTAKE_CALLBACK_URL/);
   assert.match(yaml, /PAPER_INTAKE_CALLBACK_TOKEN/);
   assert.match(yaml, /github\.event\.client_payload\.job_id/);
+  assert.match(yaml, /TRACE_ID:\s*\$\{\{\s*github\.event\.client_payload\.trace_id\s*\}\}/);
   assert.match(yaml, /\/v1\/publications\/callback/);
   assert.match(yaml, /\\"ok\\":\$OK/);
+  assert.match(yaml, /\\"trace_id\\":\\"\$TRACE_ID\\"/);
+  assert.match(yaml, /\\"workflow_run_id\\":\\"\$GITHUB_RUN_ID\\"/);
+  assert.match(yaml, /\\"run_url\\":\\"\$RUN_URL\\"/);
   assert.match(yaml, /PAPER_INTAKE_API_BASE:\s*\$\{\{\s*secrets\.PAPER_INTAKE_API_BASE\s*\}\}/);
 });
 
