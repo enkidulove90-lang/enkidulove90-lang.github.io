@@ -52,11 +52,11 @@ test('target route adds its class, stylesheet, and MathJax exactly once', () => 
   assert.equal(page.appended.filter(node => node.id === 'paper-2610-05432-mathjax').length, 1);
   assert.deepEqual(
     JSON.parse(JSON.stringify(page.window.MathJax.tex.inlineMath)),
-    [['$', '$']]
+    [['$', '$'], ['\\(', '\\)']]
   );
   assert.deepEqual(
     JSON.parse(JSON.stringify(page.window.MathJax.tex.displayMath)),
-    [['$$', '$$']]
+    [['$$', '$$'], ['\\[', '\\]']]
   );
 });
 
@@ -94,9 +94,9 @@ test('the injected bootstrap is deferred and configures literal formula delimite
   const config = fs.readFileSync(path.join(root, '_config.butterfly.yml'), 'utf8');
   const script = fs.readFileSync(scriptPath, 'utf8');
 
-  assert.match(config, /<script defer src="\/js\/paper-2610\.05432\.js"><\/script>/);
-  assert.match(script, /inlineMath:\s*\[\['\$', '\$'\]\]/);
-  assert.match(script, /displayMath:\s*\[\['\$\$', '\$\$'\]\]/);
+  assert.ok(config.includes('<script defer src="/js/paper-2610.05432.js?v=math-v2"></script>'));
+  assert.ok(script.includes("inlineMath: [['$', '$'], ['\\\\(', '\\\\)']]"));
+  assert.ok(script.includes("displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']]"));
 });
 
 test('Hexo preserves inline and display formula delimiters for MathJax', async () => {

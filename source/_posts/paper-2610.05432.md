@@ -1,21 +1,13 @@
 ---
-
-title: "OpticalRec：面向多模态推荐的统一光学视觉-语言表示"
-
+title: OpticalRec：面向多模态推荐的统一光学视觉-语言表示
+slug: paper-2610.05432
+arxiv_id: 2610.05432
+year: 2026
+venue_type: arXiv预印本
+venue_name: arXiv
+categories: [推荐系统, 多模态推荐]
+tags: [论文速读, 统一编码, 视觉空间渲染, 跨模态交互, 即插即用, 有效秩, 互信息]
 date: "2026-10-22"
-
-year: "2026"
-
-venue_type: "arxiv预印本"
-
-venue_name: "arXiv"
-
-categories: ["推荐系统", "多模态推荐"]
-
-tags: ["论文速读", "统一编码", "视觉空间渲染", "跨模态交互", "即插即用", "有效秩", "互信息"]
-
-slug: "paper-2610.05432"
-
 ---
 
 [论文链接](https://arxiv.org/abs/2610.05432)
@@ -31,9 +23,7 @@ slug: "paper-2610.05432"
 任务定义。设用户集合 $\mathcal{U}=\{u_1,\dots,u_M\}$、物品集合 $\mathcal{I}=\{i_1,\dots,i_N\}$，物品 $i$ 由图像 $\mathbf{v}_i$ 与文本描述 $\mathbf{t}_i$ 描述。物品嵌入由编码器 $f$ 给出，用户表示由交互物品聚合得到：
 
 $$
-
 \mathbf{q}_i = f(\mathbf{v}_i, \mathbf{t}_i), \quad \mathbf{p}_u = \mathcal{A}(\{\mathbf{q}_i\}_{i\in\mathcal{N}_u})
-
 $$
 
 推荐器 $\mathcal{F}(\cdot)$ 进一步结合用户-物品图 $\mathcal{G}$ 得到 $(\mathbf{p}_u', \mathbf{q}_i')=\mathcal{F}(\mathbf{p}_u,\mathbf{q}_i,\mathcal{G})$，最终打分由内积 $y_{ui}=\langle \mathbf{p}_u', \mathbf{q}_i'\rangle$ 给出。
@@ -41,9 +31,7 @@ $$
 独立编码与后融合。传统范式先用视觉、语言编码器 $f_V,f_T$ 得到模态特定向量，再用融合算子 $g$ 合并：
 
 $$
-
 (\mathbf{v}_i,\mathbf{t}_i) \xrightarrow{f_V,f_T} \mathbf{z}_i^{\mathrm{LF}} \triangleq (\mathbf{z}_i^{v},\mathbf{z}_i^{t}) \xrightarrow{g} \mathbf{q}_i^{\mathrm{LF}}
-
 $$
 
 基于提示（prompt）的编码虽在语言解码器层引入了语义级交互，但图像 token 与文本 token 仍是分别编码后拼接，本质上仍属后融合。
@@ -51,17 +39,13 @@ $$
 统一像素空间编码。OpticalRec 首先用一次高效的渲染操作 $\mathcal{R}(\cdot)$ 把物品图像 $\mathbf{v}_i$、文本描述 $\mathbf{t}_i$ 以及图文版式结构 $\mathbf{s}_i^{vt}$ 统一映射到像素空间：
 
 $$
-
 \tilde{\mathbf{v}}_i = \mathcal{R}(\mathbf{v}_i, \mathbf{t}_i, \mathbf{s}_i^{vt})
-
 $$
 
 具体渲染步骤为：创建 $m\times m$ 的方形空白画布并设定图像高度 $h$（$h<m$）；按原始宽高比缩放物品图并置于画布上方；从物品 id 检索 {标题, 品牌, 类别, 价格} 文本元数据，渲染到剩余的 $m\times(m-h)$ 区域，版式与配色大致遵循电商页面风格。随后统一输入经单一（冻结的）视觉-语言编码器 $f_\Phi$ 一次性编码：
 
 $$
-
 (\mathbf{v}_i,\mathbf{t}_i,\mathbf{s}_i^{vt}) \xrightarrow{\mathcal{R}} \tilde{\mathbf{v}}_i \xrightarrow{f_\Phi} \mathbf{z}_i^{\mathrm{OR}} = \mathbf{q}_i^{\mathrm{OR}}
-
 $$
 
 由此，跨模态交互同时发生在视觉编码器的 patch 级（感知层，图像区域与渲染字形的区域匹配）与语言解码器的 token 级（语义层），且输出为同质嵌入，无需任何后融合。
@@ -69,9 +53,7 @@ $$
 互信息视角的理论分析。论文将两种范式的信息保留差异分解为跨模态增益与融合损失之和：
 
 $$
-
 I(\mathbf{q}_i^{\mathrm{OR}};(\mathbf{v}_i,\mathbf{t}_i)) - I(\mathbf{q}_i^{\mathrm{LF}};(\mathbf{v}_i,\mathbf{t}_i)) = \mathcal{I}_{\mathrm{cross}}^{\mathrm{OR}} + \mathcal{D}_{\mathrm{intra}}^{\mathrm{LF}}
-
 $$
 
 其中 $\mathcal{I}_{\mathrm{cross}}^{\mathrm{OR}} \triangleq I(\mathbf{q}_i^{\mathrm{OR}};\mathbf{x}_i) - I(\mathbf{z}_i^{\mathrm{LF}};\mathbf{x}_i)$ 为正，因为独立编码无法完整保留跨模态信息，而统一编码将两种模态暴露给同一编码器；$\mathcal{D}_{\mathrm{intra}}^{\mathrm{LF}} \triangleq I(\mathbf{z}_i^{\mathrm{LF}};\mathbf{x}_i) - I(\mathbf{q}_i^{\mathrm{LF}};\mathbf{x}_i)$ 为正，因为 $\mathbf{x}_i \to \mathbf{z}_i^{\mathrm{LF}} \to \mathbf{q}_i^{\mathrm{LF}}$ 构成马尔可夫链，由数据处理不等式可知有损融合必然造成严格的信息损失。附录进一步给出跨模态交互预算的规模估计，说明该差距在实际规模下相当可观。
@@ -121,95 +103,49 @@ $$
 ## References
 
 - Shuai Bai, Yuxuan Cai, and 1 others. 2025. Qwen3-vl technical report. Preprint, arXiv:2511.21631.
-
 - Jingyuan Chen, Hanwang Zhang, Xiangnan He, Liqiang Nie, Wei Liu, and Tat-Seng Chua. 2017. Attentive collaborative filtering: Multimedia recommendation with item-and component-level attention. In Proceedings of the 40th International ACM SIGIR Conference on Research and Development in Information Retrieval, pages 335–344.
-
 - Thomas M. Cover and Joy A. Thomas. 2006. Elements of Information Theory, 2nd edition. John Wiley & Sons, Hoboken, NJ.
-
 - Zhiqiang Guo, Jianjun Li, Guohui Li, Chaoyang Wang, Si Shi, and Bin Ruan. 2024. Lgmrec: Local and global graph learning for multimodal recommendation. In Proceedings of the AAAI Conference on Artificial Intelligence, volume 38, pages 8454–8462.
-
 - Ruining He and Julian McAuley. 2016. Vbpr: visual bayesian personalized ranking from implicit feedback. In Proceedings of the AAAI conference on artificial intelligence, volume 30.
-
 - Yicheng He, Zhou Kaiyu, Haoyue Bai, Fengbin Zhu, and Yonghui Yang. 2025. Understanding embedding scaling in collaborative filtering. arXiv preprint arXiv:2509.15709.
-
 - Yupeng Hou, Jiacheng Li, Zhankui He, An Yan, Xiusi Chen, and Julian McAuley. 2024. Bridging language and items for retrieval and recommendation. Preprint, arXiv:2403.03952.
-
-- Kibum Kim, Jiwan Kim, Kyle Min, Yueqi Wang, Jinyoung Moon, Julian McAuley, and Chanyoung Park. 2026. Sink-token-aware pruning for fine-grained video understanding in efficient video llms. arXiv preprint arXiv:2604.20937. [论文链接](https://arxiv.org/abs/2604.20937) · [代码链接](https://github.com/rlqja1107/SToP)
-
+- Kibum Kim, Jiwan Kim, Kyle Min, Yueqi Wang, Jinyoung Moon, Julian McAuley, and Chanyoung Park. 2026. [Sink-token-aware pruning for fine-grained video understanding in efficient video llms](https://arxiv.org/abs/2604.20937). arXiv preprint arXiv:2604.20937. （代码：[https://github.com/rlqja1107/SToP](https://github.com/rlqja1107/SToP)）
 - Zijie Lei, Tao Feng, Zhigang Hua, Yan Xie, Guanyu Lin, Shuang Yang, Ge Liu, and Jiaxuan You. 2026. Unirec: Unified multimodal encoding for llm-based recommendations. arXiv preprint arXiv:2601.19423.
-
 - Bo Li, Yuanhan Zhang, Dong Guo, Renrui Zhang, Feng Li, Hao Zhang, Kaichen Zhang, Peiyuan Zhang, Yanwei Li, Ziwei Liu, and 1 others. 2024a. Llava-onevision: Easy visual task transfer. arXiv preprint arXiv:2408.03326.
-
 - Feng Li, Renrui Zhang, Hao Zhang, Yuanhan Zhang, Bo Li, Wei Li, Zejun Ma, and Chunyuan Li. 2024b. Llava-next-interleave: Tackling multi-image, video, and 3d in large multimodal models. arXiv preprint arXiv:2407.07895.
-
 - Guohui Li, Li Zou, Zhiying Deng, and Qi Chen. 2024c. Neighborhood-enhanced multimodal collaborative filtering for item cold start recommendation. In ICASSP 2024-2024 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP), pages 7815–7819. IEEE.
-
 - Kang Liu, Feng Xue, Dan Guo, Le Wu, Shujie Li, and Richang Hong. 2023. Megcf: Multimodal entity graph collaborative filtering for personalized recommendation. ACM transactions on information systems, 41(2):1–27.
-
 - Shiqin Liu, Chaozhuo Li, Minjun Zhao, Litian Zhang, and Jiajun Bu. 2025. Modalsync: Synchronizing user behavior with multimodal features for multimodal pre-training recommendation. In Companion Proceedings of the ACM on Web Conference 2025, pages 2278–2287.
-
 - Daniele Malitesta, Giandomenico Cornacchia, Claudio Pomo, Felice Antonio Merra, Tommaso Di Noia, and Eugenio Di Sciascio. 2025. Formalizing multimedia recommendation through multimodal deep learning. ACM Transactions on Recommender Systems, 3(3):1–33.
-
 - Daniele Malitesta, Emanuele Rossi, Claudio Pomo, Tommaso Di Noia, and Fragkiskos D Malliaros. 2024. Do we really need to drop items with missing modalities in multimodal recommendation? In Proceedings of the 33rd ACM International Conference on Information and Knowledge Management, pages 3943–3948.
-
 - Rongqing Kenneth Ong and Andy WH Khong. 2025. Spectrum-based modality representation fusion graph convolutional network for multimodal recommendation. In Proceedings of the Eighteenth ACM International Conference on Web Search and Data Mining, pages 773–781.
-
-- OpenAI. 2026. OpenAI gpt-5 system card. Preprint, arXiv:2601.03267. [论文链接](https://arxiv.org/abs/2601.03267)
-
+- OpenAI. 2026. [OpenAI gpt-5 system card](https://arxiv.org/abs/2601.03267). Preprint, arXiv:2601.03267.
 - OpenGV. 2025. Internvl3.5: Advancing open-source multimodal models in versatility, reasoning, and efficiency. Preprint, arXiv:2508.18265.
-
 - Claudio Pomo, Matteo Attimonelli, Danilo Danese, Fedelucio Narducci, and Tommaso Di Noia. 2025. Do recommender systems really leverage multimodal content? a comprehensive analysis on multimodal representations for recommendation. In Proceedings of the 34th ACM International Conference on Information and Knowledge Management, pages 2377–2387.
-
 - Shutong Qiao, Wei Yuan, Tong Chen, Xiangyu Zhao, Quoc Viet Hung Nguyen, and Hongzhi Yin. 2026. When text-as-vision meets semantic ids in generative recommendation: An empirical study. arXiv preprint arXiv:2601.14697.
-
 - Olivier Roy and Martin Vetterli. 2007. The effective rank: A measure of effective dimensionality. In 2007 15th European Signal Processing Conference, pages 606–610. IEEE.
-
 - Leheng Sheng, An Zhang, Yi Zhang, Yuxin Chen, Xiang Wang, and Tat-Seng Chua. 2024. Language representations can be what recommenders need: Findings and potentials. arXiv preprint arXiv:2407.05441.
-
 - Jianlin Su. 2025. Effective rank construction and computation.
-
 - Qifan Wang, Yinwei Wei, Jianhua Yin, Jianlong Wu, Xuemeng Song, and Liqiang Nie. 2021. Dualgnn: Dual graph neural network for multimedia recommendation. IEEE Transactions on Multimedia, 25:1074–1084.
-
 - Yueqi Wang, Zhankui He, Zhenrui Yue, Julian McAuley, and Dong Wang. 2025a. Your causal self-attentive recommender hosts a lonely neighborhood. In Proceedings of the Eighteenth ACM International Conference on Web Search and Data Mining, pages 688–696.
-
 - Yueqi Wang, Zhenrui Yue, Huimin Zeng, Dong Wang, and Julian McAuley. 2024. Train once, deploy anywhere: Matryoshka representation learning for multimodal recommendation. In Findings of the Association for Computational Linguistics: EMNLP 2024, pages 13461–13472.
-
 - Yuxiang Wang, Xin Shi, and Xueqing Zhao. 2025b. Mllm4rec: multimodal information enhancing llm for sequential recommendation. Journal of Intelligent Information Systems, 63(3):745–761.
-
 - Yinwei Wei, Xiang Wang, Liqiang Nie, Xiangnan He, and Tat-Seng Chua. 2020. Graph-refined convolutional network for multimedia recommendation with implicit feedback. In Proceedings of the 28th ACM international conference on multimedia, pages 3541–3549.
-
 - Yinwei Wei, Xiang Wang, Liqiang Nie, Xiangnan He, Richang Hong, and Tat-Seng Chua. 2019. Mmgcn: Multi-modal graph convolution network for personalized recommendation of micro-video. In Proceedings of the 27th ACM international conference on multimedia, pages 1437–1445.
-
 - Xin Xin, Xiangnan He, Yongfeng Zhang, Yongdong Zhang, and Joemon Jose. 2019. Relational collaborative filtering: Modeling multiple item relations for recommendation. In Proceedings of the 42nd international ACM SIGIR conference on research and development in information retrieval, pages 125–134.
-
 - Shuo Xing, Peiran Li, Yuping Wang, Ruizheng Bai, Yueqi Wang, Chan-Wei Hu, Chengxuan Qian, Huaxiu Yao, and Zhengzhong Tu. 2025. Re-align: Aligning vision language models via retrieval-augmented direct preference optimization. In Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing, pages 2379–2397.
-
 - Jinfeng Xu, Zheyu Chen, Shuo Yang, Jinze Li, Wei Wang, Xiping Hu, Steven Hoi, and Edith Ngai. 2025. A survey on multimodal recommender systems: Recent advances and future directions. arXiv preprint arXiv:2502.15711.
-
 - Yu Ye, Junchen Fu, Yu Song, Kaiwen Zheng, and Joemon M Jose. 2025. Are multimodal embeddings truly beneficial for recommendation? a deep dive into whole vs. individual modalities. arXiv preprint arXiv:2508.07399.
-
 - Penghang Yu, Zhiyi Tan, Guanming Lu, and Bing-Kun Bao. 2023. Multi-view graph convolutional network for multimedia recommendation. In Proceedings of the 31st ACM international conference on multimedia, pages 6576–6585.
-
 - Penghang Yu, Zhiyi Tan, Guanming Lu, and Bing-Kun Bao. 2025. Mind individual information! principal graph learning for multimedia recommendation. In Proceedings of the AAAI conference on artificial intelligence, volume 39, pages 13096–13105.
-
 - Zhenrui Yue, Yueqi Wang, Zhankui He, Huimin Zeng, Julian McAuley, and Dong Wang. 2024. Linear recurrent units for sequential recommendation. In Proceedings of the 17th ACM international conference on web search and data mining, pages 930–938.
-
 - Zhenrui Yue, Huimin Zeng, Yueqi Wang, Julian McAuley, and Dong Wang. 2025. Preference-optimized retrieval and ranking for efficient multimodal recommendation. In Proceedings of the 31st ACM SIGKDD Conference on Knowledge Discovery and Data Mining V. 2, pages 3692–3703.
-
 - Jianyang Zhai, Zi-Feng Mai, Chang-Dong Wang, Feidiao Yang, Xiawu Zheng, Hui Li, and Yonghong Tian. 2025. Multimodal quantitative language for generative recommendation. In The Thirteenth International Conference on Learning Representations.
-
 - Jinghao Zhang, Yanqiao Zhu, Qiang Liu, Shu Wu, Shuhui Wang, and Liang Wang. 2021. Mining latent structures for multimedia recommendation. In Proceedings of the 29th ACM international conference on multimedia, pages 3872–3880.
-
 - Bowen Zheng, Junjie Zhang, Hongyu Lu, Yu Chen, Ming Chen, Wayne Xin Zhao, and Ji-Rong Wen. 2024. Enhancing graph contrastive learning with reliable and informative augmentation for recommendation. arXiv preprint arXiv:2409.05633.
-
 - Hongyu Zhou, Yinan Zhang, Aixin Sun, and Zhiqi Shen. 2025a. Does multimodality improve recommender systems as expected? a critical analysis and future directions. Preprint, arXiv:2508.05377.
-
 - Hongyu Zhou, Xin Zhou, Lingzi Zhang, and Zhiqi Shen. 2023a. Enhancing dyadic relations with homogeneous graphs for multimodal recommendation. arXiv preprint arXiv:2301.12097.
-
 - Xin Zhou. 2023. Mmrec: Simplifying multimodal recommendation. In Proceedings of the 5th ACM International Conference on Multimedia in Asia Workshops, pages 1–2.
-
 - Xin Zhou and Zhiqi Shen. 2023. A tale of two graphs: Freezing and denoising graph structures for multimodal recommendation. In Proceedings of the 31st ACM international conference on multimedia, pages 935–943.
-
 - Xin Zhou, Xiaoxiong Zhang, Dusit Niyato, and Zhiqi Shen. 2025b. Learning item representations directly from multimodal features for effective recommendation. arXiv preprint arXiv:2505.04960.
-
 - Xin Zhou, Hongyu Zhou, Yong Liu, Zhiwei Zeng, Chunyan Miao, Pengwei Wang, Yuan You, and Feijun Jiang. 2023b. Bootstrap latent representations for multi-modal recommendation. In Proceedings of the ACM web conference 2023, pages 845–854.
