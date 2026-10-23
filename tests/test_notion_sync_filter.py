@@ -82,6 +82,32 @@ class PublishedPostsQueryTests(unittest.TestCase):
         self.assertIn('categories: ["推荐系统", "生成式推荐"]', rendered)
         self.assertNotIn("未分类", rendered)
 
+    def test_existing_paper_date_is_preserved_when_notion_date_is_blank(self):
+        page = self._page("page-3", "Paper", "paper-three")
+        with patch.object(notion_sync, "blocks_children", return_value=[]):
+            rendered = notion_sync.page_to_md(page, fallback_date="2025-04-17")
+
+        self.assertIn('date: "2025-04-17"', rendered)
+        self.assertNotIn('date: "2026-10-20"', rendered)
+
+    def test_published_metadata_precedes_existing_date_and_created_time(self):
+        page = self._page("page-4", "Paper", "paper-four")
+        page["properties"]["published"] = {
+            "rich_text": [{"plain_text": "2024-03-08T11:20:00Z"}]
+        }
+        with patch.object(notion_sync, "blocks_children", return_value=[]):
+            rendered = notion_sync.page_to_md(page, fallback_date="2025-04-17")
+
+        self.assertIn('date: "2024-03-08"', rendered)
+
+    def test_frontmatter_date_reads_existing_hexo_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            destination = os.path.join(directory, "paper.md")
+            with open(destination, "w", encoding="utf-8") as handle:
+                handle.write('---\ntitle: "Paper"\ndate: 2023-09-02\n---\n')
+
+            self.assertEqual(notion_sync.frontmatter_date(destination), "2023-09-02")
+
 
 if __name__ == "__main__":
     unittest.main()

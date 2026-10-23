@@ -2,7 +2,7 @@
 
 title: "FLEXRec：用逐层出口融合为紧凑 LLM 推荐器补容量"
 
-date: 2026-10-19
+date: 2026-08-18
 
 year: 2026
 

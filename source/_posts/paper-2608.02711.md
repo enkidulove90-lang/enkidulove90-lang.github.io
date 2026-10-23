@@ -2,7 +2,7 @@
 
 title: "Hunyuan3D-Buffalo 1.0：用统一多模态架构打通3D理解、生成与编辑"
 
-date: 2026-10-19
+date: 2026-08-03
 
 year: 2026
 

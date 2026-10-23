@@ -2,7 +2,7 @@
 
 title: "EdgeBench：环境学习也遵循 log-sigmoid 缩放定律，R²=0.998"
 
-date: 2026-10-19
+date: 2026-07-06
 
 year: 2026
 

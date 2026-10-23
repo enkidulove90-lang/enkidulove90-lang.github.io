@@ -2,7 +2,7 @@
 
 title: "YOLO-PEFT：把适配器放置变成可审计的约束规划，并在 RT-DETR 上学会拒绝"
 
-date: 2026-10-19
+date: 2026-08-07
 
 year: 2026
 

@@ -2,7 +2,7 @@
 
 title: "压缩 KV Cache 为什么在推荐上失效：EARN 的 register token"
 
-date: 2026-10-19
+date: 2025-07-01
 
 year: 2025
 

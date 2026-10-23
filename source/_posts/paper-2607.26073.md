@@ -2,7 +2,7 @@
 
 title: "Gwhere：用对比式语义ID与EAKTO把生成式下一POI推荐搬上高德首页"
 
-date: 2026-10-19
+date: 2026-07-13
 
 year: 2026
 

@@ -2,7 +2,7 @@
 
 title: "Qwen-Image-2.0技术报告"
 
-date: 2026-10-19
+date: 2026-05-11
 
 year: 2026
 

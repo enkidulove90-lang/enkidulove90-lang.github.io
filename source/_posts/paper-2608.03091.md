@@ -2,7 +2,7 @@
 
 title: "InvariRank：当候选顺序一变，LLM 重排序的偏好就散了"
 
-date: 2026-10-19
+date: 2026-08-04
 
 year: 2026
 

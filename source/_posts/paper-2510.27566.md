@@ -2,7 +2,7 @@
 
 title: "Interact-RAG：把检索黑盒拆成可操纵的交互原语"
 
-date: 2026-10-19
+date: 2025-10-31
 
 year: 2025
 

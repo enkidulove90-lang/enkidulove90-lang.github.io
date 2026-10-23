@@ -2,7 +2,7 @@
 
 title: "对比视图就在 GCN 里：NLGCL 的邻层对比"
 
-date: 2026-10-19
+date: 2025-07-10
 
 year: 2025
 

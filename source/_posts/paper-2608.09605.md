@@ -2,7 +2,7 @@
 
 title: "TSPORec：用偏好优化为LLM序列推荐挑选信息Token"
 
-date: 2026-10-19
+date: 2026-08-10
 
 year: 2026
 

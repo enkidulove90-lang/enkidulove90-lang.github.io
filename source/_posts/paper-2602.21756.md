@@ -2,7 +2,7 @@
 
 title: "Persona4Rec：把 LLM 推理搬到离线，用人物画像索引做毫秒级重排序"
 
-date: 2026-10-19
+date: 2026-02-25
 
 year: 2026
 

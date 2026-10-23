@@ -2,7 +2,7 @@
 
 title: "对比视图不必靠随机扰动：LightGCL 用 SVD 抽取图的谱结构"
 
-date: 2026-10-19
+date: 2023-02-16
 
 year: 2023
 

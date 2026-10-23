@@ -204,7 +204,16 @@ def frontmatter_categories(path):
     return [item for item in values if item and item != "未分类"]
 
 
-def page_to_md(page, fallback_categories=None):
+def frontmatter_date(path):
+    """Read a previously verified paper date so an incomplete Notion page cannot erase it."""
+    if not path or not os.path.isfile(path):
+        return ""
+    with open(path, encoding="utf-8") as handle:
+        match = re.search(r"^date:\s*[\"']?(\d{4}-\d{2}-\d{2})[\"']?\s*$", handle.read(), re.MULTILINE)
+    return match.group(1) if match else ""
+
+
+def page_to_md(page, fallback_categories=None, fallback_date=""):
     props = page["properties"]
     title = plain((props.get("title") or props.get("Title") or {}).get("title", []))
     if not title:
@@ -214,7 +223,9 @@ def page_to_md(page, fallback_categories=None):
     category = sel.get("name")
     slug = page_slug(page)
     summary = plain((props.get("summary") or {}).get("rich_text", []))
-    date = ((props.get("date") or {}).get("date") or {}).get("start") or page["created_time"][:10]
+    notion_date = ((props.get("date") or {}).get("date") or {}).get("start")
+    published = plain((props.get("published") or {}).get("rich_text", []))
+    date = notion_date or published[:10] or fallback_date or page["created_time"][:10]
 
     # 多维筛选字段（与「分类」正交的三个独立维度，供前端 Tabs 过滤器使用）：
     #   year        Select   发布/出版年
@@ -352,7 +363,11 @@ def main():
             n_skip += 1
             continue
         try:
-            md = page_to_md(page, fallback_categories=frontmatter_categories(destination))
+            md = page_to_md(
+                page,
+                fallback_categories=frontmatter_categories(destination),
+                fallback_date=frontmatter_date(destination),
+            )
             title = re.search(r"title: (.+)", md).group(1)
             md = preserve_existing_post_when_remote_body_is_empty(md, destination)
             open(destination, "w", encoding="utf-8").write(md)

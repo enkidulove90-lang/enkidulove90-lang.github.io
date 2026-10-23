@@ -2,7 +2,7 @@
 
 title: "WeMM-Embedding：微信多模态嵌入的两阶段训练与语义ID重采样"
 
-date: 2026-10-19
+date: 2026-08-25
 
 year: 2026
 
