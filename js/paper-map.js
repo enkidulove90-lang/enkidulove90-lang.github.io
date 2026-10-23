@@ -12,12 +12,19 @@
   var hoverImage = document.getElementById('map-hover-image');
   var hoverText = document.getElementById('map-hover-text');
   var terrainToggle = document.getElementById('map-terrain-toggle');
+  var cityNav = document.getElementById('map-city-nav');
+  var cityList = document.getElementById('map-city-list');
+  var arrival = document.getElementById('map-arrival');
   var runtimeConfig = window.__PAPER_MAP_CONFIG__ || {}; // Backward compatibility; public tiles need no key.
   var MAPLIBRE_MODULE_URL = 'https://unpkg.com/maplibre-gl@6.15.0/dist/maplibre-gl.mjs';
   var MAPLIBRE_CSS_URL = 'https://unpkg.com/maplibre-gl@6.15.0/dist/maplibre-gl.css';
   var TERRAIN_TILE_URL = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
   var PHYSICAL_MAX_NATIVE_ZOOM = 8;
   var currentPayload = null;
+  var researchCities = [];
+  var selectedCityKey = '';
+  var arrivalTimer = null;
+  var arrivalSequence = 0;
   var leafletMap = null;
   var terrainMap = null;
   var terrainLoading = false;
@@ -49,6 +56,12 @@
   }
 
   function createPaperList(papers) {
+    if (!papers.length) {
+      var empty = document.createElement('p');
+      empty.className = 'map-city-empty';
+      empty.textContent = '当前论文库暂无直接归属记录；这里仅作为核心科研城市的地理观察入口。';
+      return empty;
+    }
     var list = document.createElement('ol');
     list.className = 'map-paper-list';
     papers.forEach(function (paper) {
@@ -78,6 +91,13 @@
     var loading = false;
     var failed = {};
     frame.className = 'map-place-carousel';
+    if (!images.length) {
+      frame.classList.add('map-place-carousel--empty');
+      image.alt = '';
+      count.textContent = '地理观察入口';
+      frame.append(image, count);
+      return frame;
+    }
     image.alt = place.name + '城市图景';
     image.decoding = 'async';
     count.className = 'map-place-carousel__count';
@@ -183,6 +203,119 @@
     detail.classList.remove('is-open');
     detail.setAttribute('aria-hidden', 'true');
     stopCarousel();
+  }
+
+  function cityAsPlace(city) {
+    return {
+      id: city.key,
+      name: city.name,
+      city: city.name,
+      wgs84: city.center,
+      image: city.image,
+      city_images: city.city_images,
+      institutions: city.institutions,
+      papers: city.papers,
+      location_type: 'affiliation',
+      description: city.geography
+    };
+  }
+
+  function showArrival(city) {
+    if (!arrival) return;
+    clearTimeout(arrivalTimer);
+    arrival.textContent = '抵达 ' + city.name + ' · ' + city.geography;
+    arrival.classList.add('is-visible');
+    arrival.setAttribute('aria-hidden', 'false');
+    arrivalTimer = setTimeout(function () {
+      arrival.classList.remove('is-visible');
+      arrival.setAttribute('aria-hidden', 'true');
+    }, 2600);
+  }
+
+  function markActiveCity(cityKey) {
+    selectedCityKey = cityKey;
+    if (!cityList) return;
+    cityList.querySelectorAll('.map-city-button').forEach(function (button) {
+      button.setAttribute('aria-pressed', button.dataset.cityKey === cityKey ? 'true' : 'false');
+    });
+  }
+
+  function prefersReducedMotion() {
+    return Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  function setTerrainExaggeration(value) {
+    if (!terrainMap) return;
+    try {
+      terrainMap.setTerrain({ source: 'terrain', exaggeration: value });
+    } catch (error) {
+      /* The style may still be settling; camera navigation remains usable. */
+    }
+  }
+
+  function animateTerrainToCity(city) {
+    var plan = window.PaperMapExperience.buildArrivalPlan(city);
+    var approach = plan[0];
+    var destination = plan[1];
+    var sequence = ++arrivalSequence;
+    if (prefersReducedMotion()) {
+      setTerrainExaggeration(destination.exaggeration);
+      terrainMap.jumpTo({
+        center: destination.center, zoom: destination.zoom,
+        pitch: destination.pitch, bearing: destination.bearing
+      });
+      return;
+    }
+    setTerrainExaggeration(approach.exaggeration);
+    terrainMap.once('moveend', function () {
+      if (!terrainMap || sequence !== arrivalSequence || selectedCityKey !== city.key) return;
+      setTerrainExaggeration(destination.exaggeration);
+      terrainMap.flyTo({
+        center: destination.center, zoom: destination.zoom,
+        pitch: destination.pitch, bearing: destination.bearing,
+        duration: destination.duration, essential: true
+      });
+    });
+    terrainMap.flyTo({
+      center: approach.center, zoom: approach.zoom,
+      pitch: approach.pitch, bearing: approach.bearing,
+      duration: approach.duration, essential: true
+    });
+  }
+
+  function selectResearchCity(city) {
+    markActiveCity(city.key);
+    showArrival(city);
+    if (terrainMap) {
+      animateTerrainToCity(city);
+    } else if (leafletMap) {
+      if (prefersReducedMotion()) {
+        leafletMap.setView([city.center[1], city.center[0]], 7);
+      } else {
+        leafletMap.flyTo([city.center[1], city.center[0]], 7, { duration: 1.2 });
+      }
+    }
+    showDetail(cityAsPlace(city), city.papers);
+  }
+
+  function renderCityNavigation(cities) {
+    if (!cityNav || !cityList) return;
+    cityList.replaceChildren();
+    cities.forEach(function (city) {
+      var button = document.createElement('button');
+      var name = document.createElement('strong');
+      var meta = document.createElement('span');
+      button.type = 'button';
+      button.className = 'map-city-button';
+      button.dataset.cityKey = city.key;
+      button.setAttribute('aria-pressed', city.key === selectedCityKey ? 'true' : 'false');
+      button.setAttribute('aria-label', city.name + '，' + city.paperCount + ' 篇论文，查看城市');
+      name.textContent = city.name;
+      meta.textContent = city.paperCount ? city.paperCount + ' 篇 · ' + city.institutionCount + ' 机构' : '地理入口 · 暂无论文';
+      button.append(name, meta);
+      button.addEventListener('click', function () { selectResearchCity(city); });
+      cityList.appendChild(button);
+    });
   }
 
   function showHover(place, originalEvent) {
@@ -468,6 +601,14 @@
           encoding: 'terrarium',
           attribution: 'Elevation data &copy; Mapzen, Amazon Web Services'
         },
+        hillshadeTerrain: {
+          type: 'raster-dem',
+          tiles: [TERRAIN_TILE_URL],
+          tileSize: 256,
+          maxzoom: 15,
+          encoding: 'terrarium',
+          attribution: 'Elevation data &copy; Mapzen, Amazon Web Services'
+        },
         reference: {
           type: 'raster',
           tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'],
@@ -477,15 +618,32 @@
         }
       },
       layers: [
-        { id: 'physical', type: 'raster', source: 'physical', maxzoom: PHYSICAL_MAX_NATIVE_ZOOM + 0.5 },
-        { id: 'topographic', type: 'raster', source: 'topographic', minzoom: PHYSICAL_MAX_NATIVE_ZOOM + 0.5 },
         {
-          id: 'terrain-hillshade', type: 'hillshade', source: 'terrain',
-          paint: { 'hillshade-exaggeration': 0.42, 'hillshade-shadow-color': '#675941', 'hillshade-highlight-color': '#fff7de' }
+          id: 'physical', type: 'raster', source: 'physical', maxzoom: PHYSICAL_MAX_NATIVE_ZOOM + 0.5,
+          paint: {
+            'raster-saturation': 0.24,
+            'raster-contrast': 0.14,
+            'raster-brightness-min': 0.04,
+            'raster-brightness-max': 0.96
+          }
+        },
+        {
+          id: 'topographic', type: 'raster', source: 'topographic', minzoom: PHYSICAL_MAX_NATIVE_ZOOM + 0.5,
+          paint: { 'raster-saturation': 0.08, 'raster-contrast': 0.08 }
+        },
+        {
+          id: 'terrain-hillshade', type: 'hillshade', source: 'hillshadeTerrain',
+          paint: {
+            'hillshade-exaggeration': 0.58,
+            'hillshade-shadow-color': '#5a4a32',
+            'hillshade-highlight-color': '#fff3cf',
+            'hillshade-accent-color': '#7c6846'
+          }
         },
         { id: 'reference', type: 'raster', source: 'reference' }
       ],
-      terrain: { source: 'terrain', exaggeration: 1.15 }
+      terrain: { source: 'terrain', exaggeration: 1.0 },
+      sky: {}
     };
   }
 
@@ -516,8 +674,8 @@
         style: terrainStyle(),
         center: [view.lng, view.lat],
         zoom: view.zoom,
-        pitch: 58,
-        bearing: -12,
+        pitch: 36,
+        bearing: 0,
         maxPitch: 80,
         canvasContextAttributes: { antialias: true }
       });
@@ -535,6 +693,10 @@
         currentPayload.places.forEach(function (place) {
           var papers = place.papers || currentPayload.papers.filter(function (paper) { return paper.city_id === place.id; });
           createTerrainMarker(maplibregl, place, papers);
+        });
+        var canvas = terrainMap.getCanvas();
+        ['pointerdown', 'touchstart', 'wheel'].forEach(function (eventName) {
+          canvas.addEventListener(eventName, function () { arrivalSequence += 1; }, { passive: true });
         });
         terrainLoading = false;
         status.classList.add('map-status--hidden');
@@ -581,6 +743,11 @@
         return;
       }
       currentPayload = payload;
+      researchCities = window.PaperMapExperience.buildResearchCities(payload, {
+        now: payload.meta.generated,
+        limit: 8
+      });
+      renderCityNavigation(researchCities);
       renderMap(payload);
     })
     .catch(function () {
