@@ -405,6 +405,21 @@ test('map page exposes accessible research city navigation before the map runtim
   assert.match(script, /aria-pressed/);
 });
 
+test('research city navigation retracts from the top center until hover or focus', () => {
+  const root = path.resolve(__dirname, '..');
+  const page = fs.readFileSync(path.join(root, 'source/map/index.md'), 'utf8');
+  const css = fs.readFileSync(path.join(root, 'source/css/paper-map.css'), 'utf8');
+
+  assert.match(page, /id=["']map-city-nav["'][^>]+tabindex=["']0["']/);
+  assert.match(css, /\.map-city-nav\s*\{[^}]*top:\s*0[^}]*left:\s*50%[^}]*transform:\s*translate\(-50%,\s*calc\(-100%\s*\+\s*42px\)\)/s);
+  assert.match(css, /\.map-city-nav:hover\s*,\s*\.map-city-nav:focus-within\s*\{[^}]*transform:\s*translate\(-50%,\s*0\)/s);
+  assert.match(css, /\.map-city-nav__heading\s*\{[^}]*order:\s*2/s);
+  assert.match(css, /@media\s*\(hover:\s*none\)[\s\S]*\.map-city-nav:focus\s*\{[^}]*transform:\s*translate\(-50%,\s*0\)/s);
+  assert.match(css, /\.map-city-nav\s*\{[^}]*pointer-events:\s*none/s);
+  assert.match(css, /\.map-city-nav__heading\s*\{[^}]*pointer-events:\s*auto/s);
+  assert.match(css, /\.map-city-list\s*\{[^}]*pointer-events:\s*auto/s);
+});
+
 test('on-demand terrain uses global AWS Terrarium data and restores Leaflet on failure', () => {
   const script = fs.readFileSync(path.join(__dirname, '../source/js/paper-map.js'), 'utf8');
 

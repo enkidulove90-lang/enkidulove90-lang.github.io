@@ -18,7 +18,7 @@ top_img: false
     <button id="map-terrain-toggle" class="map-terrain-toggle" type="button" aria-pressed="false" disabled>
       3D 地形
     </button>
-    <nav id="map-city-nav" class="map-city-nav" aria-label="核心科研城市">
+    <nav id="map-city-nav" class="map-city-nav" aria-label="核心科研城市" tabindex="0">
       <div class="map-city-nav__heading">
         <span>RESEARCH CITIES</span>
         <strong>科研城市</strong>
