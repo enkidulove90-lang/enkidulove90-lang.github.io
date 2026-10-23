@@ -49,7 +49,19 @@
     };
     appendOnce(document, 'paper-2610-05432-mathjax', 'script', {
       async: true,
-      src: 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js'
+      src: '/js/vendor/mathjax/tex-svg.js',
+      onload: function typesetOpticalRecAfterLoad() {
+        if (root.MathJax && typeof root.MathJax.typesetPromise === 'function') {
+          Promise.resolve(root.MathJax.typesetPromise([document.body])).catch(
+            function markTypesetFailure() {
+              document.body.classList.add('paper-math-typeset-failed');
+            }
+          );
+        }
+      },
+      onerror: function markMathLoaderFailure() {
+        document.body.classList.add('paper-math-load-failed');
+      }
     });
     if (typeof root.MathJax.typesetPromise === 'function') {
       Promise.resolve(root.MathJax.typesetPromise([document.body])).catch(function ignoreTypesetFailure() {});
