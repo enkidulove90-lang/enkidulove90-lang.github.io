@@ -67,7 +67,7 @@ test('target route adds its class, stylesheet, and MathJax exactly once', () => 
   );
   assert.deepEqual(
     JSON.parse(JSON.stringify(page.window.MathJax.tex.macros.bm)),
-    ['\\boldsymbol{#1}', 1]
+    ['\\mathbf{#1}', 1]
   );
 });
 
@@ -149,10 +149,10 @@ test('the injected bootstrap is deferred and configures literal formula delimite
   const config = fs.readFileSync(path.join(root, '_config.butterfly.yml'), 'utf8');
   const script = fs.readFileSync(scriptPath, 'utf8');
 
-  assert.ok(config.includes('<script defer src="/js/paper-2610.05432.js?v=math-v5"></script>'));
+  assert.ok(config.includes('<script defer src="/js/paper-2610.05432.js?v=math-v6"></script>'));
   assert.ok(script.includes("inlineMath: [['$', '$'], ['\\\\(', '\\\\)']]"));
   assert.ok(script.includes("displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']]"));
-  assert.ok(script.includes("bm: ['\\\\boldsymbol{#1}', 1]"));
+  assert.ok(script.includes("bm: ['\\\\mathbf{#1}', 1]"));
   assert.doesNotMatch(script, /cdn\.jsdelivr|cdnjs|unpkg/);
   assert.equal(fs.existsSync(path.join(root, 'source/js/vendor/mathjax/tex-svg.js')), true);
 });
