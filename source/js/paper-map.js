@@ -24,6 +24,7 @@
   var researchCities = [];
   var selectedCityKey = '';
   var arrivalTimer = null;
+  var arrivalSequence = 0;
   var leafletMap = null;
   var terrainMap = null;
   var terrainLoading = false;
@@ -239,13 +240,60 @@
     });
   }
 
+  function prefersReducedMotion() {
+    return Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  function setTerrainExaggeration(value) {
+    if (!terrainMap) return;
+    try {
+      terrainMap.setTerrain({ source: 'terrain', exaggeration: value });
+    } catch (error) {
+      /* The style may still be settling; camera navigation remains usable. */
+    }
+  }
+
+  function animateTerrainToCity(city) {
+    var plan = window.PaperMapExperience.buildArrivalPlan(city);
+    var approach = plan[0];
+    var destination = plan[1];
+    var sequence = ++arrivalSequence;
+    if (prefersReducedMotion()) {
+      setTerrainExaggeration(destination.exaggeration);
+      terrainMap.jumpTo({
+        center: destination.center, zoom: destination.zoom,
+        pitch: destination.pitch, bearing: destination.bearing
+      });
+      return;
+    }
+    setTerrainExaggeration(approach.exaggeration);
+    terrainMap.once('moveend', function () {
+      if (!terrainMap || sequence !== arrivalSequence || selectedCityKey !== city.key) return;
+      setTerrainExaggeration(destination.exaggeration);
+      terrainMap.flyTo({
+        center: destination.center, zoom: destination.zoom,
+        pitch: destination.pitch, bearing: destination.bearing,
+        duration: destination.duration, essential: true
+      });
+    });
+    terrainMap.flyTo({
+      center: approach.center, zoom: approach.zoom,
+      pitch: approach.pitch, bearing: approach.bearing,
+      duration: approach.duration, essential: true
+    });
+  }
+
   function selectResearchCity(city) {
     markActiveCity(city.key);
     showArrival(city);
     if (terrainMap) {
-      terrainMap.flyTo({ center: city.center, zoom: 8.2, pitch: 58, duration: 900, essential: true });
+      animateTerrainToCity(city);
     } else if (leafletMap) {
-      leafletMap.flyTo([city.center[1], city.center[0]], 7, { duration: 1.2 });
+      if (prefersReducedMotion()) {
+        leafletMap.setView([city.center[1], city.center[0]], 7);
+      } else {
+        leafletMap.flyTo([city.center[1], city.center[0]], 7, { duration: 1.2 });
+      }
     }
     showDetail(cityAsPlace(city), city.papers);
   }
@@ -553,6 +601,14 @@
           encoding: 'terrarium',
           attribution: 'Elevation data &copy; Mapzen, Amazon Web Services'
         },
+        hillshadeTerrain: {
+          type: 'raster-dem',
+          tiles: [TERRAIN_TILE_URL],
+          tileSize: 256,
+          maxzoom: 15,
+          encoding: 'terrarium',
+          attribution: 'Elevation data &copy; Mapzen, Amazon Web Services'
+        },
         reference: {
           type: 'raster',
           tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}'],
@@ -562,15 +618,32 @@
         }
       },
       layers: [
-        { id: 'physical', type: 'raster', source: 'physical', maxzoom: PHYSICAL_MAX_NATIVE_ZOOM + 0.5 },
-        { id: 'topographic', type: 'raster', source: 'topographic', minzoom: PHYSICAL_MAX_NATIVE_ZOOM + 0.5 },
         {
-          id: 'terrain-hillshade', type: 'hillshade', source: 'terrain',
-          paint: { 'hillshade-exaggeration': 0.42, 'hillshade-shadow-color': '#675941', 'hillshade-highlight-color': '#fff7de' }
+          id: 'physical', type: 'raster', source: 'physical', maxzoom: PHYSICAL_MAX_NATIVE_ZOOM + 0.5,
+          paint: {
+            'raster-saturation': 0.24,
+            'raster-contrast': 0.14,
+            'raster-brightness-min': 0.04,
+            'raster-brightness-max': 0.96
+          }
+        },
+        {
+          id: 'topographic', type: 'raster', source: 'topographic', minzoom: PHYSICAL_MAX_NATIVE_ZOOM + 0.5,
+          paint: { 'raster-saturation': 0.08, 'raster-contrast': 0.08 }
+        },
+        {
+          id: 'terrain-hillshade', type: 'hillshade', source: 'hillshadeTerrain',
+          paint: {
+            'hillshade-exaggeration': 0.58,
+            'hillshade-shadow-color': '#5a4a32',
+            'hillshade-highlight-color': '#fff3cf',
+            'hillshade-accent-color': '#7c6846'
+          }
         },
         { id: 'reference', type: 'raster', source: 'reference' }
       ],
-      terrain: { source: 'terrain', exaggeration: 1.15 }
+      terrain: { source: 'terrain', exaggeration: 1.0 },
+      sky: {}
     };
   }
 
@@ -601,8 +674,8 @@
         style: terrainStyle(),
         center: [view.lng, view.lat],
         zoom: view.zoom,
-        pitch: 58,
-        bearing: -12,
+        pitch: 36,
+        bearing: 0,
         maxPitch: 80,
         canvasContextAttributes: { antialias: true }
       });
@@ -620,6 +693,10 @@
         currentPayload.places.forEach(function (place) {
           var papers = place.papers || currentPayload.papers.filter(function (paper) { return paper.city_id === place.id; });
           createTerrainMarker(maplibregl, place, papers);
+        });
+        var canvas = terrainMap.getCanvas();
+        ['pointerdown', 'touchstart', 'wheel'].forEach(function (eventName) {
+          canvas.addEventListener(eventName, function () { arrivalSequence += 1; }, { passive: true });
         });
         terrainLoading = false;
         status.classList.add('map-status--hidden');

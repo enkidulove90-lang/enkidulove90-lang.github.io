@@ -417,6 +417,22 @@ test('on-demand terrain uses global AWS Terrarium data and restores Leaflet on f
   assert.match(script, /terrainMap\.setProjection\(\{\s*type:\s*['"]mercator['"]\s*\}\)/);
 });
 
+test('3D terrain uses vivid natural layers and two-stage accessible city arrival', () => {
+  const script = fs.readFileSync(path.join(__dirname, '../source/js/paper-map.js'), 'utf8');
+
+  assert.match(script, /hillshadeTerrain:\s*\{[\s\S]*type:\s*['"]raster-dem['"]/);
+  assert.match(script, /source:\s*['"]hillshadeTerrain['"]/);
+  assert.match(script, /['"]raster-saturation['"]:\s*0\.24/);
+  assert.match(script, /['"]raster-contrast['"]:\s*0\.14/);
+  assert.match(script, /sky:\s*\{\}/);
+  assert.match(script, /PaperMapExperience\.buildArrivalPlan/);
+  assert.match(script, /terrainMap\.setTerrain\(\{\s*source:\s*['"]terrain['"],\s*exaggeration:/);
+  assert.match(script, /terrainMap\.once\(['"]moveend['"]/);
+  assert.match(script, /terrainMap\.flyTo/);
+  assert.match(script, /terrainMap\.jumpTo/);
+  assert.match(script, /matchMedia\(['"]\(prefers-reduced-motion:\s*reduce\)['"]\)/);
+});
+
 test('map copy explains the marker meaning instead of using the generic encounter slogan', () => {
   const script = fs.readFileSync(path.join(__dirname, '../source/js/paper-map.js'), 'utf8');
   assert.match(script, /function semanticPlaceCopy/);
