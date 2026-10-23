@@ -4,7 +4,12 @@ const TARGET_SLUG = 'paper-2610.05432';
 const TARGET_SOURCE = '_posts/paper-2610.05432.md';
 
 function isTargetPost(data) {
-  return Boolean(data && (data.slug === TARGET_SLUG || data.source === TARGET_SOURCE));
+  if (!data) return false;
+  if (data.slug === TARGET_SLUG || data.source === TARGET_SOURCE) return true;
+  const slug = String(data.slug || '').trim();
+  const source = String(data.source || '').replace(/\\/g, '/');
+  return /^paper-\d{4}\.\d{4,5}$/.test(slug)
+    || /(?:^|\/)paper-\d{4}\.\d{4,5}\.md$/.test(source);
 }
 
 function escapeHtml(value) {

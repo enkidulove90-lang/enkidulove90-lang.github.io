@@ -15,7 +15,7 @@
   }
 
   function isTargetUrl(value) {
-    return normalizePath(value) === TARGET_PATH;
+    return /^\/article\/paper-\d{4}\.\d{4,5}$/.test(normalizePath(value));
   }
 
   function appendOnce(document, id, tagName, attributes) {
@@ -32,11 +32,13 @@
     document.body.classList.remove(BODY_CLASS);
     if (!isTargetUrl(root.location.pathname)) return false;
 
-    document.body.classList.add(BODY_CLASS);
-    appendOnce(document, 'paper-2610-05432-css', 'link', {
-      rel: 'stylesheet',
-      href: '/css/paper-2610.05432.css'
-    });
+    if (normalizePath(root.location.pathname) === TARGET_PATH) {
+      document.body.classList.add(BODY_CLASS);
+      appendOnce(document, 'paper-2610-05432-css', 'link', {
+        rel: 'stylesheet',
+        href: '/css/paper-2610.05432.css'
+      });
+    }
     root.MathJax = root.MathJax || {
       tex: {
         inlineMath: [['$', '$'], ['\\(', '\\)']],

@@ -35,11 +35,12 @@ function loadScript(pathname) {
   return { api: context.module.exports, appended, body, window, listeners };
 }
 
-test('route guard matches only the OpticalRec article after URL normalization', () => {
+test('route guard matches canonical paper article routes after URL normalization', () => {
   const { api } = loadScript('/control/');
   assert.equal(api.isTargetUrl('/article/paper-2610.05432/'), true);
   assert.equal(api.isTargetUrl('/article/paper-2610.05432?view=1#method'), true);
   assert.equal(api.isTargetUrl('/article/paper-2610.05432///'), true);
+  assert.equal(api.isTargetUrl('/article/paper-2608.17316/'), true);
   assert.equal(api.isTargetUrl('/article/paper-2610.05432-extra/'), false);
   assert.equal(api.isTargetUrl('/article/control/'), false);
 });
@@ -109,13 +110,14 @@ test('target route re-typesets the complete article when MathJax is already load
   assert.equal(calls, 1);
 });
 
-test('control route receives neither target class nor target-only assets', () => {
+test('other paper routes receive MathJax but not OpticalRec-only styling', () => {
   const page = loadScript('/article/paper-2608.17316/');
   page.api.applyTargetEnhancements();
 
   assert.equal(page.body.classes.has('paper-2610-05432'), false);
-  assert.equal(page.appended.length, 0);
-  assert.equal(page.window.MathJax, undefined);
+  assert.equal(page.appended.some(node => node.id === 'paper-2610-05432-css'), false);
+  assert.equal(page.appended.filter(node => node.id === 'paper-2610-05432-mathjax').length, 1);
+  assert.ok(page.window.MathJax);
 });
 
 test('all typography selectors are target scoped with the requested font stacks', () => {
@@ -290,5 +292,6 @@ test('math protection identifies the target during Hexo before-post rendering', 
 
   assert.equal(isTargetPost({ source: '_posts/paper-2610.05432.md' }), true);
   assert.equal(isTargetPost({ slug: 'paper-2610.05432' }), true);
-  assert.equal(isTargetPost({ source: '_posts/paper-2608.17316.md' }), false);
+  assert.equal(isTargetPost({ source: '_posts/paper-2608.17316.md' }), true);
+  assert.equal(isTargetPost({ slug: 'paper-not-an-id' }), false);
 });
