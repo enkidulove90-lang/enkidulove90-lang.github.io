@@ -15,6 +15,9 @@ top_img: false
 <section class="paper-map-shell" aria-label="论文足迹世界地图">
   <div class="map-stage">
     <div id="paper-map" role="application" aria-label="论文机构与会议城市交互地图"></div>
+    <button id="map-terrain-toggle" class="map-terrain-toggle" type="button" aria-pressed="false" disabled>
+      3D 地形
+    </button>
     <div id="map-status" class="map-status" role="status">
       <span class="map-status__pulse" aria-hidden="true"></span>
       <div><strong>正在加载研究坐标</strong><p>地图马上展开。</p></div>
@@ -41,4 +44,4 @@ top_img: false
 <script defer src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script defer src="/js/map-carto-config.js"></script>
 <script defer src="/js/map-data-cache.js?v=20261021-cache-v1"></script>
-<script defer src="/js/paper-map.js?v=20261021-physical-reference-v1"></script>
+<script defer src="/js/paper-map.js?v=20261023-terrain-on-demand-v1"></script>

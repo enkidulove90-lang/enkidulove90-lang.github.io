@@ -366,6 +366,39 @@ test('the vivid physical map keeps a reference overlay and uses staged keyless f
   assert.match(script, /basemapIndex\s*\+=\s*1/);
 });
 
+test('physical tiles switch to the topographic source above their native zoom', () => {
+  const script = fs.readFileSync(path.join(__dirname, '../source/js/paper-map.js'), 'utf8');
+
+  assert.match(script, /PHYSICAL_MAX_NATIVE_ZOOM\s*=\s*8/);
+  assert.match(script, /map\.on\(['"]zoomend['"]/);
+  assert.match(script, /map\.getZoom\(\)\s*>\s*PHYSICAL_MAX_NATIVE_ZOOM/);
+  assert.match(script, /switchBasemap\(['"]topographic['"]\)/);
+});
+
+test('3D terrain is opt-in and never blocks the initial Leaflet map', () => {
+  const root = path.resolve(__dirname, '..');
+  const page = fs.readFileSync(path.join(root, 'source/map/index.md'), 'utf8');
+  const script = fs.readFileSync(path.join(root, 'source/js/paper-map.js'), 'utf8');
+
+  assert.match(page, /id=["']map-terrain-toggle["']/);
+  assert.doesNotMatch(page, /<script[^>]+maplibre-gl/i);
+  assert.doesNotMatch(page, /<link[^>]+maplibre-gl/i);
+  assert.match(script, /import\(MAPLIBRE_MODULE_URL\)/);
+  assert.match(script, /terrainToggle\.addEventListener\(['"]click['"]/);
+});
+
+test('on-demand terrain uses global AWS Terrarium data and restores Leaflet on failure', () => {
+  const script = fs.readFileSync(path.join(__dirname, '../source/js/paper-map.js'), 'utf8');
+
+  assert.match(script, /elevation-tiles-prod\/terrarium\/\{z\}\/\{x\}\/\{y\}\.png/);
+  assert.match(script, /type:\s*['"]raster-dem['"]/);
+  assert.match(script, /encoding:\s*['"]terrarium['"]/);
+  assert.match(script, /terrainErrorCount\s*>=\s*3/);
+  assert.match(script, /restoreLeaflet/);
+  assert.match(script, /terrainMap\.setTerrain\(null\)/);
+  assert.match(script, /terrainMap\.setProjection\(\{\s*type:\s*['"]mercator['"]\s*\}\)/);
+});
+
 test('map copy explains the marker meaning instead of using the generic encounter slogan', () => {
   const script = fs.readFileSync(path.join(__dirname, '../source/js/paper-map.js'), 'utf8');
   assert.match(script, /function semanticPlaceCopy/);
