@@ -118,9 +118,9 @@ $$
 
 其中 $\lambda$ 为控制 SODA 监督贡献的超参数。将 SODA 应用于特定生成式推荐主干（如 ETEGRec）时，总体目标还可包含其他辅助损失。SODA 不引入推理开销，训练时间增加不到 5%。
 
-![方法图 1](/images/56f577da2d6fcfcf9952d67fd697b066.png)
+![方法图 1](/images/a917d3b279d4a52b9c983995aa11ed65.png)
 
-该图给出 SODA 框架的整体概览：分词器在多层码本上产生概率分布，作为软语义表示用于辅助监督，从而在分词器与推荐器之间实现细粒度语义对齐与联合优化。
+图中上路由分词器把目标物品映射为多层码本概率分布，下路由推荐器把用户历史映射为正、负分布；三者通过对称 KL 散度构造 SODA 对比损失，体现了分布级监督如何连接分词器与推荐器。
 
 ## 三、实验
 
@@ -136,34 +136,42 @@ $$
 
 **消融研究（RQ2）。** 通过逐步移除各关键组件进行消融，报告 Beauty 数据集上 SODA-T 与 SODA-L 的结果，其他数据集与主干呈现一致趋势。对比的变体包括：w/o neg，移除负项、将 BPR 对比目标替换为仅建模正历史—目标关系的逐点损失；w/o loss，完全移除 $\mathcal{L}_{\text{SODA}}$，仅依赖离散码级监督；w/o alter，采用标准 TIGER/LETTER 的解耦优化而非交替训练。结果显示：w/o neg 与 w/o loss 均持续导致性能下降，表明分布级监督提供了超越码级监督的细粒度语义信号，而对比负样本进一步提升了表示判别力以及用户历史与目标物品之间的语义对齐；w/o alter 变体表现较差，因为移除交替优化会固定物品码、使其无法适应推荐上下文，说明动态更新、推荐感知的令牌表示具有收益。
 
+![实验图 1](/images/35d42d8a7eda487f1b897e5dd166e2e1.png)
+
+主结果表比较 Beauty、Pet 与 Upwork 上的传统模型和三种生成式主干。加粗列显示 SODA-T、SODA-L、SODA-E 相对各自主干在 Recall 与 NDCG 指标上的变化，用于检验框架跨数据集与跨主干的稳定性。
+
+![实验图 2](/images/91170c1b1f644eb7c9caf3c1d0ed0bbb.png)
+
+消融表在 Beauty 数据集上分别移除负项、分布级损失与交替优化。各变体的 Recall 和 NDCG 均可与完整 SODA-T、SODA-L 直接对照，从而区分对比负样本、软分布监督和交替训练的贡献。
+
 ## 四、总结
 
 本文提出了 SODA，一个即插即用的分布级监督框架，通过基于负对称 KL 散度的 BPR 目标，将推荐器表示与分词器诱导的码本分布对齐。通过利用离散码之外的细粒度语义，SODA 在不引入推理开销的情况下稳定提升了多种生成式推荐主干。未来工作方面，计划在大规模工业推荐数据集上评估该方法的可扩展性，以进一步考察其在超大规模物品语料上的鲁棒性与效率。
 
 ## References
 
-- Rajput et al. Recommender Systems with Generative Retrieval (TIGER).
+- Rajput et al. [Recommender Systems with Generative Retrieval (TIGER)](https://scholar.google.com/scholar?q=Recommender+Systems+with+Generative+Retrieval+%28TIGER%29).
 
-- Wang et al. RQ-VAE: Residual Quantized Variational Autoencoder.
+- Wang et al. [RQ-VAE: Residual Quantized Variational Autoencoder](https://scholar.google.com/scholar?q=RQ-VAE%3A+Residual+Quantized+Variational+Autoencoder).
 
-- Rendle et al. BPR: Bayesian Personalized Ranking from Implicit Feedback.
+- Rendle et al. [BPR: Bayesian Personalized Ranking from Implicit Feedback](https://scholar.google.com/scholar?q=BPR%3A+Bayesian+Personalized+Ranking+from+Implicit+Feedback).
 
-- Wang et al. LETTER: Learnable Item Tokenization for Generative Recommendation.
+- Wang et al. [LETTER: Learnable Item Tokenization for Generative Recommendation](https://scholar.google.com/scholar?q=LETTER%3A+Learnable+Item+Tokenization+for+Generative+Recommendation).
 
-- Zhou et al. ETEGRec: Alternating Optimization for Generative Recommendation.
+- Zhou et al. [ETEGRec: Alternating Optimization for Generative Recommendation](https://scholar.google.com/scholar?q=ETEGRec%3A+Alternating+Optimization+for+Generative+Recommendation).
 
-- Raffel et al. T5: Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer.
+- Raffel et al. [T5: Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer](https://scholar.google.com/scholar?q=T5%3A+Exploring+the+Limits+of+Transfer+Learning+with+a+Unified+Text-to-Text+Transformer).
 
-- Kang and McAuley. Self-Attentive Sequential Recommendation (SASRec).
+- Kang and McAuley. [Self-Attentive Sequential Recommendation (SASRec)](https://scholar.google.com/scholar?q=Self-Attentive+Sequential+Recommendation+%28SASRec%29).
 
-- Sun et al. BERT4Rec: Sequential Recommendation with Bidirectional Encoder Representations.
+- Sun et al. [BERT4Rec: Sequential Recommendation with Bidirectional Encoder Representations](https://scholar.google.com/scholar?q=BERT4Rec%3A+Sequential+Recommendation+with+Bidirectional+Encoder+Representations).
 
-- Hidasi et al. GRU4Rec: Session-based Recommendations with Recurrent Neural Networks.
+- Hidasi et al. [GRU4Rec: Session-based Recommendations with Recurrent Neural Networks](https://scholar.google.com/scholar?q=GRU4Rec%3A+Session-based+Recommendations+with+Recurrent+Neural+Networks).
 
-- Tang and Wang. Caser: Personalized Top-N Sequential Recommendation via Convolutional Sequence Embedding.
+- Tang and Wang. [Caser: Personalized Top-N Sequential Recommendation via Convolutional Sequence Embedding](https://scholar.google.com/scholar?q=Caser%3A+Personalized+Top-N+Sequential+Recommendation+via+Convolutional+Sequence+Embedding).
 
-- Ma et al. HGN: Hierarchical Gating Networks for Sequential Recommendation.
+- Ma et al. [HGN: Hierarchical Gating Networks for Sequential Recommendation](https://scholar.google.com/scholar?q=HGN%3A+Hierarchical+Gating+Networks+for+Sequential+Recommendation).
 
-- Zhao et al. RecBole: A Unified, Comprehensive and Efficient Recommendation Library.
+- Zhao et al. [RecBole: A Unified, Comprehensive and Efficient Recommendation Library](https://scholar.google.com/scholar?q=RecBole%3A+A+Unified%2C+Comprehensive+and+Efficient+Recommendation+Library).
 
-- Ni et al. Sentence-T5: Scalable Sentence Encoders from Pre-trained Text-to-Text Models.
+- Ni et al. [Sentence-T5: Scalable Sentence Encoders from Pre-trained Text-to-Text Models](https://doi.org/10.18653/v1/2022.findings-acl.146).
