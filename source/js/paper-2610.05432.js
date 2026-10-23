@@ -51,6 +51,9 @@
       async: true,
       src: 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js'
     });
+    if (typeof root.MathJax.typesetPromise === 'function') {
+      Promise.resolve(root.MathJax.typesetPromise([document.body])).catch(function ignoreTypesetFailure() {});
+    }
     return true;
   }
 

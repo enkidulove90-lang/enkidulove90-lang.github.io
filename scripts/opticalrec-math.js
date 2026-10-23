@@ -16,22 +16,34 @@ function escapeHtml(value) {
 
 function protectMath(markdown) {
   const displays = [];
-  let protectedMarkdown = String(markdown).replace(/\$\$([\s\S]*?)\$\$/g, (_match, formula) => {
+  const inlines = [];
+  const protectDisplay = (_match, formula) => {
     const token = `@@OPTICALREC_DISPLAY_${displays.length}@@`;
     displays.push(`<div class="math-display">\\[${escapeHtml(formula.trim())}\\]</div>`);
     return token;
-  });
+  };
+  const protectInline = (_match, prefix, formula) => {
+    const token = `@@OPTICALREC_INLINE_${inlines.length}@@`;
+    inlines.push(`${prefix}<span class="math-inline">\\(${escapeHtml(formula)}\\)</span>`);
+    return token;
+  };
+
+  let protectedMarkdown = String(markdown)
+    .replace(/\$\$([\s\S]*?)\$\$/g, protectDisplay)
+    .replace(/\\\[([\s\S]*?)\\\]/g, protectDisplay);
 
   protectedMarkdown = protectedMarkdown.replace(
     /(^|[^$])\$(?!\$)([^\n$]+?)\$(?!\$)/g,
-    (_match, prefix, formula) => (
-      `${prefix}<span class="math-inline">\\(${escapeHtml(formula)}\\)</span>`
-    )
-  );
+    protectInline
+  ).replace(/(^|[^\\])\\\(([\s\S]*?)\\\)/g, protectInline);
 
-  return displays.reduce(
+  const withDisplays = displays.reduce(
     (content, display, index) => content.replace(`@@OPTICALREC_DISPLAY_${index}@@`, display),
     protectedMarkdown
+  );
+  return inlines.reduce(
+    (content, inline, index) => content.replace(`@@OPTICALREC_INLINE_${index}@@`, inline),
+    withDisplays
   );
 }
 

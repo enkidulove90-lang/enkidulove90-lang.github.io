@@ -60,6 +60,24 @@ test('target route adds its class, stylesheet, and MathJax exactly once', () => 
   );
 });
 
+test('target route re-typesets the complete article when MathJax is already loaded', async () => {
+  const page = loadScript('/article/paper-2610.05432/');
+  let calls = 0;
+  page.window.MathJax = {
+    typesetPromise(elements) {
+      calls += 1;
+      assert.equal(elements.length, 1);
+      assert.equal(elements[0], page.window.document.body);
+      return Promise.resolve();
+    }
+  };
+
+  page.api.applyTargetEnhancements();
+  await Promise.resolve();
+
+  assert.equal(calls, 1);
+});
+
 test('control route receives neither target class nor target-only assets', () => {
   const page = loadScript('/article/paper-2608.17316/');
   page.api.applyTargetEnhancements();
@@ -94,9 +112,19 @@ test('the injected bootstrap is deferred and configures literal formula delimite
   const config = fs.readFileSync(path.join(root, '_config.butterfly.yml'), 'utf8');
   const script = fs.readFileSync(scriptPath, 'utf8');
 
-  assert.ok(config.includes('<script defer src="/js/paper-2610.05432.js?v=math-v2"></script>'));
+  assert.ok(config.includes('<script defer src="/js/paper-2610.05432.js?v=math-v3"></script>'));
   assert.ok(script.includes("inlineMath: [['$', '$'], ['\\\\(', '\\\\)']]"));
   assert.ok(script.includes("displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']]"));
+});
+
+test('OpticalRec section headings use names without Chinese numeric prefixes', () => {
+  const article = fs.readFileSync(path.join(root, 'source/_posts/paper-2610.05432.md'), 'utf8');
+
+  assert.match(article, /^## 研究背景与问题$/m);
+  assert.match(article, /^## 方法$/m);
+  assert.match(article, /^## 实验$/m);
+  assert.match(article, /^## 总结$/m);
+  assert.doesNotMatch(article, /^##\s+[一二三四]、/m);
 });
 
 test('Hexo preserves inline and display formula delimiters for MathJax', async () => {
@@ -135,6 +163,31 @@ test('Hexo protects real OpticalRec formulas from Markdown emphasis parsing', as
     assert.match(html, /class="math-display"/);
     assert.match(html, /class="math-inline"/);
     assert.match(html, /\\mathbf\{q\}_i/);
+  } finally {
+    await hexo.exit();
+  }
+});
+
+test('Hexo protects every supported LaTeX delimiter across the OpticalRec article', async () => {
+  const hexo = new Hexo(root, { silent: true });
+  await hexo.init();
+  try {
+    const { protectMath } = require(path.join(root, 'scripts/opticalrec-math.js'));
+    const content = protectMath([
+      '美元行内 $x_i$。',
+      '括号行内 \\(\\mathbf{q}_i \\to \\mathbf{z}_i\\)。',
+      '',
+      '$$\\sum_i p_i \\log p_i$$',
+      '',
+      '\\[I(\\mathbf{q}_i;\\mathbf{x}_i)=\\mathcal{I}_{\\mathrm{cross}}\\]'
+    ].join('\n'));
+    const html = await hexo.render.render({ text: content, engine: 'md' });
+
+    assert.equal((html.match(/class="math-inline"/g) || []).length, 2);
+    assert.equal((html.match(/class="math-display"/g) || []).length, 2);
+    assert.doesNotMatch(html, /<em>/);
+    assert.match(html, /\\mathbf\{q\}_i/);
+    assert.match(html, /\\mathcal\{I\}_\{\\mathrm\{cross\}\}/);
   } finally {
     await hexo.exit();
   }
