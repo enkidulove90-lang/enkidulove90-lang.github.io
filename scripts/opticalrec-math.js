@@ -14,6 +14,12 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;');
 }
 
+function escapeInlineMath(value) {
+  return escapeHtml(value)
+    .replace(/_/g, '&#95;')
+    .replace(/\*/g, '&#42;');
+}
+
 function protectMath(markdown) {
   const displays = [];
   const inlines = [];
@@ -24,7 +30,9 @@ function protectMath(markdown) {
   };
   const protectInline = (_match, prefix, formula) => {
     const token = `@@OPTICALREC_INLINE_${inlines.length}@@`;
-    inlines.push(`${prefix}<span class="math-inline">\\(${escapeHtml(formula)}\\)</span>`);
+    inlines.push(
+      `${prefix}<span class="math-inline">$${escapeInlineMath(formula)}$</span>`
+    );
     return token;
   };
 

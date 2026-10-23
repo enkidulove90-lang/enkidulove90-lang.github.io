@@ -1,9 +1,11 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
 const Hexo = require('hexo');
+const { JSDOM } = require('jsdom');
 
 const root = path.resolve(__dirname, '..');
 const scriptPath = path.join(root, 'source/js/paper-2610.05432.js');
@@ -240,6 +242,46 @@ test('Hexo protects every supported LaTeX delimiter across the OpticalRec articl
     assert.match(html, /\\mathcal\{I\}_\{\\mathrm\{cross\}\}/);
   } finally {
     await hexo.exit();
+  }
+});
+
+test('rendered inline formulas retain literal MathJax delimiters in the browser DOM', async () => {
+  const hexo = new Hexo(root, { silent: true });
+  await hexo.init();
+  try {
+    const { protectMath } = require(path.join(root, 'scripts/opticalrec-math.js'));
+    const html = await hexo.render.render({
+      text: protectMath('正文 $\\mathcal{I}_{\\mathrm{cross}}$。'),
+      engine: 'md'
+    });
+    const document = new JSDOM(html).window.document;
+    const inline = document.querySelector('.math-inline');
+
+    assert.ok(inline);
+    assert.match(inline.textContent, /^\$[\s\S]+\$$/);
+  } finally {
+    await hexo.exit();
+  }
+});
+
+test('full Hexo post pipeline retains inline MathJax delimiters', async () => {
+  const databaseRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'opticalrec-hexo-'));
+  const hexo = new Hexo(root, { silent: true, output: databaseRoot });
+  await hexo.init();
+  try {
+    await hexo.load();
+    const post = hexo.locals.get('posts').findOne({ slug: 'paper-2610.05432' });
+    const document = new JSDOM(post.content).window.document;
+    const inlines = [...document.querySelectorAll('.math-inline')];
+
+    assert.equal(inlines.length, 30);
+    for (const inline of inlines) {
+      assert.match(inline.textContent, /^\$[\s\S]+\$$/);
+    }
+    assert.equal(document.querySelectorAll('em .math-inline, .math-inline em').length, 0);
+  } finally {
+    await hexo.exit();
+    fs.rmSync(databaseRoot, { recursive: true, force: true });
   }
 });
 
