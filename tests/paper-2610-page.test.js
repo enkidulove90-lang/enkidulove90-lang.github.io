@@ -23,7 +23,7 @@ function loadScript(pathname) {
   const document = {
     body,
     head: { appendChild(node) { appended.push(node); if (node.id) nodes.set(node.id, node); } },
-    createElement(tagName) { return { tagName, id: '', rel: '', href: '', src: '', async: false }; },
+    createElement(tagName) { return { tagName, id: '', rel: '', href: '', src: '', async: false, onload: null, onerror: null }; },
     getElementById(id) { return nodes.get(id) || null; },
     addEventListener(name, callback) { listeners[name] = callback; }
   };
@@ -50,6 +50,10 @@ test('target route adds its class, stylesheet, and MathJax exactly once', () => 
   assert.equal(page.body.classes.has('paper-2610-05432'), true);
   assert.equal(page.appended.filter(node => node.id === 'paper-2610-05432-css').length, 1);
   assert.equal(page.appended.filter(node => node.id === 'paper-2610-05432-mathjax').length, 1);
+  const loader = page.appended.find(node => node.id === 'paper-2610-05432-mathjax');
+  assert.equal(loader.src, '/js/vendor/mathjax/tex-svg.js');
+  assert.equal(typeof loader.onload, 'function');
+  assert.equal(typeof loader.onerror, 'function');
   assert.deepEqual(
     JSON.parse(JSON.stringify(page.window.MathJax.tex.inlineMath)),
     [['$', '$'], ['\\(', '\\)']]
@@ -58,6 +62,31 @@ test('target route adds its class, stylesheet, and MathJax exactly once', () => 
     JSON.parse(JSON.stringify(page.window.MathJax.tex.displayMath)),
     [['$$', '$$'], ['\\[', '\\]']]
   );
+});
+
+test('MathJax is re-typeset after the self-hosted loader finishes', async () => {
+  const page = loadScript('/article/paper-2610.05432/');
+  const loader = page.appended.find(node => node.id === 'paper-2610-05432-mathjax');
+  let calls = 0;
+  page.window.MathJax.typesetPromise = elements => {
+    calls += 1;
+    assert.equal(elements[0], page.window.document.body);
+    return Promise.resolve();
+  };
+
+  loader.onload();
+  await Promise.resolve();
+
+  assert.equal(calls, 1);
+});
+
+test('MathJax load failure becomes visible instead of silently leaving raw formulas', () => {
+  const page = loadScript('/article/paper-2610.05432/');
+  const loader = page.appended.find(node => node.id === 'paper-2610-05432-mathjax');
+
+  loader.onerror();
+
+  assert.equal(page.body.classes.has('paper-math-load-failed'), true);
 });
 
 test('target route re-typesets the complete article when MathJax is already loaded', async () => {
@@ -112,9 +141,11 @@ test('the injected bootstrap is deferred and configures literal formula delimite
   const config = fs.readFileSync(path.join(root, '_config.butterfly.yml'), 'utf8');
   const script = fs.readFileSync(scriptPath, 'utf8');
 
-  assert.ok(config.includes('<script defer src="/js/paper-2610.05432.js?v=math-v3"></script>'));
+  assert.ok(config.includes('<script defer src="/js/paper-2610.05432.js?v=math-v4"></script>'));
   assert.ok(script.includes("inlineMath: [['$', '$'], ['\\\\(', '\\\\)']]"));
   assert.ok(script.includes("displayMath: [['$$', '$$'], ['\\\\[', '\\\\]']]"));
+  assert.doesNotMatch(script, /cdn\.jsdelivr|cdnjs|unpkg/);
+  assert.equal(fs.existsSync(path.join(root, 'source/js/vendor/mathjax/tex-svg.js')), true);
 });
 
 test('OpticalRec section headings use names without Chinese numeric prefixes', () => {
@@ -125,6 +156,25 @@ test('OpticalRec section headings use names without Chinese numeric prefixes', (
   assert.match(article, /^## 实验$/m);
   assert.match(article, /^## 总结$/m);
   assert.doesNotMatch(article, /^##\s+[一二三四]、/m);
+});
+
+test('every listed OpticalRec reference has a clickable title and verified code is appended', () => {
+  const article = fs.readFileSync(path.join(root, 'source/_posts/paper-2610.05432.md'), 'utf8');
+  const references = article
+    .split('## References', 2)[1]
+    .replace(/<!--[\s\S]*?-->/g, '');
+  assert.ok(references);
+  const entries = references.split(/\r?\n/).filter(line => line.startsWith('- '));
+
+  assert.equal(entries.length, 3);
+  for (const entry of entries) {
+    assert.match(entry, /\[[^\]]+\]\(https:\/\/(?:arxiv\.org\/abs\/|doi\.org\/)/);
+  }
+  assert.match(
+    references,
+    /Sink-token-aware pruning[^\n]+代码：\[https:\/\/github\.com\/rlqja1107\/SToP\]/i
+  );
+  assert.match(references, /\[OpticalRec: Unified Optical Vision-Language Representation/);
 });
 
 test('Hexo preserves inline and display formula delimiters for MathJax', async () => {
