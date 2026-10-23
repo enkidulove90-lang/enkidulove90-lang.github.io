@@ -387,6 +387,24 @@ test('3D terrain is opt-in and never blocks the initial Leaflet map', () => {
   assert.match(script, /terrainToggle\.addEventListener\(['"]click['"]/);
 });
 
+test('map page exposes accessible research city navigation before the map runtime', () => {
+  const root = path.resolve(__dirname, '..');
+  const page = fs.readFileSync(path.join(root, 'source/map/index.md'), 'utf8');
+  const css = fs.readFileSync(path.join(root, 'source/css/paper-map.css'), 'utf8');
+  const script = fs.readFileSync(path.join(root, 'source/js/paper-map.js'), 'utf8');
+
+  assert.match(page, /id=["']map-city-nav["']/);
+  assert.match(page, /id=["']map-city-list["']/);
+  assert.match(page, /id=["']map-arrival["']/);
+  assert.ok(page.indexOf('/js/map-experience.js') < page.indexOf('/js/paper-map.js'));
+  assert.match(css, /\.map-city-nav/);
+  assert.match(css, /overflow-x:\s*auto/);
+  assert.match(css, /prefers-reduced-motion:\s*reduce/);
+  assert.match(script, /PaperMapExperience\.buildResearchCities/);
+  assert.match(script, /function renderCityNavigation/);
+  assert.match(script, /aria-pressed/);
+});
+
 test('on-demand terrain uses global AWS Terrarium data and restores Leaflet on failure', () => {
   const script = fs.readFileSync(path.join(__dirname, '../source/js/paper-map.js'), 'utf8');
 

@@ -18,6 +18,14 @@ top_img: false
     <button id="map-terrain-toggle" class="map-terrain-toggle" type="button" aria-pressed="false" disabled>
       3D 地形
     </button>
+    <nav id="map-city-nav" class="map-city-nav" aria-label="核心科研城市">
+      <div class="map-city-nav__heading">
+        <span>RESEARCH CITIES</span>
+        <strong>科研城市</strong>
+      </div>
+      <div id="map-city-list" class="map-city-list" role="list"></div>
+    </nav>
+    <div id="map-arrival" class="map-arrival" role="status" aria-live="polite" aria-hidden="true"></div>
     <div id="map-status" class="map-status" role="status">
       <span class="map-status__pulse" aria-hidden="true"></span>
       <div><strong>正在加载研究坐标</strong><p>地图马上展开。</p></div>
@@ -44,4 +52,5 @@ top_img: false
 <script defer src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script defer src="/js/map-carto-config.js"></script>
 <script defer src="/js/map-data-cache.js?v=20261021-cache-v1"></script>
-<script defer src="/js/paper-map.js?v=20261023-terrain-on-demand-v1"></script>
+<script defer src="/js/map-experience.js?v=20261023-city-terrain-v1"></script>
+<script defer src="/js/paper-map.js?v=20261023-city-terrain-v1"></script>

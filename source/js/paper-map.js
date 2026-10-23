@@ -12,12 +12,18 @@
   var hoverImage = document.getElementById('map-hover-image');
   var hoverText = document.getElementById('map-hover-text');
   var terrainToggle = document.getElementById('map-terrain-toggle');
+  var cityNav = document.getElementById('map-city-nav');
+  var cityList = document.getElementById('map-city-list');
+  var arrival = document.getElementById('map-arrival');
   var runtimeConfig = window.__PAPER_MAP_CONFIG__ || {}; // Backward compatibility; public tiles need no key.
   var MAPLIBRE_MODULE_URL = 'https://unpkg.com/maplibre-gl@6.15.0/dist/maplibre-gl.mjs';
   var MAPLIBRE_CSS_URL = 'https://unpkg.com/maplibre-gl@6.15.0/dist/maplibre-gl.css';
   var TERRAIN_TILE_URL = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
   var PHYSICAL_MAX_NATIVE_ZOOM = 8;
   var currentPayload = null;
+  var researchCities = [];
+  var selectedCityKey = '';
+  var arrivalTimer = null;
   var leafletMap = null;
   var terrainMap = null;
   var terrainLoading = false;
@@ -49,6 +55,12 @@
   }
 
   function createPaperList(papers) {
+    if (!papers.length) {
+      var empty = document.createElement('p');
+      empty.className = 'map-city-empty';
+      empty.textContent = '当前论文库暂无直接归属记录；这里仅作为核心科研城市的地理观察入口。';
+      return empty;
+    }
     var list = document.createElement('ol');
     list.className = 'map-paper-list';
     papers.forEach(function (paper) {
@@ -78,6 +90,13 @@
     var loading = false;
     var failed = {};
     frame.className = 'map-place-carousel';
+    if (!images.length) {
+      frame.classList.add('map-place-carousel--empty');
+      image.alt = '';
+      count.textContent = '地理观察入口';
+      frame.append(image, count);
+      return frame;
+    }
     image.alt = place.name + '城市图景';
     image.decoding = 'async';
     count.className = 'map-place-carousel__count';
@@ -183,6 +202,72 @@
     detail.classList.remove('is-open');
     detail.setAttribute('aria-hidden', 'true');
     stopCarousel();
+  }
+
+  function cityAsPlace(city) {
+    return {
+      id: city.key,
+      name: city.name,
+      city: city.name,
+      wgs84: city.center,
+      image: city.image,
+      city_images: city.city_images,
+      institutions: city.institutions,
+      papers: city.papers,
+      location_type: 'affiliation',
+      description: city.geography
+    };
+  }
+
+  function showArrival(city) {
+    if (!arrival) return;
+    clearTimeout(arrivalTimer);
+    arrival.textContent = '抵达 ' + city.name + ' · ' + city.geography;
+    arrival.classList.add('is-visible');
+    arrival.setAttribute('aria-hidden', 'false');
+    arrivalTimer = setTimeout(function () {
+      arrival.classList.remove('is-visible');
+      arrival.setAttribute('aria-hidden', 'true');
+    }, 2600);
+  }
+
+  function markActiveCity(cityKey) {
+    selectedCityKey = cityKey;
+    if (!cityList) return;
+    cityList.querySelectorAll('.map-city-button').forEach(function (button) {
+      button.setAttribute('aria-pressed', button.dataset.cityKey === cityKey ? 'true' : 'false');
+    });
+  }
+
+  function selectResearchCity(city) {
+    markActiveCity(city.key);
+    showArrival(city);
+    if (terrainMap) {
+      terrainMap.flyTo({ center: city.center, zoom: 8.2, pitch: 58, duration: 900, essential: true });
+    } else if (leafletMap) {
+      leafletMap.flyTo([city.center[1], city.center[0]], 7, { duration: 1.2 });
+    }
+    showDetail(cityAsPlace(city), city.papers);
+  }
+
+  function renderCityNavigation(cities) {
+    if (!cityNav || !cityList) return;
+    cityList.replaceChildren();
+    cities.forEach(function (city) {
+      var button = document.createElement('button');
+      var name = document.createElement('strong');
+      var meta = document.createElement('span');
+      button.type = 'button';
+      button.className = 'map-city-button';
+      button.dataset.cityKey = city.key;
+      button.setAttribute('aria-pressed', city.key === selectedCityKey ? 'true' : 'false');
+      button.setAttribute('aria-label', city.name + '，' + city.paperCount + ' 篇论文，查看城市');
+      name.textContent = city.name;
+      meta.textContent = city.paperCount ? city.paperCount + ' 篇 · ' + city.institutionCount + ' 机构' : '地理入口 · 暂无论文';
+      button.append(name, meta);
+      button.addEventListener('click', function () { selectResearchCity(city); });
+      cityList.appendChild(button);
+    });
   }
 
   function showHover(place, originalEvent) {
@@ -581,6 +666,11 @@
         return;
       }
       currentPayload = payload;
+      researchCities = window.PaperMapExperience.buildResearchCities(payload, {
+        now: payload.meta.generated,
+        limit: 8
+      });
+      renderCityNavigation(researchCities);
       renderMap(payload);
     })
     .catch(function () {
