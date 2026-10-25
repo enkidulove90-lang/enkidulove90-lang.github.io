@@ -2440,75 +2440,6 @@
       </tags>
   </entry>
   <entry>
-    <title>对比学习不必靠造视图：NLGCL+ 用 GNN 的邻层结构做多模态推荐</title>
-    <url>/article/nlgclplus-neighbor-layer-contrastive/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://doi.org/10.1145/3806231">DOI</a> · 代码：<a href="https://github.com/Jinfeng-Xu/NLGCL-Plus">GitHub</a></p>
-</blockquote>
-<p>图对比学习（GCL）是缓解推荐稀疏性的常用手段，但它的标准做法是”先造视图，再对齐”：随机丢边、丢特征、加噪声，然后在两个人工增强的视图之间做对比。NLGCL+ 这篇论文提出了一个很朴素的反问——<strong>GNN 的邻接层本身不就是天然的两个视图吗？为什么要造。</strong></p>
-<h2 id="造出来的视图有两个代价"><a href="#造出来的视图有两个代价" class="headerlink" title="造出来的视图有两个代价"></a>造出来的视图有两个代价</h2><p>论文把现有 GCL 方法在多模态推荐上的问题拆成两面：</p>
-<ul>
-<li><p><strong>效果面</strong>：随机生成的增强视图会引入语义无关的噪声，扭曲关键的结构与特征信息。推荐场景里”交互过的节点”天然就是语义相关的邻居，随机丢边反而可能把最有用的那条边丢掉。</p>
-</li>
-<li><p><strong>效率面</strong>：构造增强视图（以及随之而来的额外前向&#x2F;反向、SVD 分解等）都要付出额外计算与显存。</p>
-</li>
-</ul>
-<p>第二点在多模态推荐里尤其明显——视图是×模态数翻倍的。</p>
-<p><img src="/images/d56fd99c6164a5e624209e619118e400.png" alt="传统对比学习与 NLGCL+ 的范式对比"></p>
-<p><em>这张图上下两半对照两种范式。上半是传统 GCL：一个图先被”增强”成两个视图（随机扰动），再互相拉近，增强算子本身是额外开销，且扰动强度是个需要调的超参。下半是 NLGCL+ 的做法：直接用 GNN 逐层传播产生的表示序列——第 0 层的用户表示与第 1 层的物品表示构成一对正样本（反之亦然），视图不需要构造，是消息传递的副产品。这是全文最关键的观察。</em></p>
-<h2 id="机制一：邻层就是对比视图"><a href="#机制一：邻层就是对比视图" class="headerlink" title="机制一：邻层就是对比视图"></a>机制一：邻层就是对比视图</h2><p>作者指出，异质节点在相邻层上的表示天然构成对比视图，例如 <code>(E_u(0), E_i(1))</code> 与 <code>(E_i(0), E_u(1))</code>——用户在第 0 层的表示和他交互过物品在第 1 层的表示，本就应该彼此接近。</p>
-<p>这里有个需要定的细节：<strong>取哪些层做对比</strong>。论文给了两个 scope：</p>
-<ul>
-<li><p><strong>H（heterogeneous，异构）</strong>：只在异质节点跨层之间对比（用户层 vs 物品层）；</p>
-</li>
-<li><p><strong>E（entire，全域）</strong>：所有节点在所有相邻层之间对比。</p>
-</li>
-</ul>
-<p>以及一个理论支撑（Theorem 1）：<strong>相邻层的对比视图在层号越小时越有效</strong>——层数越深，邻层之间的互信息增益越小。这条定理给出了”用浅层、别堆深”的设计依据，也解释了后面实验里 H 为什么稳定优于 E。</p>
-<h2 id="机制二：自适应样本加权（ASW）"><a href="#机制二：自适应样本加权（ASW）" class="headerlink" title="机制二：自适应样本加权（ASW）"></a>机制二：自适应样本加权（ASW）</h2><p>邻层对比会带来一个新问题：<strong>正样本不再是一对一，而是一对多</strong>。一个节点在相邻层上有多个”自然对应”的表示，如果像传统 GCL 那样把所有正样本等权处理，就会让弱相关的层对稀释掉强相关的层对。</p>
-<p>论文的做法是用多模态信息给正样本加权：模态相似度高的层对权重更大，同时也不再对所有负样本一视同仁。消融实验专门验证了这一项的必要性——去掉 ASW 后两种 scope 都会掉点，而且<strong>去掉 ASW 之后 H 仍然优于 E</strong>，说明”异构 scope 更准”这个结论不是加权带来的副产物。</p>
-<p>整体优化是标准的辅助任务形式：</p>
-<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">L = L_ori + λ · L_nl</span><br></pre></td></tr></table></figure>
-
-<p><code>L_ori</code> 是推荐主任务损失（BPR），<code>L_nl</code> 是邻层对比损失，<code>λ</code> 控制辅助强度。</p>
-<h2 id="效率与显存"><a href="#效率与显存" class="headerlink" title="效率与显存"></a>效率与显存</h2><p>论文用两张表对比了 NLGCL+ 与 SGL、NCL、SimGCL、LightGCL、DCCF、BIGCF：把复杂度拆成编码器、BPR 损失、对比损失三部分，显存拆成邻接矩阵、嵌入、GCN 三部分。结论是否证性的——<strong>不需要增强视图就少掉一整块开销</strong>。</p>
-<p>实验里也给了直观对照（Baby 数据集，MMGCN 骨干）：</p>
-<p>增强式 GCL 的每轮训练时间接近基线的 <strong>2 倍</strong>——这就是 NLGCL+ 想省掉的那部分。</p>
-<h2 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h2><p>五个数据集（前四个是 Amazon 的两模态数据，TikTok 是三模态）：</p>
-<p><strong>做法是”插件式”验证</strong>：在五个多模态推荐骨干（MMGCN、DualGNN、FREEDOM、LGMRec、COHESION）上分别加不加 NLGCL+，对比 Recall@10 &#x2F; NDCG@10。论文给了五条观察，其中三条值得记：</p>
-<ol>
-<li><p>两种 scope 都能提升全部骨干的性能，**NLGCL+(H) 在所有骨干与数据集上稳定优于 NLGCL+(E)**；</p>
-</li>
-<li><p>在 TikTok 上的提升幅度大于其他数据集——作者归因于 TikTok 的模态数更多，稀疏性缓解带来的收益更明显；</p>
-</li>
-<li><p><strong>LightGCL 在多个骨干上是唯一”不涨甚至掉”的 GCL 基线</strong>。原因论文也点了：它依赖对表示做近似 SVD 分解来构造视图，在多模态场景下这个近似本身就不稳。</p>
-</li>
-</ol>
-<p><img src="/images/fbe02597d66ab0ae060bfe093f5adb8e.png" alt="五个骨干 × 五个数据集上的 Recall@10 对比"></p>
-<p><em>这张图是主结果的可视化：每个面板对应一个数据集（标题即数据集名），横轴是五个多模态推荐骨干，两种颜色的柱子分别对应加 NLGCL+(H) 与加 NLGCL+(E) 后的 Recall@10。每个数据集的每个骨干上柱子都是”加了的更高”，而且 H 的柱子普遍略高于 E——这张图存在的意义是说明增益不是”挑了个好骨干”的产物，而是跨骨干、跨数据集普遍成立。</em></p>
-<p><strong>冷启动</strong>（表 8，R@10 &#x2F; N@10）是另一组有说服力的数字：</p>
-<p>冷启动整体提升 10%–19%，比全量评测下的提升更显著——符合”辅助对比信号主要补的是数据稀疏”的预期。</p>
-<p><img src="/images/60135dbfcfa393a0a8cce6db233f8c3f.png" alt="数据稀疏性分析"></p>
-<p><em>这张图在 Baby 数据集上把交互量按稀疏程度分档，横轴是稀疏档位、纵轴是 Recall@10，多条曲线对应不同的骨干模型。读法是看各档位上”加了 NLGCL+”与”原始模型”的差距：每一档都涨，且稀疏档位的涨幅更明显。这与冷启动表相互印证——对比学习在数据越少的地方补得越多，而不是只在稠密场景刷点。</em></p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>NLGCL+ 的价值在于把一个”默认要做的事”证伪了：GCL 不一定要构造增强视图，GNN 逐层传播本身就在生成互相可对比的表示。由此它同时拿到两样东西——<strong>省掉增强算子的开销</strong>，以及<strong>避免随机扰动引入的语义噪声</strong>。配套的两条设计结论也很实用：取异构（用户层 × 物品层）而非全域做对比，且优先用浅层。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>论文：NLGCL+: Naturally Existing Neighbour Layers Graph Contrastive Learning with Adaptive Sample Weighting for Multimodal Recommendation（ACM Trans. Recomm. Syst.）</p>
-</li>
-<li><p>代码：<a href="https://github.com/Jinfeng-Xu/NLGCL-Plus">https://github.com/Jinfeng-Xu/NLGCL-Plus</a></p>
-</li>
-<li><p>相关工作：SGL、NCL、SimGCL（SIGIR’22）、LightGCL（ICLR’23）、DCCF、BIGCF、LGMRec、DiffMM、FREEDOM、MMGCN、DualGNN、COHESION</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>多模态推荐</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>对比视图就在 GCN 里：NLGCL 的邻层对比</title>
     <url>/article/nlgcl-neighbor-layer-contrastive/</url>
     <content><![CDATA[<blockquote>
@@ -2598,6 +2529,75 @@
       <categories>
         <category>推荐系统</category>
         <category>图对比学习</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>对比学习不必靠造视图：NLGCL+ 用 GNN 的邻层结构做多模态推荐</title>
+    <url>/article/nlgclplus-neighbor-layer-contrastive/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://doi.org/10.1145/3806231">DOI</a> · 代码：<a href="https://github.com/Jinfeng-Xu/NLGCL-Plus">GitHub</a></p>
+</blockquote>
+<p>图对比学习（GCL）是缓解推荐稀疏性的常用手段，但它的标准做法是”先造视图，再对齐”：随机丢边、丢特征、加噪声，然后在两个人工增强的视图之间做对比。NLGCL+ 这篇论文提出了一个很朴素的反问——<strong>GNN 的邻接层本身不就是天然的两个视图吗？为什么要造。</strong></p>
+<h2 id="造出来的视图有两个代价"><a href="#造出来的视图有两个代价" class="headerlink" title="造出来的视图有两个代价"></a>造出来的视图有两个代价</h2><p>论文把现有 GCL 方法在多模态推荐上的问题拆成两面：</p>
+<ul>
+<li><p><strong>效果面</strong>：随机生成的增强视图会引入语义无关的噪声，扭曲关键的结构与特征信息。推荐场景里”交互过的节点”天然就是语义相关的邻居，随机丢边反而可能把最有用的那条边丢掉。</p>
+</li>
+<li><p><strong>效率面</strong>：构造增强视图（以及随之而来的额外前向&#x2F;反向、SVD 分解等）都要付出额外计算与显存。</p>
+</li>
+</ul>
+<p>第二点在多模态推荐里尤其明显——视图是×模态数翻倍的。</p>
+<p><img src="/images/d56fd99c6164a5e624209e619118e400.png" alt="传统对比学习与 NLGCL+ 的范式对比"></p>
+<p><em>这张图上下两半对照两种范式。上半是传统 GCL：一个图先被”增强”成两个视图（随机扰动），再互相拉近，增强算子本身是额外开销，且扰动强度是个需要调的超参。下半是 NLGCL+ 的做法：直接用 GNN 逐层传播产生的表示序列——第 0 层的用户表示与第 1 层的物品表示构成一对正样本（反之亦然），视图不需要构造，是消息传递的副产品。这是全文最关键的观察。</em></p>
+<h2 id="机制一：邻层就是对比视图"><a href="#机制一：邻层就是对比视图" class="headerlink" title="机制一：邻层就是对比视图"></a>机制一：邻层就是对比视图</h2><p>作者指出，异质节点在相邻层上的表示天然构成对比视图，例如 <code>(E_u(0), E_i(1))</code> 与 <code>(E_i(0), E_u(1))</code>——用户在第 0 层的表示和他交互过物品在第 1 层的表示，本就应该彼此接近。</p>
+<p>这里有个需要定的细节：<strong>取哪些层做对比</strong>。论文给了两个 scope：</p>
+<ul>
+<li><p><strong>H（heterogeneous，异构）</strong>：只在异质节点跨层之间对比（用户层 vs 物品层）；</p>
+</li>
+<li><p><strong>E（entire，全域）</strong>：所有节点在所有相邻层之间对比。</p>
+</li>
+</ul>
+<p>以及一个理论支撑（Theorem 1）：<strong>相邻层的对比视图在层号越小时越有效</strong>——层数越深，邻层之间的互信息增益越小。这条定理给出了”用浅层、别堆深”的设计依据，也解释了后面实验里 H 为什么稳定优于 E。</p>
+<h2 id="机制二：自适应样本加权（ASW）"><a href="#机制二：自适应样本加权（ASW）" class="headerlink" title="机制二：自适应样本加权（ASW）"></a>机制二：自适应样本加权（ASW）</h2><p>邻层对比会带来一个新问题：<strong>正样本不再是一对一，而是一对多</strong>。一个节点在相邻层上有多个”自然对应”的表示，如果像传统 GCL 那样把所有正样本等权处理，就会让弱相关的层对稀释掉强相关的层对。</p>
+<p>论文的做法是用多模态信息给正样本加权：模态相似度高的层对权重更大，同时也不再对所有负样本一视同仁。消融实验专门验证了这一项的必要性——去掉 ASW 后两种 scope 都会掉点，而且<strong>去掉 ASW 之后 H 仍然优于 E</strong>，说明”异构 scope 更准”这个结论不是加权带来的副产物。</p>
+<p>整体优化是标准的辅助任务形式：</p>
+<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">L = L_ori + λ · L_nl</span><br></pre></td></tr></table></figure>
+
+<p><code>L_ori</code> 是推荐主任务损失（BPR），<code>L_nl</code> 是邻层对比损失，<code>λ</code> 控制辅助强度。</p>
+<h2 id="效率与显存"><a href="#效率与显存" class="headerlink" title="效率与显存"></a>效率与显存</h2><p>论文用两张表对比了 NLGCL+ 与 SGL、NCL、SimGCL、LightGCL、DCCF、BIGCF：把复杂度拆成编码器、BPR 损失、对比损失三部分，显存拆成邻接矩阵、嵌入、GCN 三部分。结论是否证性的——<strong>不需要增强视图就少掉一整块开销</strong>。</p>
+<p>实验里也给了直观对照（Baby 数据集，MMGCN 骨干）：</p>
+<p>增强式 GCL 的每轮训练时间接近基线的 <strong>2 倍</strong>——这就是 NLGCL+ 想省掉的那部分。</p>
+<h2 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h2><p>五个数据集（前四个是 Amazon 的两模态数据，TikTok 是三模态）：</p>
+<p><strong>做法是”插件式”验证</strong>：在五个多模态推荐骨干（MMGCN、DualGNN、FREEDOM、LGMRec、COHESION）上分别加不加 NLGCL+，对比 Recall@10 &#x2F; NDCG@10。论文给了五条观察，其中三条值得记：</p>
+<ol>
+<li><p>两种 scope 都能提升全部骨干的性能，**NLGCL+(H) 在所有骨干与数据集上稳定优于 NLGCL+(E)**；</p>
+</li>
+<li><p>在 TikTok 上的提升幅度大于其他数据集——作者归因于 TikTok 的模态数更多，稀疏性缓解带来的收益更明显；</p>
+</li>
+<li><p><strong>LightGCL 在多个骨干上是唯一”不涨甚至掉”的 GCL 基线</strong>。原因论文也点了：它依赖对表示做近似 SVD 分解来构造视图，在多模态场景下这个近似本身就不稳。</p>
+</li>
+</ol>
+<p><img src="/images/fbe02597d66ab0ae060bfe093f5adb8e.png" alt="五个骨干 × 五个数据集上的 Recall@10 对比"></p>
+<p><em>这张图是主结果的可视化：每个面板对应一个数据集（标题即数据集名），横轴是五个多模态推荐骨干，两种颜色的柱子分别对应加 NLGCL+(H) 与加 NLGCL+(E) 后的 Recall@10。每个数据集的每个骨干上柱子都是”加了的更高”，而且 H 的柱子普遍略高于 E——这张图存在的意义是说明增益不是”挑了个好骨干”的产物，而是跨骨干、跨数据集普遍成立。</em></p>
+<p><strong>冷启动</strong>（表 8，R@10 &#x2F; N@10）是另一组有说服力的数字：</p>
+<p>冷启动整体提升 10%–19%，比全量评测下的提升更显著——符合”辅助对比信号主要补的是数据稀疏”的预期。</p>
+<p><img src="/images/60135dbfcfa393a0a8cce6db233f8c3f.png" alt="数据稀疏性分析"></p>
+<p><em>这张图在 Baby 数据集上把交互量按稀疏程度分档，横轴是稀疏档位、纵轴是 Recall@10，多条曲线对应不同的骨干模型。读法是看各档位上”加了 NLGCL+”与”原始模型”的差距：每一档都涨，且稀疏档位的涨幅更明显。这与冷启动表相互印证——对比学习在数据越少的地方补得越多，而不是只在稠密场景刷点。</em></p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>NLGCL+ 的价值在于把一个”默认要做的事”证伪了：GCL 不一定要构造增强视图，GNN 逐层传播本身就在生成互相可对比的表示。由此它同时拿到两样东西——<strong>省掉增强算子的开销</strong>，以及<strong>避免随机扰动引入的语义噪声</strong>。配套的两条设计结论也很实用：取异构（用户层 × 物品层）而非全域做对比，且优先用浅层。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>论文：NLGCL+: Naturally Existing Neighbour Layers Graph Contrastive Learning with Adaptive Sample Weighting for Multimodal Recommendation（ACM Trans. Recomm. Syst.）</p>
+</li>
+<li><p>代码：<a href="https://github.com/Jinfeng-Xu/NLGCL-Plus">https://github.com/Jinfeng-Xu/NLGCL-Plus</a></p>
+</li>
+<li><p>相关工作：SGL、NCL、SimGCL（SIGIR’22）、LightGCL（ICLR’23）、DCCF、BIGCF、LGMRec、DiffMM、FREEDOM、MMGCN、DualGNN、COHESION</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>多模态推荐</category>
       </categories>
       <tags>
         <tag>论文速读</tag>
@@ -3192,6 +3192,37 @@
       </tags>
   </entry>
   <entry>
+    <title>离线指标之外：真实工业推荐系统究竟在优化什么</title>
+    <url>/article/paper-2509.06002/</url>
+    <content><![CDATA[<p><a href="https://arxiv.org/abs/2509.06002">论文链接</a></p>
+<h2 id="一、研究背景与问题"><a href="#一、研究背景与问题" class="headerlink" title="一、研究背景与问题"></a>一、研究背景与问题</h2><p>推荐系统论文通常在 MovieLens、Amazon 等公开数据集上比较 Recall、NDCG，模型只要把离线排名指标再推高一点，就容易被视为进步。但工业系统面对的不是一张静止的交互矩阵：库存、价格、供给和用户意图会实时变化；一次推荐还同时受延迟、算力、商业目标与生态约束。Kuan Zou 与 Aixin Sun 的这篇综述专门研究这道学术与产业之间的断层。作者先从 SIGIR、RecSys、WWW、WSDM、KDD 和 CIKM 收集 2020—2024 年的工业论文，要求至少一位作者来自产业界，再进一步要求工作经过线上 A&#x2F;B 测试，最终保留 228 篇。这个筛选标准很重要：文章讨论的不是“看起来能够部署”的方法，而是确实接受过真实流量检验的方法。论文的核心判断是，工业推荐不能被归结为一个统一的 top-K 问题。交易平台关心购买、预订、订阅和 GMV，内容平台关心点击、时长、留存与满意度；两类系统面对相似名词时，真正的目标和约束可能完全不同。</p>
+<h2 id="二、方法"><a href="#二、方法" class="headerlink" title="二、方法"></a>二、方法</h2><p>这是一篇综述，所谓“方法”不是提出一个新网络，而是建立一套能解释工业推荐实践的分类框架。第一层分类按平台的价值产生方式展开：交易导向推荐（Transaction-Oriented RecSys）服务于电商、旅行和订阅，直接优化转化率、收入、购买概率与客单价；内容导向推荐（Content-Oriented RecSys）服务于视频、新闻和音乐，重点是即时消费、持续参与和长期留存。第二层分类沿系统生命周期组织。交易推荐依次面对冷启动与稀疏、交互中的实时兴趣捕捉，以及多目标和长期价值优化；内容推荐则进一步按视频、新闻和音频拆分，因为不同内容的消费成本、时效性和探索需求不同。第三层是技术路线的演进：早期启发式与协同过滤强调快速部署和可解释性；判别式模型用 CTR、CVR、GMV 等监督信号直接优化业务指标；生成式模型开始统一用户长序列、召回与排序，并探索推荐领域的 scaling law。文章最有价值的地方，是把算法选择放回约束中解释：毫秒级延迟决定模型能否上线，实时价格与库存决定特征是否还有效，多目标权衡决定离线准确率是否真的能转化为业务收益。</p>
+<p><img src="/images/77842e03f5f1b7d5e18cbf568e4ab1d3.png" alt="方法图 1"></p>
+<p>这张总览图把工业推荐拆成交易导向与内容导向两条主线。它强调的不是模型名称，而是目标函数的差别：交易场景围绕转化与收入，内容场景围绕消费、参与和满意度；冷启动、实时性与长期优化只有放进具体业务目标里才有明确含义。</p>
+<h2 id="三、实验"><a href="#三、实验" class="headerlink" title="三、实验"></a>三、实验</h2><p>综述没有设计单一模型的离线 benchmark 或消融实验，而是把 228 篇具有线上 A&#x2F;B 证据的工业工作当作经验样本。作者按真实业务场景比较评价信号：交易系统使用 CTR、CVR、GMV、收入和长期用户价值；视频关注观看时长、长播、点赞、关注与创作者生态；新闻强调时效、新鲜度和兴趣漂移；音乐则特别重视探索、多样性、播放和收藏。文中列出的案例说明了为什么只报离线指标不够。例如淘宝的大规模在线实验需要校正位置偏差与“未看到却被当成不喜欢”的假曝光；美团的跨域迁移不仅看点击，还同时验证 CTR 与 GMV；Deezer 的歌单续播方案在真实平台上使用户添加推荐歌曲的比例提升 70%。这些结果不能被拼成一张统一排行榜，却共同指向一条更严格的证据链：公开数据集上的提升只能证明方法有潜力，线上 A&#x2F;B 测试、响应延迟、训练与推理成本以及跨周期影响，才决定它是否真正有用。论文还总结了工业优化重点随业务阶段的变化：从冷启动时的留存与转化，到规模扩大后的稀疏建模，再到可测量的单目标、商业化后的多目标权衡，最终转向长期用户价值。</p>
+<p><img src="/images/907db8ec7e1caa201298cb481393c0ab.png" alt="实验图 1"></p>
+<p>这张图描述业务规模增长时优化重点如何迁移：先解决冷启动和早期留存，随后处理稀疏性与可测量的单目标，再进入商业化后的多目标权衡，最终把长期用户价值作为系统可持续增长的核心。</p>
+<h2 id="四、总结"><a href="#四、总结" class="headerlink" title="四、总结"></a>四、总结</h2><p>这篇综述给推荐研究者最大的提醒，是不要把工业问题压缩成“换一个模型，NDCG 上升”。真实系统首先要回答服务谁、创造什么价值、在什么延迟和成本约束下运行，然后才轮到模型结构。交易导向与内容导向的二分不是终点，而是一把检查研究假设的尺子：同一个点击，在电商里可能是搜集信息，在新闻里可能是被标题吸引，在视频里看完也可能只是好奇而非真正喜欢。作者因此把未来方向放在更深的用户决策解释、由经济学与心理学指导的长期优化、离线与在线一致性、因果与多目标约束，以及更接近生产分布的模拟环境上。对学术界而言，最有意义的进步未必是把一个旧 benchmark 再提高零点几，而是提出能够在成本、效率、用户价值和平台生态之间形成可验证权衡的问题定义。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>Kuan Zou and Aixin Sun. A Survey of Real-World Recommender Systems: Challenges, Constraints, and Industrial Perspectives. arXiv:2509.06002, 2025.</p>
+</li>
+<li><p>论文链接：<a href="https://arxiv.org/abs/2509.06002">https://arxiv.org/abs/2509.06002</a></p>
+</li>
+<li><p>Fangzhao Wu et al. MIND: A Large-scale Dataset for News Recommendation. ACL 2020.</p>
+</li>
+<li><p>Christine Bauer, Eva Zangerle, and Alan Said. Exploring the Landscape of Recommender Systems Evaluation: Practices and Perspectives. ACM TORS, 2024.</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>论文速递</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>HySemRAG：混合检索与多智能体自校正如何让文献综述可验证</title>
     <url>/article/paper-2508.05666/</url>
     <content><![CDATA[<blockquote>
@@ -3233,37 +3264,6 @@
 <li><p>Huang, L. et al. A survey on hallucination in large language models. 2024.（论文引用的幻觉综述）</p>
 </li>
 <li><p>Di Maria, A. et al. Interactive knowledge graphs from biomedical literature. 2024.（论文引用的知识图谱相关工作）</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>论文速递</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>离线指标之外：真实工业推荐系统究竟在优化什么</title>
-    <url>/article/paper-2509.06002/</url>
-    <content><![CDATA[<p><a href="https://arxiv.org/abs/2509.06002">论文链接</a></p>
-<h2 id="一、研究背景与问题"><a href="#一、研究背景与问题" class="headerlink" title="一、研究背景与问题"></a>一、研究背景与问题</h2><p>推荐系统论文通常在 MovieLens、Amazon 等公开数据集上比较 Recall、NDCG，模型只要把离线排名指标再推高一点，就容易被视为进步。但工业系统面对的不是一张静止的交互矩阵：库存、价格、供给和用户意图会实时变化；一次推荐还同时受延迟、算力、商业目标与生态约束。Kuan Zou 与 Aixin Sun 的这篇综述专门研究这道学术与产业之间的断层。作者先从 SIGIR、RecSys、WWW、WSDM、KDD 和 CIKM 收集 2020—2024 年的工业论文，要求至少一位作者来自产业界，再进一步要求工作经过线上 A&#x2F;B 测试，最终保留 228 篇。这个筛选标准很重要：文章讨论的不是“看起来能够部署”的方法，而是确实接受过真实流量检验的方法。论文的核心判断是，工业推荐不能被归结为一个统一的 top-K 问题。交易平台关心购买、预订、订阅和 GMV，内容平台关心点击、时长、留存与满意度；两类系统面对相似名词时，真正的目标和约束可能完全不同。</p>
-<h2 id="二、方法"><a href="#二、方法" class="headerlink" title="二、方法"></a>二、方法</h2><p>这是一篇综述，所谓“方法”不是提出一个新网络，而是建立一套能解释工业推荐实践的分类框架。第一层分类按平台的价值产生方式展开：交易导向推荐（Transaction-Oriented RecSys）服务于电商、旅行和订阅，直接优化转化率、收入、购买概率与客单价；内容导向推荐（Content-Oriented RecSys）服务于视频、新闻和音乐，重点是即时消费、持续参与和长期留存。第二层分类沿系统生命周期组织。交易推荐依次面对冷启动与稀疏、交互中的实时兴趣捕捉，以及多目标和长期价值优化；内容推荐则进一步按视频、新闻和音频拆分，因为不同内容的消费成本、时效性和探索需求不同。第三层是技术路线的演进：早期启发式与协同过滤强调快速部署和可解释性；判别式模型用 CTR、CVR、GMV 等监督信号直接优化业务指标；生成式模型开始统一用户长序列、召回与排序，并探索推荐领域的 scaling law。文章最有价值的地方，是把算法选择放回约束中解释：毫秒级延迟决定模型能否上线，实时价格与库存决定特征是否还有效，多目标权衡决定离线准确率是否真的能转化为业务收益。</p>
-<p><img src="/images/77842e03f5f1b7d5e18cbf568e4ab1d3.png" alt="方法图 1"></p>
-<p>这张总览图把工业推荐拆成交易导向与内容导向两条主线。它强调的不是模型名称，而是目标函数的差别：交易场景围绕转化与收入，内容场景围绕消费、参与和满意度；冷启动、实时性与长期优化只有放进具体业务目标里才有明确含义。</p>
-<h2 id="三、实验"><a href="#三、实验" class="headerlink" title="三、实验"></a>三、实验</h2><p>综述没有设计单一模型的离线 benchmark 或消融实验，而是把 228 篇具有线上 A&#x2F;B 证据的工业工作当作经验样本。作者按真实业务场景比较评价信号：交易系统使用 CTR、CVR、GMV、收入和长期用户价值；视频关注观看时长、长播、点赞、关注与创作者生态；新闻强调时效、新鲜度和兴趣漂移；音乐则特别重视探索、多样性、播放和收藏。文中列出的案例说明了为什么只报离线指标不够。例如淘宝的大规模在线实验需要校正位置偏差与“未看到却被当成不喜欢”的假曝光；美团的跨域迁移不仅看点击，还同时验证 CTR 与 GMV；Deezer 的歌单续播方案在真实平台上使用户添加推荐歌曲的比例提升 70%。这些结果不能被拼成一张统一排行榜，却共同指向一条更严格的证据链：公开数据集上的提升只能证明方法有潜力，线上 A&#x2F;B 测试、响应延迟、训练与推理成本以及跨周期影响，才决定它是否真正有用。论文还总结了工业优化重点随业务阶段的变化：从冷启动时的留存与转化，到规模扩大后的稀疏建模，再到可测量的单目标、商业化后的多目标权衡，最终转向长期用户价值。</p>
-<p><img src="/images/907db8ec7e1caa201298cb481393c0ab.png" alt="实验图 1"></p>
-<p>这张图描述业务规模增长时优化重点如何迁移：先解决冷启动和早期留存，随后处理稀疏性与可测量的单目标，再进入商业化后的多目标权衡，最终把长期用户价值作为系统可持续增长的核心。</p>
-<h2 id="四、总结"><a href="#四、总结" class="headerlink" title="四、总结"></a>四、总结</h2><p>这篇综述给推荐研究者最大的提醒，是不要把工业问题压缩成“换一个模型，NDCG 上升”。真实系统首先要回答服务谁、创造什么价值、在什么延迟和成本约束下运行，然后才轮到模型结构。交易导向与内容导向的二分不是终点，而是一把检查研究假设的尺子：同一个点击，在电商里可能是搜集信息，在新闻里可能是被标题吸引，在视频里看完也可能只是好奇而非真正喜欢。作者因此把未来方向放在更深的用户决策解释、由经济学与心理学指导的长期优化、离线与在线一致性、因果与多目标约束，以及更接近生产分布的模拟环境上。对学术界而言，最有意义的进步未必是把一个旧 benchmark 再提高零点几，而是提出能够在成本、效率、用户价值和平台生态之间形成可验证权衡的问题定义。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>Kuan Zou and Aixin Sun. A Survey of Real-World Recommender Systems: Challenges, Constraints, and Industrial Perspectives. arXiv:2509.06002, 2025.</p>
-</li>
-<li><p>论文链接：<a href="https://arxiv.org/abs/2509.06002">https://arxiv.org/abs/2509.06002</a></p>
-</li>
-<li><p>Fangzhao Wu et al. MIND: A Large-scale Dataset for News Recommendation. ACL 2020.</p>
-</li>
-<li><p>Christine Bauer, Eva Zangerle, and Alan Said. Exploring the Landscape of Recommender Systems Evaluation: Practices and Perspectives. ACM TORS, 2024.</p>
 </li>
 </ul>
 ]]></content>
@@ -4294,109 +4294,6 @@
       </tags>
   </entry>
   <entry>
-    <title>τ-Rec：面向智能体推荐系统的可验证基准</title>
-    <url>/article/paper-2606.10156/</url>
-    <content><![CDATA[<p><a href="https://arxiv.org/abs/2606.10156">论文链接</a> · <a href="https://github.com/nbharaths/tau-rec">代码链接</a></p>
-<h2 id="一、研究背景与问题"><a href="#一、研究背景与问题" class="headerlink" title="一、研究背景与问题"></a>一、研究背景与问题</h2><p>现代推荐系统正从静态的单轮排序流水线演化为由大语言模型驱动的智能体系统：智能体在多轮对话中规划、调用外部工具查询目录、对多准则约束进行推理，并在会话内逐步适应用户偏好。InteRecAgent、RecMind、MACRec 与 AgentRecBench 等工作都体现了这一趋势。然而，面向智能体推荐系统的评测并未同步跟进。现有基准大致分为两类，且都不足以支撑智能体场景。第一类是静态对话语料类基准，如 INSPIRED、DuRecDial、OpenDialKG 与 CRSLab，它们以 BLEU、Recall@k 等表层指标对照固定标注对话衡量推荐质量，容易受到记忆化与数据泄漏的影响。第二类是“LLM 作为评判者”类基准，如 MT-Bench、UserSimCRS v2 与 CRS Arena，依赖主观打分，成本高、非确定性且跨运行不一致；Bernard 与 Balog 也指出，现有对话式推荐指标与真实用户满意度之间仅存在弱相关。</p>
-<p>为此，作者提出 τ-Rec，一个面向智能体对话式推荐的可验证基准。τ-Rec 将推荐建模为多轮对话中的约束优化问题，并把交互视为工具—智能体—用户（TAU）回路上的部分可观测马尔可夫决策过程（POMDP）。推荐智能体可使用目录与元数据工具，而用户模拟器持有智能体必须通过对话引导出的私有偏好。智能体同时接受两项能力的检验：其一是偏好引导，即通过提出恰当问题揭示用户未明说的需求；其二是约束推理，即调用正确的工具并组合其结果以满足已引导出的约束。在 τ-bench 的基础上，τ-Rec 采用 <span class="math-inline">$\mathrm{pass}^{k}$</span> 指标，衡量智能体在全部 <span class="math-inline">$k$</span> 次独立试验中正确完成任务的概率，从而揭示 Recall@N、Hit Rate@N 等仅衡量能力的指标无法检测的可靠性维度。基准目录由 TMDB 中晚于主流大模型训练截止时间的电影构成，以防止记忆化。</p>
-<p>τ-Rec 还引入了现有对话式推荐基准所缺失的策略合规目标。受 τ-bench 领域策略文档与 MATCHA 在游戏推荐中安全策略工作的启发，τ-Rec 的策略不仅检验智能体推荐了什么，还检验它如何推荐：例如年龄受限内容是否被恰当限制、赞助内容是否被披露、已消费条目是否被过滤，以及面对不可能满足的请求时智能体是否选择弃答而非编造推荐。这一维度使负责任的人工智能行为成为一等评测目标。作者以 GPT-5 mini 作为用户模拟器，评测了 GPT-5.4、Claude Sonnet 4.6、Gemini 2.5 Flash、GPT-5 mini、DeepSeek V4 Flash 与 Qwen3-32B 等模型作为智能体的表现，结果暴露出显著的可靠性悬崖：即便最强智能体在 <span class="math-inline">$\mathrm{pass}^{1}$</span> 上也仅约 57%，在 <span class="math-inline">$\mathrm{pass}^{4}$</span> 上降至约 35%。</p>
-<h2 id="二、方法"><a href="#二、方法" class="headerlink" title="二、方法"></a>二、方法</h2><p>τ-Rec 将推荐交互建模为工具—智能体—用户（TAU）三元组上的部分可观测马尔可夫决策过程。每一轮中，推荐智能体可观测到：与模拟用户的对话历史、其已发出的工具调用结果，以及通过工具响应暴露的目录元数据。用户的完整约束集合（包括隐藏约束）不可观测，必须通过对话推断。智能体的动作空间包括三类：面向用户的自然语言话语、目录工具调用（搜索、过滤、元数据查询、可用性检查），以及提交单一候选的终止性 <code>recommend</code> 工具。当智能体发出推荐或轮次预算耗尽时，回合结束。</p>
-<p>环境建立在四个技术支柱之上，每个支柱都针对既有对话式推荐评测的特定失效模式。</p>
-<p>第一，可验证奖励。成功与否依据类型化目录谓词判定，例如 <code>runtime &lt;= 120</code> 或 <code>content_rating</code> <span class="math-inline">$\in {\text{PG-13},\text{G}}$</span>，全部为非主观判断。主奖励为 <code>constraint_score</code> <span class="math-inline">$\times$</span> <code>policy_score</code> 的乘积，二者均取值于 <span class="math-inline">$[0,1]$</span>。在实验采用的严格评分下，仅当所有必需约束维度均被满足且所有生效策略均被遵守时，推荐才算成功；作者另报告部分得分分解，以将失败归因到具体维度。由于评分直接依据类型化谓词对目录求值，无需任何 LLM 调用，完全确定且可复现。</p>
-<p>第二，揭示标签引导（RTE）。任务中的每个约束被标记为 <code>volunteer</code>（用户在开场轮主动陈述）、<code>on_ask</code>（仅当被明确询问该属性时才陈述）或 <code>hidden</code>（用户从不明确陈述，但会拒绝违反该约束的推荐）。该标记迫使智能体通过对话引导信息，而非在首轮就获得完整偏好清单，从而堵住了许多既有对话式推荐基准可被单轮模式匹配轻易攻破的漏洞。</p>
-<p>第三，<span class="math-inline">$\mathrm{pass}^{k}$</span> 可靠性指标。沿用 τ-bench，报告智能体在全部 <span class="math-inline">$k$</span> 次独立试验中均完成任务的概率，而非跨试验的平均成功率：</p>
-<div class="math-display">\[\mathrm{pass}^{k} = \frac{1}{|T|} \sum_{t \in T} \frac{\binom{c_t}{k}}{\binom{n_t}{k}}\]</div>
-
-<p>其中 <span class="math-inline">$c&#95;t$</span> 为任务 <span class="math-inline">$t$</span> 上成功的试验次数，<span class="math-inline">$n&#95;t$</span> 为试验总数。<span class="math-inline">$\mathrm{pass}^{1}$</span> 衡量能力，<span class="math-inline">$k&gt;1$</span> 的 <span class="math-inline">$\mathrm{pass}^{k}$</span> 衡量一致性。正如 Bernard 与 Balog 所论，仅衡量能力的指标会掩盖智能体需反复成功时才显现的可靠性悬崖。</p>
-<p>第四，将策略执行作为一等目标。每个任务携带一组来自领域策略文档的生效策略标志，程序化检查审计轨迹是否遵守七项策略：<code>recommend_tool</code>（必须通过专用工具而非自由文本发出推荐）、<code>watch_history</code>（不得推荐已消费条目）、<code>availability</code>（仅推荐用户所述流媒体服务上可用的作品）、<code>age_restricted</code>（对年轻用户角色限制成人内容）、<code>sponsored</code>（披露赞助位）、<code>transparency</code>（在不可能任务上明确弃答而非强行给出不存在的推荐）以及 <code>single_recommendation</code>（返回单一具体推荐而非列表）。</p>
-<p>在目录构建方面，基准目录来自 TMDB 公共 REST API，构建流水线分三阶段。阶段一为发现：以 2025—2026 年上映日期过滤查询 <code>/discover/movie</code>，确保晚于所有主流 LLM 的训练截止时间，并按热度与投票数排序以筛选元数据覆盖充分的影片。阶段二为丰富：对每个候选发起后续请求，获取类型标签、时长（分钟）、MPAA 风格内容分级（G &#x2F; PG &#x2F; PG-13 &#x2F; R &#x2F; NR）、演员与导演、评分均值与投票数（作为质量代理）、上映日期，以及来自 <code>/movie/&#123;id&#125;/watch/providers</code> 的分地区流媒体提供商信息。阶段三为规范化与校验：记录被规范化为类型化模式，轻度去重，并过滤以确保所有任务相关属性（<code>runtime</code>、<code>genres</code>、<code>content_rating</code>、<code>streaming_services</code>、<code>rating</code>）均已填充；缺失任一必需字段的条目被丢弃，以保证约束谓词可被干净地求值。当前目录包含 153 部电影，且易于扩展；流水线参数化且幂等，可定期刷新生成绑定日期的目录快照，并自动重新校验所有任务约束以确认任务可解性。</p>
-<p>在任务构建方面，每个任务规定：模拟用户的自然语言人设；目录模式上的类型化约束（类型、时长上下界、内容分级允许列表、最低评分均值、必需流媒体服务），每个约束带 RTE 标签；供模拟器塑造回复风格但不参与评分的可选软偏好；以及智能体轨迹中必须遵守的生效策略标志列表。任务沿两个轴分层：复杂度由约束数量决定，分为简单（1—2 个约束）、中等（3—4 个）与复杂（5 个及以上）；揭示难度在任务层面设定，分为 volunteer（全部约束主动暴露）、mixed（至少含一个 <code>on_ask</code> 约束）与 hidden（至少含一个模拟器从不明确陈述的约束）。当前版本包含 60 个任务，覆盖复杂度（20 简单 &#x2F; 24 中等 &#x2F; 16 复杂）与揭示难度（13 volunteer &#x2F; 32 mixed &#x2F; 15 hidden）的网格，其中含 5 个无有效推荐任务，用于检验智能体是否正确弃答而非编造推荐。</p>
-<p><img src="/images/34346b0c0c9400a2bdbf40507e456f06.png" alt="方法图 1"></p>
-<p>该图示意 τ-Rec 的工具—智能体—用户（TAU）交互回路：推荐智能体在多轮对话中同时面向模拟用户与目录工具，用户持有包括隐藏约束在内的私有偏好，智能体需通过提问引导偏好并调用工具组合结果，最终经专用推荐工具提交单一候选。</p>
-<p><img src="/images/5fdd802e0315b36503b17b7682574d67.png" alt="方法图 2"></p>
-<p>该图展示基准目录的构建流水线：从 TMDB 发现晚于训练截止时间的候选影片，经元数据丰富（类型、时长、分级、评分、流媒体可用性等）后规范化为类型化模式并校验，形成可供约束谓词直接求值的目录快照。</p>
-<p><img src="/images/dc4b46f00795b84c81913dae74b72a9b.png" alt="方法图 3"></p>
-<p>该图说明任务的揭示标签引导（RTE）机制：同一约束可被标记为主动陈述、被问才说或从不明确陈述，从而控制信息在对话中浮现的方式，迫使智能体通过提问而非单轮模式匹配来引导偏好。</p>
-<h2 id="三、实验"><a href="#三、实验" class="headerlink" title="三、实验"></a>三、实验</h2><p>作者在全部 60 个任务上、每个任务 4 次试验，以 GPT-5 mini 作为用户模拟器，评测了九种配置（六个基础模型，其中 GPT-5.4 运行两种思考模式、DeepSeek V4 Flash 运行三种思考模式）。所有运行使用 LiteLLM，智能体模型在支持时使用 <code>temp=0</code>，模拟器使用 <code>temp=1.0</code>。</p>
-<p>主结果方面，GPT-5.4、Sonnet 4.6 与 DeepSeek V4 Flash 各变体构成第一梯队（<span class="math-inline">$\mathrm{pass}^{1}$</span> 为 0.537—0.571），置信区间相互重叠。所有模型的 <span class="math-inline">$\mathrm{pass}^{2}$</span> 与 <span class="math-inline">$\mathrm{pass}^{4}$</span> 均低于 <span class="math-inline">$\mathrm{pass}^{1}$</span>，表明其智能体表现缺乏一致性。为验证目录确实晚于训练截止时间，作者对 DeepSeek V4 Flash 做了无工具消融，<span class="math-inline">$\mathrm{pass}^{1}$</span> 从 0.546 降至 0.083，少数成功仅出现在无有效推荐任务上。</p>
-<p>策略合规方面，各模型差异显著。最强梯队（带思考的 GPT-5.4、GPT-5 mini、DeepSeek V4 Flash）合规率超过 0.92，而 Qwen3-32B 降至 0.756，其 <code>availability</code> 违规率达 0.21，即在未核实流媒体服务可用性的情况下推荐作品。</p>
-<p>效率方面，工具使用差异很大：DeepSeek V4 Flash 每次试验中位调用 28 次，而 Qwen3-32B 为 5 次、Gemini 2.5 Flash 为 8 次。高调用量模型（DeepSeek V4 Flash、带思考的 GPT-5.4、Sonnet 4.6）需要更多轮次才给出推荐，但获得更高的约束得分。</p>
-<p>失败分析识别出三种失效模式。其一是“弃答者”（Qwen3-32B、GPT-5 mini、Gemini 2.5 Flash），其 <code>No-rec</code> 率分别为 0.43、0.45、0.67，工具调用中位数仅为个位数，未发出 <code>recommend()</code> 便退出。其二是“错误承诺者”，自信地给出违反约束的推荐，Qwen3-32B 的 0.21 可用性违规率叠加高承诺率是最清晰的案例。其三是均衡模型（DeepSeek V4 Flash、带思考的 GPT-5.4、Sonnet 4.6），投入 15—28 次中位工具调用并最终承诺，获得最高的约束得分（0.57—0.58）。<span class="math-inline">$\mathrm{pass}^{k}$</span> 放大了这些差异：在重复试验下，无论是含糊回避还是虚张声势都无法收敛，可靠性悬崖更加陡峭。</p>
-<p>难度梯度方面，揭示标签机制产生了跨所有模型的陡峭难度梯度。对 DeepSeek V4 Flash，<span class="math-inline">$\mathrm{pass}^{1}$</span> 从 volunteer 任务的 0.846 降至 mixed 任务的 0.586，再降至 hidden 任务的 0.200，仅因信息揭示方式不同就产生约 4 倍差距。GPT-5 mini（0.712 &#x2F; 0.414 &#x2F; 0.167）与 Qwen3-32B（0.481 &#x2F; 0.281 &#x2F; 0.067）呈现相同梯度。隐藏约束揭示了引导与检索之间的区别：擅长在已知偏好集上满足约束的智能体，在偏好必须先从拒绝信号中推断时会陷入困境。</p>
-<p>能力—延迟前沿方面，由于每轮延迟对任何智能体推荐系统都至关重要，作者分析了能力与延迟的权衡。GPT-5.4（无思考）位于前沿的快速端（<span class="math-inline">$\mathrm{pass}^{1}&#x3D;0.47$</span>，约 7 秒&#x2F;步），Sonnet 4.6（约 15 秒）与 DeepSeek V4 Flash 各变体（约 15—24 秒）构成前沿其余部分，最高为 DeepSeek V4 Flash（最大思考）的 <span class="math-inline">$\mathrm{pass}^{1}&#x3D;0.57$</span>。非前沿模型（GPT-5 mini、Qwen3-32B、Gemini 2.5 Flash）在相近或更短步延迟下被前沿方案支配。思考模式呈现浅层、次线性的轨迹，例如 DeepSeek V4 Flash 从无思考到最大思考仅提升 <span class="math-inline">$\mathrm{pass}^{1}$</span> 约 0.025，表明当前模型在该基准上受能力约束。</p>
-<p><img src="/images/135dd8f051eb3d4dd91112598ede381f.png" alt="实验图 1"></p>
-<p>该图给出各模型配置的 <span class="math-inline">$\mathrm{pass}^{1}$</span>、<span class="math-inline">$\mathrm{pass}^{2}$</span>、<span class="math-inline">$\mathrm{pass}^{4}$</span> 对比，直观呈现随 <span class="math-inline">$k$</span> 增大而普遍下降的可靠性悬崖：即便第一梯队模型在 <span class="math-inline">$\mathrm{pass}^{1}$</span> 上约 0.54—0.57，在 <span class="math-inline">$\mathrm{pass}^{4}$</span> 上也降至约 0.35。</p>
-<h2 id="四、总结"><a href="#四、总结" class="headerlink" title="四、总结"></a>四、总结</h2><p>作者总结了 τ-Rec 的局限与未来工作。目录规模方面，目录被有意保持较小（153 部影片），以将推理能力与检索规模隔离开来——智能体通过 API 工具访问目录，因此规模对模型不可见——但这限制了失败模式的多样性；在保持训练截止后新鲜度的同时扩展规模是未来工作。单一领域方面，尽管框架与领域无关，已发布的基准仅覆盖电影；鉴于类型化谓词评分，扩展到其他领域较为直接，跨领域任务套件与更大 <span class="math-inline">$k$</span> 的运行是自然的下一步。统计功效方面，每个任务仅报告 4 次试验，<span class="math-inline">$\mathrm{pass}^{4}$</span> 的 95% 自助法置信区间不可忽略（<span class="math-inline">$\pm$</span>0.10—0.13）；要区分置信区间重叠的模型，需要更多每任务试验（受成本约束）或更多每单元任务（受标注约束）。总体而言，τ-Rec 以可验证奖励、揭示标签引导、<span class="math-inline">$\mathrm{pass}^{k}$</span> 可靠性指标与策略合规检查，为智能体推荐系统提供了系统化、确定且可复现的评测框架，并揭示了当前对话式智能体在可靠性上的关键缺口。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>Huang et al. <a href="https://scholar.google.com/scholar?q=InteRecAgent.+2025">InteRecAgent. 2025</a>.</p>
-</li>
-<li><p>Wang et al. <a href="https://scholar.google.com/scholar?q=RecMind.+2024">RecMind. 2024</a>.</p>
-</li>
-<li><p>Wang et al. <a href="https://doi.org/10.1145/3626772">MACRec. 2024</a>.</p>
-</li>
-<li><p>Shang et al. <a href="https://scholar.google.com/scholar?q=AgentRecBench.+2025">AgentRecBench. 2025</a>.</p>
-</li>
-<li><p>Hayati et al. <a href="https://scholar.google.com/scholar?q=INSPIRED.+2020">INSPIRED. 2020</a>.</p>
-</li>
-<li><p>Liu et al. <a href="https://scholar.google.com/scholar?q=DuRecDial.+2020">DuRecDial. 2020</a>.</p>
-</li>
-<li><p>Moon et al. <a href="https://scholar.google.com/scholar?q=OpenDialKG.+2019">OpenDialKG. 2019</a>.</p>
-</li>
-<li><p>Zhou et al. <a href="https://scholar.google.com/scholar?q=CRSLab.+2021">CRSLab. 2021</a>.</p>
-</li>
-<li><p>Di Palma et al. <a href="https://doi.org/10.1145/3767695.3769478">On memorization in recommender evaluation. 2025</a>.</p>
-</li>
-<li><p>Zhang et al. <a href="https://arxiv.org/abs/2602.13626">Benchmark leakage. 2026</a>.</p>
-</li>
-<li><p>Zheng et al. <a href="https://scholar.google.com/scholar?q=MT-Bench.+2023">MT-Bench. 2023</a>.</p>
-</li>
-<li><p>Bernard et al. <a href="https://scholar.google.com/scholar?q=UserSimCRS+v2.+2026">UserSimCRS v2. 2026</a>.</p>
-</li>
-<li><p>Bernard et al. <a href="https://doi.org/10.1145/3701551.3704120">CRS Arena. 2025</a>.</p>
-</li>
-<li><p>Bernard &amp; Balog. <a href="https://doi.org/10.1145/3767695.3769478">Metrics for conversational recommender systems. 2025</a>.</p>
-</li>
-<li><p>Yao et al. <a href="https://scholar.google.com/scholar?q=%CF%84-bench.+2024">τ-bench. 2024</a>.</p>
-</li>
-<li><p>Yao et al. <a href="https://arxiv.org/abs/2506.07982">τ²-bench</a>.</p>
-</li>
-<li><p>Hui et al. <a href="https://scholar.google.com/scholar?q=MATCHA.+2025">MATCHA. 2025</a>.</p>
-</li>
-<li><p>Jain et al. <a href="https://scholar.google.com/scholar?q=LiveCodeBench.+2024">LiveCodeBench. 2024</a>.</p>
-</li>
-<li><p><a href="https://doi.org/10.1007/978-3-032-21321-1_51">SciNUP</a>.</p>
-</li>
-<li><p>Qin et al. <a href="https://scholar.google.com/scholar?q=ToolBench.+2023">ToolBench. 2023</a>.</p>
-</li>
-<li><p>Trivedi et al. <a href="https://doi.org/10.18653/v1/2024.acl-long.850">AppWorld. 2024</a>.</p>
-</li>
-<li><p>Zhou et al. <a href="https://scholar.google.com/scholar?q=IFEval.+2023">IFEval. 2023</a>.</p>
-</li>
-<li><p>Alibaba. <a href="https://scholar.google.com/scholar?q=RecBot.+2025">RecBot. 2025</a>.</p>
-</li>
-<li><p>Wang et al. <a href="https://scholar.google.com/scholar?q=iEvaLM.+2023">iEvaLM. 2023</a>.</p>
-</li>
-<li><p>Meshi et al. <a href="https://doi.org/10.18653/v1/2026.eacl-long.244">ConvApparel. 2026</a>.</p>
-</li>
-<li><p><a href="https://doi.org/10.1145/3701716.3715258">RecUserSim</a>.</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-        <tag>agentic recommender systems</tag>
-        <tag>verifiable rewards</tag>
-        <tag>pass^k</tag>
-        <tag>reveal-tagged elicitation</tag>
-        <tag>policy compliance</tag>
-        <tag>LLM user simulation</tag>
-        <tag>benchmark</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>OPD-Evolver：通过在线策略蒸馏培育整体性智能体进化器</title>
     <url>/article/paper-2606.17628/</url>
     <content><![CDATA[<p><a href="https://arxiv.org/pdf/2606.17628.pdf">论文链接</a></p>
@@ -4564,6 +4461,109 @@
         <tag>experience lifecycle</tag>
         <tag>self-evolving agents</tag>
         <tag>outcome-calibrated attribution</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>τ-Rec：面向智能体推荐系统的可验证基准</title>
+    <url>/article/paper-2606.10156/</url>
+    <content><![CDATA[<p><a href="https://arxiv.org/abs/2606.10156">论文链接</a> · <a href="https://github.com/nbharaths/tau-rec">代码链接</a></p>
+<h2 id="一、研究背景与问题"><a href="#一、研究背景与问题" class="headerlink" title="一、研究背景与问题"></a>一、研究背景与问题</h2><p>现代推荐系统正从静态的单轮排序流水线演化为由大语言模型驱动的智能体系统：智能体在多轮对话中规划、调用外部工具查询目录、对多准则约束进行推理，并在会话内逐步适应用户偏好。InteRecAgent、RecMind、MACRec 与 AgentRecBench 等工作都体现了这一趋势。然而，面向智能体推荐系统的评测并未同步跟进。现有基准大致分为两类，且都不足以支撑智能体场景。第一类是静态对话语料类基准，如 INSPIRED、DuRecDial、OpenDialKG 与 CRSLab，它们以 BLEU、Recall@k 等表层指标对照固定标注对话衡量推荐质量，容易受到记忆化与数据泄漏的影响。第二类是“LLM 作为评判者”类基准，如 MT-Bench、UserSimCRS v2 与 CRS Arena，依赖主观打分，成本高、非确定性且跨运行不一致；Bernard 与 Balog 也指出，现有对话式推荐指标与真实用户满意度之间仅存在弱相关。</p>
+<p>为此，作者提出 τ-Rec，一个面向智能体对话式推荐的可验证基准。τ-Rec 将推荐建模为多轮对话中的约束优化问题，并把交互视为工具—智能体—用户（TAU）回路上的部分可观测马尔可夫决策过程（POMDP）。推荐智能体可使用目录与元数据工具，而用户模拟器持有智能体必须通过对话引导出的私有偏好。智能体同时接受两项能力的检验：其一是偏好引导，即通过提出恰当问题揭示用户未明说的需求；其二是约束推理，即调用正确的工具并组合其结果以满足已引导出的约束。在 τ-bench 的基础上，τ-Rec 采用 <span class="math-inline">$\mathrm{pass}^{k}$</span> 指标，衡量智能体在全部 <span class="math-inline">$k$</span> 次独立试验中正确完成任务的概率，从而揭示 Recall@N、Hit Rate@N 等仅衡量能力的指标无法检测的可靠性维度。基准目录由 TMDB 中晚于主流大模型训练截止时间的电影构成，以防止记忆化。</p>
+<p>τ-Rec 还引入了现有对话式推荐基准所缺失的策略合规目标。受 τ-bench 领域策略文档与 MATCHA 在游戏推荐中安全策略工作的启发，τ-Rec 的策略不仅检验智能体推荐了什么，还检验它如何推荐：例如年龄受限内容是否被恰当限制、赞助内容是否被披露、已消费条目是否被过滤，以及面对不可能满足的请求时智能体是否选择弃答而非编造推荐。这一维度使负责任的人工智能行为成为一等评测目标。作者以 GPT-5 mini 作为用户模拟器，评测了 GPT-5.4、Claude Sonnet 4.6、Gemini 2.5 Flash、GPT-5 mini、DeepSeek V4 Flash 与 Qwen3-32B 等模型作为智能体的表现，结果暴露出显著的可靠性悬崖：即便最强智能体在 <span class="math-inline">$\mathrm{pass}^{1}$</span> 上也仅约 57%，在 <span class="math-inline">$\mathrm{pass}^{4}$</span> 上降至约 35%。</p>
+<h2 id="二、方法"><a href="#二、方法" class="headerlink" title="二、方法"></a>二、方法</h2><p>τ-Rec 将推荐交互建模为工具—智能体—用户（TAU）三元组上的部分可观测马尔可夫决策过程。每一轮中，推荐智能体可观测到：与模拟用户的对话历史、其已发出的工具调用结果，以及通过工具响应暴露的目录元数据。用户的完整约束集合（包括隐藏约束）不可观测，必须通过对话推断。智能体的动作空间包括三类：面向用户的自然语言话语、目录工具调用（搜索、过滤、元数据查询、可用性检查），以及提交单一候选的终止性 <code>recommend</code> 工具。当智能体发出推荐或轮次预算耗尽时，回合结束。</p>
+<p>环境建立在四个技术支柱之上，每个支柱都针对既有对话式推荐评测的特定失效模式。</p>
+<p>第一，可验证奖励。成功与否依据类型化目录谓词判定，例如 <code>runtime &lt;= 120</code> 或 <code>content_rating</code> <span class="math-inline">$\in {\text{PG-13},\text{G}}$</span>，全部为非主观判断。主奖励为 <code>constraint_score</code> <span class="math-inline">$\times$</span> <code>policy_score</code> 的乘积，二者均取值于 <span class="math-inline">$[0,1]$</span>。在实验采用的严格评分下，仅当所有必需约束维度均被满足且所有生效策略均被遵守时，推荐才算成功；作者另报告部分得分分解，以将失败归因到具体维度。由于评分直接依据类型化谓词对目录求值，无需任何 LLM 调用，完全确定且可复现。</p>
+<p>第二，揭示标签引导（RTE）。任务中的每个约束被标记为 <code>volunteer</code>（用户在开场轮主动陈述）、<code>on_ask</code>（仅当被明确询问该属性时才陈述）或 <code>hidden</code>（用户从不明确陈述，但会拒绝违反该约束的推荐）。该标记迫使智能体通过对话引导信息，而非在首轮就获得完整偏好清单，从而堵住了许多既有对话式推荐基准可被单轮模式匹配轻易攻破的漏洞。</p>
+<p>第三，<span class="math-inline">$\mathrm{pass}^{k}$</span> 可靠性指标。沿用 τ-bench，报告智能体在全部 <span class="math-inline">$k$</span> 次独立试验中均完成任务的概率，而非跨试验的平均成功率：</p>
+<div class="math-display">\[\mathrm{pass}^{k} = \frac{1}{|T|} \sum_{t \in T} \frac{\binom{c_t}{k}}{\binom{n_t}{k}}\]</div>
+
+<p>其中 <span class="math-inline">$c&#95;t$</span> 为任务 <span class="math-inline">$t$</span> 上成功的试验次数，<span class="math-inline">$n&#95;t$</span> 为试验总数。<span class="math-inline">$\mathrm{pass}^{1}$</span> 衡量能力，<span class="math-inline">$k&gt;1$</span> 的 <span class="math-inline">$\mathrm{pass}^{k}$</span> 衡量一致性。正如 Bernard 与 Balog 所论，仅衡量能力的指标会掩盖智能体需反复成功时才显现的可靠性悬崖。</p>
+<p>第四，将策略执行作为一等目标。每个任务携带一组来自领域策略文档的生效策略标志，程序化检查审计轨迹是否遵守七项策略：<code>recommend_tool</code>（必须通过专用工具而非自由文本发出推荐）、<code>watch_history</code>（不得推荐已消费条目）、<code>availability</code>（仅推荐用户所述流媒体服务上可用的作品）、<code>age_restricted</code>（对年轻用户角色限制成人内容）、<code>sponsored</code>（披露赞助位）、<code>transparency</code>（在不可能任务上明确弃答而非强行给出不存在的推荐）以及 <code>single_recommendation</code>（返回单一具体推荐而非列表）。</p>
+<p>在目录构建方面，基准目录来自 TMDB 公共 REST API，构建流水线分三阶段。阶段一为发现：以 2025—2026 年上映日期过滤查询 <code>/discover/movie</code>，确保晚于所有主流 LLM 的训练截止时间，并按热度与投票数排序以筛选元数据覆盖充分的影片。阶段二为丰富：对每个候选发起后续请求，获取类型标签、时长（分钟）、MPAA 风格内容分级（G &#x2F; PG &#x2F; PG-13 &#x2F; R &#x2F; NR）、演员与导演、评分均值与投票数（作为质量代理）、上映日期，以及来自 <code>/movie/&#123;id&#125;/watch/providers</code> 的分地区流媒体提供商信息。阶段三为规范化与校验：记录被规范化为类型化模式，轻度去重，并过滤以确保所有任务相关属性（<code>runtime</code>、<code>genres</code>、<code>content_rating</code>、<code>streaming_services</code>、<code>rating</code>）均已填充；缺失任一必需字段的条目被丢弃，以保证约束谓词可被干净地求值。当前目录包含 153 部电影，且易于扩展；流水线参数化且幂等，可定期刷新生成绑定日期的目录快照，并自动重新校验所有任务约束以确认任务可解性。</p>
+<p>在任务构建方面，每个任务规定：模拟用户的自然语言人设；目录模式上的类型化约束（类型、时长上下界、内容分级允许列表、最低评分均值、必需流媒体服务），每个约束带 RTE 标签；供模拟器塑造回复风格但不参与评分的可选软偏好；以及智能体轨迹中必须遵守的生效策略标志列表。任务沿两个轴分层：复杂度由约束数量决定，分为简单（1—2 个约束）、中等（3—4 个）与复杂（5 个及以上）；揭示难度在任务层面设定，分为 volunteer（全部约束主动暴露）、mixed（至少含一个 <code>on_ask</code> 约束）与 hidden（至少含一个模拟器从不明确陈述的约束）。当前版本包含 60 个任务，覆盖复杂度（20 简单 &#x2F; 24 中等 &#x2F; 16 复杂）与揭示难度（13 volunteer &#x2F; 32 mixed &#x2F; 15 hidden）的网格，其中含 5 个无有效推荐任务，用于检验智能体是否正确弃答而非编造推荐。</p>
+<p><img src="/images/34346b0c0c9400a2bdbf40507e456f06.png" alt="方法图 1"></p>
+<p>该图示意 τ-Rec 的工具—智能体—用户（TAU）交互回路：推荐智能体在多轮对话中同时面向模拟用户与目录工具，用户持有包括隐藏约束在内的私有偏好，智能体需通过提问引导偏好并调用工具组合结果，最终经专用推荐工具提交单一候选。</p>
+<p><img src="/images/5fdd802e0315b36503b17b7682574d67.png" alt="方法图 2"></p>
+<p>该图展示基准目录的构建流水线：从 TMDB 发现晚于训练截止时间的候选影片，经元数据丰富（类型、时长、分级、评分、流媒体可用性等）后规范化为类型化模式并校验，形成可供约束谓词直接求值的目录快照。</p>
+<p><img src="/images/dc4b46f00795b84c81913dae74b72a9b.png" alt="方法图 3"></p>
+<p>该图说明任务的揭示标签引导（RTE）机制：同一约束可被标记为主动陈述、被问才说或从不明确陈述，从而控制信息在对话中浮现的方式，迫使智能体通过提问而非单轮模式匹配来引导偏好。</p>
+<h2 id="三、实验"><a href="#三、实验" class="headerlink" title="三、实验"></a>三、实验</h2><p>作者在全部 60 个任务上、每个任务 4 次试验，以 GPT-5 mini 作为用户模拟器，评测了九种配置（六个基础模型，其中 GPT-5.4 运行两种思考模式、DeepSeek V4 Flash 运行三种思考模式）。所有运行使用 LiteLLM，智能体模型在支持时使用 <code>temp=0</code>，模拟器使用 <code>temp=1.0</code>。</p>
+<p>主结果方面，GPT-5.4、Sonnet 4.6 与 DeepSeek V4 Flash 各变体构成第一梯队（<span class="math-inline">$\mathrm{pass}^{1}$</span> 为 0.537—0.571），置信区间相互重叠。所有模型的 <span class="math-inline">$\mathrm{pass}^{2}$</span> 与 <span class="math-inline">$\mathrm{pass}^{4}$</span> 均低于 <span class="math-inline">$\mathrm{pass}^{1}$</span>，表明其智能体表现缺乏一致性。为验证目录确实晚于训练截止时间，作者对 DeepSeek V4 Flash 做了无工具消融，<span class="math-inline">$\mathrm{pass}^{1}$</span> 从 0.546 降至 0.083，少数成功仅出现在无有效推荐任务上。</p>
+<p>策略合规方面，各模型差异显著。最强梯队（带思考的 GPT-5.4、GPT-5 mini、DeepSeek V4 Flash）合规率超过 0.92，而 Qwen3-32B 降至 0.756，其 <code>availability</code> 违规率达 0.21，即在未核实流媒体服务可用性的情况下推荐作品。</p>
+<p>效率方面，工具使用差异很大：DeepSeek V4 Flash 每次试验中位调用 28 次，而 Qwen3-32B 为 5 次、Gemini 2.5 Flash 为 8 次。高调用量模型（DeepSeek V4 Flash、带思考的 GPT-5.4、Sonnet 4.6）需要更多轮次才给出推荐，但获得更高的约束得分。</p>
+<p>失败分析识别出三种失效模式。其一是“弃答者”（Qwen3-32B、GPT-5 mini、Gemini 2.5 Flash），其 <code>No-rec</code> 率分别为 0.43、0.45、0.67，工具调用中位数仅为个位数，未发出 <code>recommend()</code> 便退出。其二是“错误承诺者”，自信地给出违反约束的推荐，Qwen3-32B 的 0.21 可用性违规率叠加高承诺率是最清晰的案例。其三是均衡模型（DeepSeek V4 Flash、带思考的 GPT-5.4、Sonnet 4.6），投入 15—28 次中位工具调用并最终承诺，获得最高的约束得分（0.57—0.58）。<span class="math-inline">$\mathrm{pass}^{k}$</span> 放大了这些差异：在重复试验下，无论是含糊回避还是虚张声势都无法收敛，可靠性悬崖更加陡峭。</p>
+<p>难度梯度方面，揭示标签机制产生了跨所有模型的陡峭难度梯度。对 DeepSeek V4 Flash，<span class="math-inline">$\mathrm{pass}^{1}$</span> 从 volunteer 任务的 0.846 降至 mixed 任务的 0.586，再降至 hidden 任务的 0.200，仅因信息揭示方式不同就产生约 4 倍差距。GPT-5 mini（0.712 &#x2F; 0.414 &#x2F; 0.167）与 Qwen3-32B（0.481 &#x2F; 0.281 &#x2F; 0.067）呈现相同梯度。隐藏约束揭示了引导与检索之间的区别：擅长在已知偏好集上满足约束的智能体，在偏好必须先从拒绝信号中推断时会陷入困境。</p>
+<p>能力—延迟前沿方面，由于每轮延迟对任何智能体推荐系统都至关重要，作者分析了能力与延迟的权衡。GPT-5.4（无思考）位于前沿的快速端（<span class="math-inline">$\mathrm{pass}^{1}&#x3D;0.47$</span>，约 7 秒&#x2F;步），Sonnet 4.6（约 15 秒）与 DeepSeek V4 Flash 各变体（约 15—24 秒）构成前沿其余部分，最高为 DeepSeek V4 Flash（最大思考）的 <span class="math-inline">$\mathrm{pass}^{1}&#x3D;0.57$</span>。非前沿模型（GPT-5 mini、Qwen3-32B、Gemini 2.5 Flash）在相近或更短步延迟下被前沿方案支配。思考模式呈现浅层、次线性的轨迹，例如 DeepSeek V4 Flash 从无思考到最大思考仅提升 <span class="math-inline">$\mathrm{pass}^{1}$</span> 约 0.025，表明当前模型在该基准上受能力约束。</p>
+<p><img src="/images/135dd8f051eb3d4dd91112598ede381f.png" alt="实验图 1"></p>
+<p>该图给出各模型配置的 <span class="math-inline">$\mathrm{pass}^{1}$</span>、<span class="math-inline">$\mathrm{pass}^{2}$</span>、<span class="math-inline">$\mathrm{pass}^{4}$</span> 对比，直观呈现随 <span class="math-inline">$k$</span> 增大而普遍下降的可靠性悬崖：即便第一梯队模型在 <span class="math-inline">$\mathrm{pass}^{1}$</span> 上约 0.54—0.57，在 <span class="math-inline">$\mathrm{pass}^{4}$</span> 上也降至约 0.35。</p>
+<h2 id="四、总结"><a href="#四、总结" class="headerlink" title="四、总结"></a>四、总结</h2><p>作者总结了 τ-Rec 的局限与未来工作。目录规模方面，目录被有意保持较小（153 部影片），以将推理能力与检索规模隔离开来——智能体通过 API 工具访问目录，因此规模对模型不可见——但这限制了失败模式的多样性；在保持训练截止后新鲜度的同时扩展规模是未来工作。单一领域方面，尽管框架与领域无关，已发布的基准仅覆盖电影；鉴于类型化谓词评分，扩展到其他领域较为直接，跨领域任务套件与更大 <span class="math-inline">$k$</span> 的运行是自然的下一步。统计功效方面，每个任务仅报告 4 次试验，<span class="math-inline">$\mathrm{pass}^{4}$</span> 的 95% 自助法置信区间不可忽略（<span class="math-inline">$\pm$</span>0.10—0.13）；要区分置信区间重叠的模型，需要更多每任务试验（受成本约束）或更多每单元任务（受标注约束）。总体而言，τ-Rec 以可验证奖励、揭示标签引导、<span class="math-inline">$\mathrm{pass}^{k}$</span> 可靠性指标与策略合规检查，为智能体推荐系统提供了系统化、确定且可复现的评测框架，并揭示了当前对话式智能体在可靠性上的关键缺口。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>Huang et al. <a href="https://scholar.google.com/scholar?q=InteRecAgent.+2025">InteRecAgent. 2025</a>.</p>
+</li>
+<li><p>Wang et al. <a href="https://scholar.google.com/scholar?q=RecMind.+2024">RecMind. 2024</a>.</p>
+</li>
+<li><p>Wang et al. <a href="https://doi.org/10.1145/3626772">MACRec. 2024</a>.</p>
+</li>
+<li><p>Shang et al. <a href="https://scholar.google.com/scholar?q=AgentRecBench.+2025">AgentRecBench. 2025</a>.</p>
+</li>
+<li><p>Hayati et al. <a href="https://scholar.google.com/scholar?q=INSPIRED.+2020">INSPIRED. 2020</a>.</p>
+</li>
+<li><p>Liu et al. <a href="https://scholar.google.com/scholar?q=DuRecDial.+2020">DuRecDial. 2020</a>.</p>
+</li>
+<li><p>Moon et al. <a href="https://scholar.google.com/scholar?q=OpenDialKG.+2019">OpenDialKG. 2019</a>.</p>
+</li>
+<li><p>Zhou et al. <a href="https://scholar.google.com/scholar?q=CRSLab.+2021">CRSLab. 2021</a>.</p>
+</li>
+<li><p>Di Palma et al. <a href="https://doi.org/10.1145/3767695.3769478">On memorization in recommender evaluation. 2025</a>.</p>
+</li>
+<li><p>Zhang et al. <a href="https://arxiv.org/abs/2602.13626">Benchmark leakage. 2026</a>.</p>
+</li>
+<li><p>Zheng et al. <a href="https://scholar.google.com/scholar?q=MT-Bench.+2023">MT-Bench. 2023</a>.</p>
+</li>
+<li><p>Bernard et al. <a href="https://scholar.google.com/scholar?q=UserSimCRS+v2.+2026">UserSimCRS v2. 2026</a>.</p>
+</li>
+<li><p>Bernard et al. <a href="https://doi.org/10.1145/3701551.3704120">CRS Arena. 2025</a>.</p>
+</li>
+<li><p>Bernard &amp; Balog. <a href="https://doi.org/10.1145/3767695.3769478">Metrics for conversational recommender systems. 2025</a>.</p>
+</li>
+<li><p>Yao et al. <a href="https://scholar.google.com/scholar?q=%CF%84-bench.+2024">τ-bench. 2024</a>.</p>
+</li>
+<li><p>Yao et al. <a href="https://arxiv.org/abs/2506.07982">τ²-bench</a>.</p>
+</li>
+<li><p>Hui et al. <a href="https://scholar.google.com/scholar?q=MATCHA.+2025">MATCHA. 2025</a>.</p>
+</li>
+<li><p>Jain et al. <a href="https://scholar.google.com/scholar?q=LiveCodeBench.+2024">LiveCodeBench. 2024</a>.</p>
+</li>
+<li><p><a href="https://doi.org/10.1007/978-3-032-21321-1_51">SciNUP</a>.</p>
+</li>
+<li><p>Qin et al. <a href="https://scholar.google.com/scholar?q=ToolBench.+2023">ToolBench. 2023</a>.</p>
+</li>
+<li><p>Trivedi et al. <a href="https://doi.org/10.18653/v1/2024.acl-long.850">AppWorld. 2024</a>.</p>
+</li>
+<li><p>Zhou et al. <a href="https://scholar.google.com/scholar?q=IFEval.+2023">IFEval. 2023</a>.</p>
+</li>
+<li><p>Alibaba. <a href="https://scholar.google.com/scholar?q=RecBot.+2025">RecBot. 2025</a>.</p>
+</li>
+<li><p>Wang et al. <a href="https://scholar.google.com/scholar?q=iEvaLM.+2023">iEvaLM. 2023</a>.</p>
+</li>
+<li><p>Meshi et al. <a href="https://doi.org/10.18653/v1/2026.eacl-long.244">ConvApparel. 2026</a>.</p>
+</li>
+<li><p><a href="https://doi.org/10.1145/3701716.3715258">RecUserSim</a>.</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+        <tag>agentic recommender systems</tag>
+        <tag>verifiable rewards</tag>
+        <tag>pass^k</tag>
+        <tag>reveal-tagged elicitation</tag>
+        <tag>policy compliance</tag>
+        <tag>LLM user simulation</tag>
+        <tag>benchmark</tag>
       </tags>
   </entry>
   <entry>
@@ -6640,95 +6640,6 @@
       </tags>
   </entry>
   <entry>
-    <title>模态组合里才有的信息：PRISM 的信息协同模块</title>
-    <url>/article/prism-information-synergy-module/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://doi.org/10.1145/3774904.3792230">DOI</a> · <a href="https://arxiv.org/abs/2601.10944">arXiv 2601.10944</a> · 代码：<a href="https://github.com/YutongLi2024/PRISM">GitHub</a> · PDF：<a href="https://app.notion.com/papers/2601.10944-prism.pdf">本地阅读</a></p>
-</blockquote>
-<h2 id="一、简介"><a href="#一、简介" class="headerlink" title="一、简介"></a>一、简介</h2><p>多模态推荐里有一类信息很容易被忽略：<strong>只有把模态组合起来才能看出来的属性</strong>。</p>
-<p>论文举了个很直观的例子——一瓶红酒的”<strong>适合送礼</strong>“这个属性，单独看图像看不出（豪华瓶身只说明它好看），单独看文本也看不出（产地、评分只说明品质），但<strong>两者合起来就能推断出”送礼场景”<strong>。这类信息在论文里被称为</strong>协同信息（synergistic information）</strong>：它不存在于任何单一模态里，只存在于模态的交集中。</p>
-<p>主流做法是把各模态特征分别编码、再按固定权重融合，这有两个问题：一是<strong>协同信息根本没有被显式建模</strong>（融合只是加权求和，不会去”发现”交集部分）；二是<strong>固定权重忽略了用户差异</strong>——有人主要看图、有人主要看文字，一个全局权重无法表达这种偏好差别。</p>
-<p><img src="/images/fa5c348b884a33fea07c79604f4724c0.png" alt="用红酒例子说明多模态交互：高层属性（如&quot;送礼&quot;）需要模态组合才能推断"></p>
-<p><strong>图示解释：</strong> 图像只能给出瓶身与包装质感，文本只能给出产地、评分等语义；“适合送礼”是两种模态组合后才出现的高层属性，正对应论文要建模的协同信息。</p>
-<hr>
-<h2 id="二、论文方法：先把信息分解成四份，再个性化融合"><a href="#二、论文方法：先把信息分解成四份，再个性化融合" class="headerlink" title="二、论文方法：先把信息分解成四份，再个性化融合"></a>二、论文方法：先把信息分解成四份，再个性化融合</h2><p><img src="/images/6b654d87f9c4e8c9a88be0c50615179b.png" alt="PRISM 整体架构"></p>
-<p>如上图，PRISM 的流程分两层：<strong>交互专家层</strong>与<strong>自适应融合层</strong>。</p>
-<p><strong>图示解释：</strong> 前半部分由交互专家层把图像与文本信息分解为独有、冗余和协同成分；后半部分由自适应融合层根据用户历史生成权重，再把结果送入 SASRec、STOSA 或 InDiRec 等序列推荐骨干。</p>
-<h3 id="1-交互专家层：把信息分解为四类"><a href="#1-交互专家层：把信息分解为四类" class="headerlink" title="1. 交互专家层：把信息分解为四类"></a>1. 交互专家层：把信息分解为四类</h3><p>这是方法的核心。PRISM 把多模态信息显式拆成四个来源，每类配一个”专家”去建模：</p>
-<p>这个分解的价值在于**把”融合”从”加权求和”变成了”分类归因”**：模型明确知道每一份信息该由谁负责，而协同信息有了专属通道——不再指望融合层的线性组合去自动发现它。</p>
-<h3 id="2-自适应融合层：让用户偏好决定权重"><a href="#2-自适应融合层：让用户偏好决定权重" class="headerlink" title="2. 自适应融合层：让用户偏好决定权重"></a>2. 自适应融合层：让用户偏好决定权重</h3><p>四个专家的输出进入自适应融合层，权重不是全局常数，而是<strong>由用户偏好引导（user preference guidance）</strong>生成。</p>
-<p>论文的 case study 专门验证了这一点：</p>
-<p><img src="/images/00360b6edc9c7f290f5e66b7ff0015bb.png" alt="PRISM 的案例研究：有无用户偏好引导的对比——带偏好引导时模型能捕捉图像独特性（如鞋的颜色/设计、球衣外观）"></p>
-<p>图中对比可以看出：<strong>加上用户偏好引导后，模型对”图像独特性”的捕捉明显更好</strong>（例如鞋子的颜色设计、球衣外观这类视觉特征）。这印证了融合权重确实在按用户差异调节，而不是一律平均。</p>
-<h3 id="3-模块创新点"><a href="#3-模块创新点" class="headerlink" title="3. 模块创新点"></a>3. 模块创新点</h3><ol>
-<li><p><strong>交互专家层（IEL）</strong>：不再按“单一模态”划分专家，而是分别负责独有、冗余与协同信息，使每类跨模态关系都有明确建模通道。</p>
-</li>
-<li><p><strong>协同信息专家（</strong>**<code>E_syn</code>**<strong>）</strong>：专门捕捉单模态中不存在、只有组合后才出现的语义，是 PRISM 区别于普通拼接或加权融合的关键。</p>
-</li>
-<li><p><strong>自适应融合层（AFL）</strong>：利用用户历史偏好动态生成融合权重，避免所有用户共用固定模态比例。</p>
-</li>
-<li><p><strong>可插拔设计</strong>：同一个模块可接入 SASRec、STOSA 与 InDiRec，实验用于验证收益不是某个特定骨干带来的。</p>
-</li>
-</ol>
-<hr>
-<h2 id="三、实验设计与结果"><a href="#三、实验设计与结果" class="headerlink" title="三、实验设计与结果"></a>三、实验设计与结果</h2><h3 id="数据集"><a href="#数据集" class="headerlink" title="数据集"></a>数据集</h3><p>四个数据集覆盖了不同规模与稀疏度（Yelp 有 28 万用户、439 万交互，序列最长）。</p>
-<h3 id="主结果：作为通用增强模块挂到多个骨干上"><a href="#主结果：作为通用增强模块挂到多个骨干上" class="headerlink" title="主结果：作为通用增强模块挂到多个骨干上"></a>主结果：作为通用增强模块挂到多个骨干上</h3><p>PRISM 的定位是<strong>可插拔的模块</strong>，论文把它挂到三种序列推荐骨架上验证：</p>
-<p>三点观察：</p>
-<ol>
-<li><p><strong>每个骨干都涨点</strong>：SASRec 从 0.0249 到 0.0309（Home）、Beauty 从 0.0839 到 0.1051。说明收益来自模块本身，而非绑定特定骨干。</p>
-</li>
-<li><p><strong>与强骨干叠加仍然有效</strong>：InDiRec 是最强基线，加上 PRISM 后 R@20 从 0.1286 到 0.1388（Beauty，+7.9%）——<strong>不是”只在弱骨架上有效”的伪增益</strong>。</p>
-</li>
-<li><p>论文的对比基线覆盖了 SASRec、BERT4Rec、LightGCN、STOSA、DiffuRec 以及最新的 InDiRec，跨度从 2018 到 2025。</p>
-</li>
-</ol>
-<h3 id="消融：协同信息专家确实在干活"><a href="#消融：协同信息专家确实在干活" class="headerlink" title="消融：协同信息专家确实在干活"></a>消融：协同信息专家确实在干活</h3><p>逐项看：</p>
-<ul>
-<li><p><strong>去掉文本独有信息掉得最多</strong>（R@10 0.0422 → 0.0361，−14.5%），比去掉图像独有（→0.0376）更严重。这和多数多模态推荐的结论一致——<strong>文本模态信息密度更高</strong>。</p>
-</li>
-<li><p><strong>去掉协同信息专家 <strong><strong><code>E_syn</code></strong></strong> 掉 9.7%<strong>（→0.0381）。这是最值得关注的一项：它证明</strong>“模态组合才有的信息”确实被单独建模了，并且有独立贡献</strong>——如果协同信息本来就能被融合层自动捕获，去掉它不该有这么大影响。</p>
-</li>
-<li><p>**去掉自适应融合层掉 8.5%**（→0.0386），说明个性化权重也在起作用。</p>
-</li>
-<li><p>有趣的是<strong>去掉冗余信息专家也掉点</strong>（→0.0391）。直觉上”冗余”是可以丢的，但显式建模它（而不是让它混进其他通道）看来是有价值的——<strong>把冗余单独隔离出来，本身就减少了对其他三路的干扰</strong>。</p>
-</li>
-</ul>
-<p>论文还做了超参敏感性（图 3）、t-SNE 可视化（图 5）与复杂度分析（RQ5）。</p>
-<hr>
-<h2 id="四、总结"><a href="#四、总结" class="headerlink" title="四、总结"></a>四、总结</h2><p>PRISM 的思路可以概括为：<strong>把”融合”从一步加权，改成”先分解归因、再按用户偏好重组”。</strong></p>
-<p>三点值得带走：</p>
-<ol>
-<li><p><strong>协同信息值得显式建模</strong>：只在模态组合中存在的属性（如”送礼”）不该指望融合层的线性组合自动发现。消融显示给它一个专属专家通道能带来 ~10% 的独立贡献。</p>
-</li>
-<li><p><strong>冗余也值得显式处理</strong>：把重复部分隔离出来（而不是混进其他通道）反而提升了整体效果，这是个不太直觉但可复用的设计。</p>
-</li>
-<li><p><strong>可作为通用模块</strong>：在三个不同骨干（SASRec &#x2F; STOSA &#x2F; InDiRec）上都涨点，且与最强基线叠加仍有效——这种”插入式”定位对工程落地更友好。</p>
-</li>
-</ol>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>PRISM: Personalized Recommendation via Information Synergy Module — WWW 2026 (Full Paper, pp. 6021–6032)，DOI: <a href="https://doi.org/10.1145/3774904.3792230">10.1145&#x2F;3774904.3792230</a></p>
-</li>
-<li><p>预印本：<a href="https://arxiv.org/abs/2601.10944">arXiv 2601.10944</a></p>
-</li>
-<li><p>官方实现：<a href="https://github.com/YutongLi2024/PRISM">YutongLi2024&#x2F;PRISM</a></p>
-</li>
-<li><p>站内原文：<a href="https://app.notion.com/papers/2601.10944-prism.pdf">PDF</a></p>
-</li>
-<li><p>对比基线：SASRec、BERT4Rec、LightGCN、STOSA、DiffuRec、InDiRec</p>
-</li>
-<li><p>数据集：Home、Beauty、Sports、Yelp</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>多模态推荐</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>语言世界模型驱动通用智能体</title>
     <url>/article/qwen-agentworld/</url>
     <content><![CDATA[<blockquote>
@@ -6833,6 +6744,95 @@
       <categories>
         <category>AI</category>
         <category>大模型与智能体</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>模态组合里才有的信息：PRISM 的信息协同模块</title>
+    <url>/article/prism-information-synergy-module/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://doi.org/10.1145/3774904.3792230">DOI</a> · <a href="https://arxiv.org/abs/2601.10944">arXiv 2601.10944</a> · 代码：<a href="https://github.com/YutongLi2024/PRISM">GitHub</a> · PDF：<a href="https://app.notion.com/papers/2601.10944-prism.pdf">本地阅读</a></p>
+</blockquote>
+<h2 id="一、简介"><a href="#一、简介" class="headerlink" title="一、简介"></a>一、简介</h2><p>多模态推荐里有一类信息很容易被忽略：<strong>只有把模态组合起来才能看出来的属性</strong>。</p>
+<p>论文举了个很直观的例子——一瓶红酒的”<strong>适合送礼</strong>“这个属性，单独看图像看不出（豪华瓶身只说明它好看），单独看文本也看不出（产地、评分只说明品质），但<strong>两者合起来就能推断出”送礼场景”<strong>。这类信息在论文里被称为</strong>协同信息（synergistic information）</strong>：它不存在于任何单一模态里，只存在于模态的交集中。</p>
+<p>主流做法是把各模态特征分别编码、再按固定权重融合，这有两个问题：一是<strong>协同信息根本没有被显式建模</strong>（融合只是加权求和，不会去”发现”交集部分）；二是<strong>固定权重忽略了用户差异</strong>——有人主要看图、有人主要看文字，一个全局权重无法表达这种偏好差别。</p>
+<p><img src="/images/fa5c348b884a33fea07c79604f4724c0.png" alt="用红酒例子说明多模态交互：高层属性（如&quot;送礼&quot;）需要模态组合才能推断"></p>
+<p><strong>图示解释：</strong> 图像只能给出瓶身与包装质感，文本只能给出产地、评分等语义；“适合送礼”是两种模态组合后才出现的高层属性，正对应论文要建模的协同信息。</p>
+<hr>
+<h2 id="二、论文方法：先把信息分解成四份，再个性化融合"><a href="#二、论文方法：先把信息分解成四份，再个性化融合" class="headerlink" title="二、论文方法：先把信息分解成四份，再个性化融合"></a>二、论文方法：先把信息分解成四份，再个性化融合</h2><p><img src="/images/6b654d87f9c4e8c9a88be0c50615179b.png" alt="PRISM 整体架构"></p>
+<p>如上图，PRISM 的流程分两层：<strong>交互专家层</strong>与<strong>自适应融合层</strong>。</p>
+<p><strong>图示解释：</strong> 前半部分由交互专家层把图像与文本信息分解为独有、冗余和协同成分；后半部分由自适应融合层根据用户历史生成权重，再把结果送入 SASRec、STOSA 或 InDiRec 等序列推荐骨干。</p>
+<h3 id="1-交互专家层：把信息分解为四类"><a href="#1-交互专家层：把信息分解为四类" class="headerlink" title="1. 交互专家层：把信息分解为四类"></a>1. 交互专家层：把信息分解为四类</h3><p>这是方法的核心。PRISM 把多模态信息显式拆成四个来源，每类配一个”专家”去建模：</p>
+<p>这个分解的价值在于**把”融合”从”加权求和”变成了”分类归因”**：模型明确知道每一份信息该由谁负责，而协同信息有了专属通道——不再指望融合层的线性组合去自动发现它。</p>
+<h3 id="2-自适应融合层：让用户偏好决定权重"><a href="#2-自适应融合层：让用户偏好决定权重" class="headerlink" title="2. 自适应融合层：让用户偏好决定权重"></a>2. 自适应融合层：让用户偏好决定权重</h3><p>四个专家的输出进入自适应融合层，权重不是全局常数，而是<strong>由用户偏好引导（user preference guidance）</strong>生成。</p>
+<p>论文的 case study 专门验证了这一点：</p>
+<p><img src="/images/00360b6edc9c7f290f5e66b7ff0015bb.png" alt="PRISM 的案例研究：有无用户偏好引导的对比——带偏好引导时模型能捕捉图像独特性（如鞋的颜色/设计、球衣外观）"></p>
+<p>图中对比可以看出：<strong>加上用户偏好引导后，模型对”图像独特性”的捕捉明显更好</strong>（例如鞋子的颜色设计、球衣外观这类视觉特征）。这印证了融合权重确实在按用户差异调节，而不是一律平均。</p>
+<h3 id="3-模块创新点"><a href="#3-模块创新点" class="headerlink" title="3. 模块创新点"></a>3. 模块创新点</h3><ol>
+<li><p><strong>交互专家层（IEL）</strong>：不再按“单一模态”划分专家，而是分别负责独有、冗余与协同信息，使每类跨模态关系都有明确建模通道。</p>
+</li>
+<li><p><strong>协同信息专家（</strong>**<code>E_syn</code>**<strong>）</strong>：专门捕捉单模态中不存在、只有组合后才出现的语义，是 PRISM 区别于普通拼接或加权融合的关键。</p>
+</li>
+<li><p><strong>自适应融合层（AFL）</strong>：利用用户历史偏好动态生成融合权重，避免所有用户共用固定模态比例。</p>
+</li>
+<li><p><strong>可插拔设计</strong>：同一个模块可接入 SASRec、STOSA 与 InDiRec，实验用于验证收益不是某个特定骨干带来的。</p>
+</li>
+</ol>
+<hr>
+<h2 id="三、实验设计与结果"><a href="#三、实验设计与结果" class="headerlink" title="三、实验设计与结果"></a>三、实验设计与结果</h2><h3 id="数据集"><a href="#数据集" class="headerlink" title="数据集"></a>数据集</h3><p>四个数据集覆盖了不同规模与稀疏度（Yelp 有 28 万用户、439 万交互，序列最长）。</p>
+<h3 id="主结果：作为通用增强模块挂到多个骨干上"><a href="#主结果：作为通用增强模块挂到多个骨干上" class="headerlink" title="主结果：作为通用增强模块挂到多个骨干上"></a>主结果：作为通用增强模块挂到多个骨干上</h3><p>PRISM 的定位是<strong>可插拔的模块</strong>，论文把它挂到三种序列推荐骨架上验证：</p>
+<p>三点观察：</p>
+<ol>
+<li><p><strong>每个骨干都涨点</strong>：SASRec 从 0.0249 到 0.0309（Home）、Beauty 从 0.0839 到 0.1051。说明收益来自模块本身，而非绑定特定骨干。</p>
+</li>
+<li><p><strong>与强骨干叠加仍然有效</strong>：InDiRec 是最强基线，加上 PRISM 后 R@20 从 0.1286 到 0.1388（Beauty，+7.9%）——<strong>不是”只在弱骨架上有效”的伪增益</strong>。</p>
+</li>
+<li><p>论文的对比基线覆盖了 SASRec、BERT4Rec、LightGCN、STOSA、DiffuRec 以及最新的 InDiRec，跨度从 2018 到 2025。</p>
+</li>
+</ol>
+<h3 id="消融：协同信息专家确实在干活"><a href="#消融：协同信息专家确实在干活" class="headerlink" title="消融：协同信息专家确实在干活"></a>消融：协同信息专家确实在干活</h3><p>逐项看：</p>
+<ul>
+<li><p><strong>去掉文本独有信息掉得最多</strong>（R@10 0.0422 → 0.0361，−14.5%），比去掉图像独有（→0.0376）更严重。这和多数多模态推荐的结论一致——<strong>文本模态信息密度更高</strong>。</p>
+</li>
+<li><p><strong>去掉协同信息专家 <strong><strong><code>E_syn</code></strong></strong> 掉 9.7%<strong>（→0.0381）。这是最值得关注的一项：它证明</strong>“模态组合才有的信息”确实被单独建模了，并且有独立贡献</strong>——如果协同信息本来就能被融合层自动捕获，去掉它不该有这么大影响。</p>
+</li>
+<li><p>**去掉自适应融合层掉 8.5%**（→0.0386），说明个性化权重也在起作用。</p>
+</li>
+<li><p>有趣的是<strong>去掉冗余信息专家也掉点</strong>（→0.0391）。直觉上”冗余”是可以丢的，但显式建模它（而不是让它混进其他通道）看来是有价值的——<strong>把冗余单独隔离出来，本身就减少了对其他三路的干扰</strong>。</p>
+</li>
+</ul>
+<p>论文还做了超参敏感性（图 3）、t-SNE 可视化（图 5）与复杂度分析（RQ5）。</p>
+<hr>
+<h2 id="四、总结"><a href="#四、总结" class="headerlink" title="四、总结"></a>四、总结</h2><p>PRISM 的思路可以概括为：<strong>把”融合”从一步加权，改成”先分解归因、再按用户偏好重组”。</strong></p>
+<p>三点值得带走：</p>
+<ol>
+<li><p><strong>协同信息值得显式建模</strong>：只在模态组合中存在的属性（如”送礼”）不该指望融合层的线性组合自动发现。消融显示给它一个专属专家通道能带来 ~10% 的独立贡献。</p>
+</li>
+<li><p><strong>冗余也值得显式处理</strong>：把重复部分隔离出来（而不是混进其他通道）反而提升了整体效果，这是个不太直觉但可复用的设计。</p>
+</li>
+<li><p><strong>可作为通用模块</strong>：在三个不同骨干（SASRec &#x2F; STOSA &#x2F; InDiRec）上都涨点，且与最强基线叠加仍有效——这种”插入式”定位对工程落地更友好。</p>
+</li>
+</ol>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>PRISM: Personalized Recommendation via Information Synergy Module — WWW 2026 (Full Paper, pp. 6021–6032)，DOI: <a href="https://doi.org/10.1145/3774904.3792230">10.1145&#x2F;3774904.3792230</a></p>
+</li>
+<li><p>预印本：<a href="https://arxiv.org/abs/2601.10944">arXiv 2601.10944</a></p>
+</li>
+<li><p>官方实现：<a href="https://github.com/YutongLi2024/PRISM">YutongLi2024&#x2F;PRISM</a></p>
+</li>
+<li><p>站内原文：<a href="https://app.notion.com/papers/2601.10944-prism.pdf">PDF</a></p>
+</li>
+<li><p>对比基线：SASRec、BERT4Rec、LightGCN、STOSA、DiffuRec、InDiRec</p>
+</li>
+<li><p>数据集：Home、Beauty、Sports、Yelp</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>多模态推荐</category>
       </categories>
       <tags>
         <tag>论文速读</tag>
@@ -7264,87 +7264,6 @@
       </tags>
   </entry>
   <entry>
-    <title>可验证环境不是推荐任务：RACES 如何用递归组合扩展推理训练</title>
-    <url>/article/verifiable-environments-lego-bricks/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2606.12373">RACES: Recursive Automated Composition for Environment Scaling</a><br><br>作者匿名代码与数据快照：<a href="https://anonymous.4open.science/r/Submission_of_NIPS2026_34776-B7FD">Submission of NeurIPS 2026</a></p>
-</blockquote>
-<h2 id="问题是什么"><a href="#问题是什么" class="headerlink" title="问题是什么"></a>问题是什么</h2><p>这篇论文研究的不是“序列推荐”，而是<strong>可验证环境上的强化学习与推理泛化</strong>。这类环境能够用确定性验证器判断答案对错，因此适合为推理模型提供可扩展的奖励信号。真正的瓶颈在于：人工设计环境代价高，逐个生成新环境通常只能线性扩展任务数量，而且容易停留在相似难度和相似推理模式上。</p>
-<p>RACES 的核心问题是：已有环境能否像乐高积木一样递归组合，从有限的原子环境自动形成更多、更难、结构更丰富的训练任务？论文把一个可验证环境写成四元组：</p>
-<p>$$<br>e&#x3D;(G_e, f_e, D_e, V_e),<br>$$</p>
-<p>其中 $G_e$ 生成问题，$f_e$ 定义问题到答案的映射，$D_e$ 与 $V_e$ 分别描述输入域和输出域。只要前一环境的输出域与后一环境的输入域兼容，两者就可以继续组合。</p>
-<h2 id="RACES-如何工作"><a href="#RACES-如何工作" class="headerlink" title="RACES 如何工作"></a>RACES 如何工作</h2><p><img src="/images/papers/2606.12373/races-framework.png" alt="RACES 从原子环境池递归组合出复合环境"></p>
-<p><strong>图解：</strong> 这张方法总览图从左到右展示原子环境池、可执行性筛选、递归组合以及四种组合算子。重点看中间的“积木式”递归：新生成的复合环境还能重新进入候选池，继续与其他环境组合。图支持的有限结论是，RACES 扩展的是环境的<strong>组合结构</strong>，而不是简单复制或改写题目文本。</p>
-<p>框架维护一个环境前沿集合，先检查类型是否兼容，再实际执行组合后的生成器与验证器，只有通过质量检查的环境才会进入下一轮。这样，系统不是让语言模型凭空描述一个新任务，而是保留可执行的生成逻辑和可验证的答案链。</p>
-<p>论文定义了四种算子：</p>
-<ul>
-<li><strong>SEQUENTIAL</strong>：前一个环境的答案成为后一个环境的输入，形成多步依赖。</li>
-<li><strong>PARALLEL</strong>：多个环境独立求解，再把结果共同交给聚合环境。</li>
-<li><strong>SORT</strong>：对多个子任务的结果执行排序，要求模型同时完成求解与比较。</li>
-<li><strong>SELECT</strong>：根据条件从候选结果中选择目标，增加分支判断。</li>
-</ul>
-<p>这些算子诱导不同推理结构。递归应用后，环境数量不再只随原子任务数量线性增长，但每个复合环境仍能通过组成它的确定性验证器进行检查。</p>
-<h2 id="训练设置"><a href="#训练设置" class="headerlink" title="训练设置"></a>训练设置</h2><p>实验使用 DeepSeek-R1-Distill-Qwen-14B 和 Qwen3-14B，两者都采用 GRPO 训练。主要设置为 300 个训练步骤、12,800 个训练实例、batch size 128、学习率 $2\times10^{-6}$、每题 8 个 rollout，以及 32K 最大上下文长度。训练运行在 32 张 A100 80GB GPU 上。</p>
-<p>论文比较三组模型：未经强化学习的 Base、在单个原子环境上训练的 $\mathrm{RL}<em>{\mathrm{individual}}$，以及在 RACES 复合环境上训练的 $\mathrm{RL}</em>{\mathrm{RACES}}$。</p>
-<h2 id="主要结果"><a href="#主要结果" class="headerlink" title="主要结果"></a>主要结果</h2><table>
-<thead>
-<tr>
-<th>模型</th>
-<th align="right">Base</th>
-<th align="right">单环境 RL</th>
-<th align="right">RACES RL</th>
-<th align="right">RACES 相对 Base</th>
-<th align="right">RACES 相对单环境</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>DeepSeek-R1-Distill-Qwen-14B</td>
-<td align="right">48.2</td>
-<td align="right">48.8</td>
-<td align="right">51.3</td>
-<td align="right">+3.1</td>
-<td align="right">+2.5</td>
-</tr>
-<tr>
-<td>Qwen3-14B</td>
-<td align="right">58.8</td>
-<td align="right">60.1</td>
-<td align="right">61.1</td>
-<td align="right">+2.3</td>
-<td align="right">+1.0</td>
-</tr>
-</tbody></table>
-<p>这里必须区分两个参照系：DeepSeek 系列的 51.3 相比<strong>未经 RL 的 Base 48.2</strong>提高 3.1 分；相比<strong>单环境 RL 的 48.8</strong>提高 2.5 分。旧版文章遗漏了前一个基线，导致“平均提升 3.1 分”和“提升 2.5 分”看起来互相冲突。</p>
-<h2 id="为什么训练奖励更低，泛化反而更好"><a href="#为什么训练奖励更低，泛化反而更好" class="headerlink" title="为什么训练奖励更低，泛化反而更好"></a>为什么训练奖励更低，泛化反而更好</h2><p><img src="/images/papers/2606.12373/training-reward.png" alt="单环境与 RACES 训练奖励对比"></p>
-<p><strong>图解：</strong> 图中单环境训练的奖励快速升高，而 RACES 的奖励持续更低。重点不是把低奖励解释成训练失败，而是识别任务难度差异：复合环境包含更长的依赖链和更多推理模式。该图只能说明 RACES 训练任务更难，不能单独证明泛化更强。</p>
-<p><img src="/images/papers/2606.12373/ood-performance.png" alt="不同训练方法的分布外评测表现"></p>
-<p><strong>图解：</strong> 这张图给出与上一张图对应的分布外评测曲线。尽管 RACES 的训练奖励较低，其下游平均分在约 200 步时达到 51.9，而单环境训练约为 50.4。两图合看才支持论文的核心解释：容易记住的训练环境不必然带来更好的跨任务泛化，更难且结构更多样的组合环境可能提供更有效的训练信号。</p>
-<h2 id="组合深度带来的收益与边界"><a href="#组合深度带来的收益与边界" class="headerlink" title="组合深度带来的收益与边界"></a>组合深度带来的收益与边界</h2><p><img src="/images/papers/2606.12373/composition-size.png" alt="不同组合长度下的训练奖励与波动"></p>
-<p><strong>图解：</strong> 图中比较组合长度从 2 增加到 6 时的奖励水平和波动。组合越深，平均奖励和方差整体下降，表明任务趋难；下游表现从长度 2 的 50.8 提升到长度 5 的 51.2，但长度 6 回落到 50.7。重点结论不是“越深越好”，而是存在难度甜点区：过浅缺少结构多样性，过深则可能造成奖励稀疏和优化困难。</p>
-<p>论文还报告了一项环境效率结果：对 Qwen3-4B，RACES 只使用 50 个环境即可取得 50.8 的平均分，而单环境方法使用 300 个环境得到 50.4。这说明组合机制的价值不仅是提高最终分数，也在于复用已有环境结构。</p>
-<h2 id="局限与阅读判断"><a href="#局限与阅读判断" class="headerlink" title="局限与阅读判断"></a>局限与阅读判断</h2><p>论文明确承认四类算子没有覆盖条件分支、有界循环等全部程序结构；复合任务依赖模型已经具备一定推理能力，较弱模型容易遭遇稀疏奖励；更深组合还会产生长轨迹，因此 32K 上下文窗口成为实际门槛。</p>
-<p>此外，当前公开地址是匿名评审代码与数据快照，并非正式 GitHub 仓库；文章因此不把它误写成 GitHub 链接。主表给出了清晰的平均分，但没有为所有差异报告统计显著性检验。对“组合环境导致泛化提升”的因果解释，应结合训练曲线、环境效率和组合深度消融共同阅读，而不能只看单一最终分数。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ol>
-<li><a href="https://arxiv.org/abs/2606.12373">RACES: Recursive Automated Composition for Environment Scaling</a>. arXiv:2606.12373, 2026.</li>
-<li><a href="https://arxiv.org/abs/2511.07317">RLVE: Scaling Reinforcement Learning from Verifiable Environments</a>. arXiv:2511.07317, 2025.</li>
-<li><a href="https://arxiv.org/abs/2601.04809">SCALER: Scaling Verifiable Environments for Reinforcement Learning</a>. arXiv:2601.04809, 2026.</li>
-<li><a href="https://openreview.net/forum?id=YcrOuJRVGh">ReSyn: Environment Synthesis for Reinforcement Learning</a>. OpenReview, 2026.</li>
-<li><a href="https://arxiv.org/abs/2602.12036">Composition-RL: Compositional Reinforcement Learning for Reasoning</a>. arXiv:2602.12036, 2026.</li>
-<li><a href="https://openreview.net/forum?id=jt7oCtYqHE">From f(x) and g(x) to f(g(x)): Learning Through Problem Composition</a>. OpenReview, 2026.</li>
-</ol>
-]]></content>
-      <categories>
-        <category>AI</category>
-        <category>大模型与智能体</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-        <tag>强化学习</tag>
-        <tag>可验证环境</tag>
-        <tag>推理泛化</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>推荐不该只服务用户：TriRec 的三方智能体框架</title>
     <url>/article/trirec-tri-party-agent-recommendation/</url>
     <content><![CDATA[<blockquote>
@@ -7424,6 +7343,87 @@
       </categories>
       <tags>
         <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>可验证环境不是推荐任务：RACES 如何用递归组合扩展推理训练</title>
+    <url>/article/verifiable-environments-lego-bricks/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://arxiv.org/abs/2606.12373">RACES: Recursive Automated Composition for Environment Scaling</a><br><br>作者匿名代码与数据快照：<a href="https://anonymous.4open.science/r/Submission_of_NIPS2026_34776-B7FD">Submission of NeurIPS 2026</a></p>
+</blockquote>
+<h2 id="问题是什么"><a href="#问题是什么" class="headerlink" title="问题是什么"></a>问题是什么</h2><p>这篇论文研究的不是“序列推荐”，而是<strong>可验证环境上的强化学习与推理泛化</strong>。这类环境能够用确定性验证器判断答案对错，因此适合为推理模型提供可扩展的奖励信号。真正的瓶颈在于：人工设计环境代价高，逐个生成新环境通常只能线性扩展任务数量，而且容易停留在相似难度和相似推理模式上。</p>
+<p>RACES 的核心问题是：已有环境能否像乐高积木一样递归组合，从有限的原子环境自动形成更多、更难、结构更丰富的训练任务？论文把一个可验证环境写成四元组：</p>
+<p>$$<br>e&#x3D;(G_e, f_e, D_e, V_e),<br>$$</p>
+<p>其中 $G_e$ 生成问题，$f_e$ 定义问题到答案的映射，$D_e$ 与 $V_e$ 分别描述输入域和输出域。只要前一环境的输出域与后一环境的输入域兼容，两者就可以继续组合。</p>
+<h2 id="RACES-如何工作"><a href="#RACES-如何工作" class="headerlink" title="RACES 如何工作"></a>RACES 如何工作</h2><p><img src="/images/papers/2606.12373/races-framework.png" alt="RACES 从原子环境池递归组合出复合环境"></p>
+<p><strong>图解：</strong> 这张方法总览图从左到右展示原子环境池、可执行性筛选、递归组合以及四种组合算子。重点看中间的“积木式”递归：新生成的复合环境还能重新进入候选池，继续与其他环境组合。图支持的有限结论是，RACES 扩展的是环境的<strong>组合结构</strong>，而不是简单复制或改写题目文本。</p>
+<p>框架维护一个环境前沿集合，先检查类型是否兼容，再实际执行组合后的生成器与验证器，只有通过质量检查的环境才会进入下一轮。这样，系统不是让语言模型凭空描述一个新任务，而是保留可执行的生成逻辑和可验证的答案链。</p>
+<p>论文定义了四种算子：</p>
+<ul>
+<li><strong>SEQUENTIAL</strong>：前一个环境的答案成为后一个环境的输入，形成多步依赖。</li>
+<li><strong>PARALLEL</strong>：多个环境独立求解，再把结果共同交给聚合环境。</li>
+<li><strong>SORT</strong>：对多个子任务的结果执行排序，要求模型同时完成求解与比较。</li>
+<li><strong>SELECT</strong>：根据条件从候选结果中选择目标，增加分支判断。</li>
+</ul>
+<p>这些算子诱导不同推理结构。递归应用后，环境数量不再只随原子任务数量线性增长，但每个复合环境仍能通过组成它的确定性验证器进行检查。</p>
+<h2 id="训练设置"><a href="#训练设置" class="headerlink" title="训练设置"></a>训练设置</h2><p>实验使用 DeepSeek-R1-Distill-Qwen-14B 和 Qwen3-14B，两者都采用 GRPO 训练。主要设置为 300 个训练步骤、12,800 个训练实例、batch size 128、学习率 $2\times10^{-6}$、每题 8 个 rollout，以及 32K 最大上下文长度。训练运行在 32 张 A100 80GB GPU 上。</p>
+<p>论文比较三组模型：未经强化学习的 Base、在单个原子环境上训练的 $\mathrm{RL}<em>{\mathrm{individual}}$，以及在 RACES 复合环境上训练的 $\mathrm{RL}</em>{\mathrm{RACES}}$。</p>
+<h2 id="主要结果"><a href="#主要结果" class="headerlink" title="主要结果"></a>主要结果</h2><table>
+<thead>
+<tr>
+<th>模型</th>
+<th align="right">Base</th>
+<th align="right">单环境 RL</th>
+<th align="right">RACES RL</th>
+<th align="right">RACES 相对 Base</th>
+<th align="right">RACES 相对单环境</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>DeepSeek-R1-Distill-Qwen-14B</td>
+<td align="right">48.2</td>
+<td align="right">48.8</td>
+<td align="right">51.3</td>
+<td align="right">+3.1</td>
+<td align="right">+2.5</td>
+</tr>
+<tr>
+<td>Qwen3-14B</td>
+<td align="right">58.8</td>
+<td align="right">60.1</td>
+<td align="right">61.1</td>
+<td align="right">+2.3</td>
+<td align="right">+1.0</td>
+</tr>
+</tbody></table>
+<p>这里必须区分两个参照系：DeepSeek 系列的 51.3 相比<strong>未经 RL 的 Base 48.2</strong>提高 3.1 分；相比<strong>单环境 RL 的 48.8</strong>提高 2.5 分。旧版文章遗漏了前一个基线，导致“平均提升 3.1 分”和“提升 2.5 分”看起来互相冲突。</p>
+<h2 id="为什么训练奖励更低，泛化反而更好"><a href="#为什么训练奖励更低，泛化反而更好" class="headerlink" title="为什么训练奖励更低，泛化反而更好"></a>为什么训练奖励更低，泛化反而更好</h2><p><img src="/images/papers/2606.12373/training-reward.png" alt="单环境与 RACES 训练奖励对比"></p>
+<p><strong>图解：</strong> 图中单环境训练的奖励快速升高，而 RACES 的奖励持续更低。重点不是把低奖励解释成训练失败，而是识别任务难度差异：复合环境包含更长的依赖链和更多推理模式。该图只能说明 RACES 训练任务更难，不能单独证明泛化更强。</p>
+<p><img src="/images/papers/2606.12373/ood-performance.png" alt="不同训练方法的分布外评测表现"></p>
+<p><strong>图解：</strong> 这张图给出与上一张图对应的分布外评测曲线。尽管 RACES 的训练奖励较低，其下游平均分在约 200 步时达到 51.9，而单环境训练约为 50.4。两图合看才支持论文的核心解释：容易记住的训练环境不必然带来更好的跨任务泛化，更难且结构更多样的组合环境可能提供更有效的训练信号。</p>
+<h2 id="组合深度带来的收益与边界"><a href="#组合深度带来的收益与边界" class="headerlink" title="组合深度带来的收益与边界"></a>组合深度带来的收益与边界</h2><p><img src="/images/papers/2606.12373/composition-size.png" alt="不同组合长度下的训练奖励与波动"></p>
+<p><strong>图解：</strong> 图中比较组合长度从 2 增加到 6 时的奖励水平和波动。组合越深，平均奖励和方差整体下降，表明任务趋难；下游表现从长度 2 的 50.8 提升到长度 5 的 51.2，但长度 6 回落到 50.7。重点结论不是“越深越好”，而是存在难度甜点区：过浅缺少结构多样性，过深则可能造成奖励稀疏和优化困难。</p>
+<p>论文还报告了一项环境效率结果：对 Qwen3-4B，RACES 只使用 50 个环境即可取得 50.8 的平均分，而单环境方法使用 300 个环境得到 50.4。这说明组合机制的价值不仅是提高最终分数，也在于复用已有环境结构。</p>
+<h2 id="局限与阅读判断"><a href="#局限与阅读判断" class="headerlink" title="局限与阅读判断"></a>局限与阅读判断</h2><p>论文明确承认四类算子没有覆盖条件分支、有界循环等全部程序结构；复合任务依赖模型已经具备一定推理能力，较弱模型容易遭遇稀疏奖励；更深组合还会产生长轨迹，因此 32K 上下文窗口成为实际门槛。</p>
+<p>此外，当前公开地址是匿名评审代码与数据快照，并非正式 GitHub 仓库；文章因此不把它误写成 GitHub 链接。主表给出了清晰的平均分，但没有为所有差异报告统计显著性检验。对“组合环境导致泛化提升”的因果解释，应结合训练曲线、环境效率和组合深度消融共同阅读，而不能只看单一最终分数。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ol>
+<li><a href="https://arxiv.org/abs/2606.12373">RACES: Recursive Automated Composition for Environment Scaling</a>. arXiv:2606.12373, 2026.</li>
+<li><a href="https://arxiv.org/abs/2511.07317">RLVE: Scaling Reinforcement Learning from Verifiable Environments</a>. arXiv:2511.07317, 2025.</li>
+<li><a href="https://arxiv.org/abs/2601.04809">SCALER: Scaling Verifiable Environments for Reinforcement Learning</a>. arXiv:2601.04809, 2026.</li>
+<li><a href="https://openreview.net/forum?id=YcrOuJRVGh">ReSyn: Environment Synthesis for Reinforcement Learning</a>. OpenReview, 2026.</li>
+<li><a href="https://arxiv.org/abs/2602.12036">Composition-RL: Compositional Reinforcement Learning for Reasoning</a>. arXiv:2602.12036, 2026.</li>
+<li><a href="https://openreview.net/forum?id=jt7oCtYqHE">From f(x) and g(x) to f(g(x)): Learning Through Problem Composition</a>. OpenReview, 2026.</li>
+</ol>
+]]></content>
+      <categories>
+        <category>AI</category>
+        <category>大模型与智能体</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+        <tag>强化学习</tag>
+        <tag>可验证环境</tag>
+        <tag>推理泛化</tag>
       </tags>
   </entry>
   <entry>
