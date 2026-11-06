@@ -138,32 +138,33 @@ $$
 
 ## References
 
-- J. Xu, Z. Chen, W. Wang, X. Hu, S.-W. Kim, and E. C. Ngai, “Cohesion: Composite graph convolutional network with dual-stage fusion for multimodal recommendation,” in Proceedings of the 48th International ACM SIGIR Conference on Research and Development in Information Retrieval, 2025, pp. 1830–1839.（未解析）
+- J. Xu, Z. Chen, W. Wang, X. Hu, S.-W. Kim, and E. C. Ngai, “[Cohesion: Composite graph convolutional network with dual-stage fusion for multimodal recommendation](https://doi.org/10.1145/3726302.3729927),” in Proceedings of the 48th International ACM SIGIR Conference on Research and Development in Information Retrieval, 2025, pp. 1830–1839.
 
-- X. He, K. Deng, X. Wang, Y. Li, Y. Zhang, and M. Wang, “Lightgcn: Simplifying and powering graph convolution network for recommendation,” in Proceedings of the 43rd International ACM SIGIR conference on research and development in Information Retrieval, 2020, pp. 639–648.（未解析）
+- X. He, K. Deng, X. Wang, Y. Li, Y. Zhang, and M. Wang, “[Lightgcn: Simplifying and powering graph convolution network for recommendation](https://arxiv.org/abs/2002.02126),” in Proceedings of the 43rd International ACM SIGIR conference on research and development in Information Retrieval, 2020, pp. 639–648.
 
-- J. Xu, Z. Chen, S. Yang, J. Li, and E. C. Ngai, “The best is yet to come: Graph convolution in the testing phase for multimodal recommendation,” in Proceedings of the 33rd ACM International Conference on Multimedia, 2025, pp. 6325–6334.（未解析）
+- J. Xu, Z. Chen, S. Yang, J. Li, and E. C. Ngai, “[The best is yet to come: Graph convolution in the testing phase for multimodal recommendation](https://doi.org/10.1145/3746027.3755781),” in Proceedings of the 33rd ACM International Conference on Multimedia, 2025, pp. 6325–6334.
 
-- Z. Guo, J. Li, G. Li, C. Wang, S. Shi, and B. Ruan, “Lgmrec: Local and global graph learning for multimodal recommendation,” in Proceedings of the AAAI Conference on Artificial Intelligence, vol. 38, no. 8, 2024, pp. 8454–8462.（未解析）
+- Z. Guo, J. Li, G. Li, C. Wang, S. Shi, and B. Ruan, “[Lgmrec: Local and global graph learning for multimodal recommendation](https://doi.org/10.1609/aaai.v38i8.28688),” in Proceedings of the AAAI Conference on Artificial Intelligence, vol. 38, no. 8, 2024, pp. 8454–8462.
 
-- J. Xu, Z. Chen, S. Yang, J. Li, Z. Wan, H. Wang, W. Liu, Y. Li, and E. C. Ngai, “Vi-mmrec: Similarity-aware training cost-free virtual user-item interactions for multimodal recommendation,” arXiv preprint arXiv:2512.08702, 2025.（未解析）
+- J. Xu, Z. Chen, S. Yang, J. Li, Z. Wan, H. Wang, W. Liu, Y. Li, and E. C. Ngai, “[Vi-mmrec: Similarity-aware training cost-free virtual user-item interactions for multimodal recommendation](https://arxiv.org/abs/2512.08702),” arXiv preprint arXiv:2512.08702, 2025.
 
-- Z. Chen, J. Xu, H. Wang, S. Yang, Z. Wan, and H. Hu, “Hypercomplex prompt-aware multimodal recommendation,” in Proceedings of the 34th ACM International Conference on Information and Knowledge Management, 2025, pp. 403–414.（未解析）
+- Z. Chen, J. Xu, H. Wang, S. Yang, Z. Wan, and H. Hu, “[Hypercomplex prompt-aware multimodal recommendation](https://doi.org/10.1145/3746252.3761174),” in Proceedings of the 34th ACM International Conference on Information and Knowledge Management, 2025, pp. 403–414.
 
-- Z. Chen, J. Xu, Y. Wei, and Z. Peng, “Squeeze and excitation: A weighted graph contrastive learning for collaborative filtering,” in Proceedings of the 48th International ACM SIGIR Conference on Research and Development in Information Retrieval, 2025, pp. 2769–2773.（未解析）
+- Z. Chen, J. Xu, Y. Wei, and Z. Peng, “[Squeeze and excitation: A weighted graph contrastive learning for collaborative filtering](https://doi.org/10.1145/3726302.3730251),” in Proceedings of the 48th International ACM SIGIR Conference on Research and Development in Information Retrieval, 2025, pp. 2769–2773.
 
-- J. Xu, Z. Chen, S. Yang, J. Li, H. Wang, W. Wang, X. Hu, and E. Ngai, “Nlgcl: Naturally existing neighbor layers graph contrastive learning for recommendation,” in Proceedings of the Nineteenth ACM Conference on Recommender Systems, 2025, pp. 319–329.（未解析）
+- J. Xu, Z. Chen, S. Yang, J. Li, H. Wang, W. Wang, X. Hu, and E. Ngai, “[Nlgcl: Naturally existing neighbor layers graph contrastive learning for recommendation](https://doi.org/10.1145/3705328.3748059),” in Proceedings of the Nineteenth ACM Conference on Recommender Systems, 2025, pp. 319–329.
 
-- J. Xu, Z. Chen, J. Li, S. Yang, W. Wang, H. Wang, Y. Li, X. Hu, and E. Ngai, “Dggvae: Dual-granularity graph variational auto-encoder for group recommendation,” ACM Transactions on Information Systems, vol. 44, no. 2, pp. 1–30, 2026.（未解析）
+- J. Xu, Z. Chen, J. Li, S. Yang, W. Wang, H. Wang, Y. Li, X. Hu, and E. Ngai, “[Dggvae: Dual-granularity graph variational auto-encoder for group recommendation](https://doi.org/10.1145/3785145),” ACM Transactions on Information Systems, vol. 44, no. 2, pp. 1–30, 2026.
 
-- F. Sun, J. Liu, J. Wu, C. Pei, X. Lin, W. Ou, and P. Jiang, “Bert4rec: Sequential recommendation with bidirectional encoder representations from transformer,” in Proceedings of the 28th ACM international conference on information and knowledge management, 2019, pp. 1441–1450.（未解析）
+- F. Sun, J. Liu, J. Wu, C. Pei, X. Lin, W. Ou, and P. Jiang, “[Bert4rec: Sequential recommendation with bidirectional encoder representations from transformer](https://arxiv.org/abs/1904.06690),” in Proceedings of the 28th ACM international conference on information and knowledge management, 2019, pp. 1441–1450.
 
-- W.-C. Kang and J. McAuley, “Self-attentive sequential recommendation,” in 2018 IEEE international conference on data mining (ICDM). IEEE, 2018, pp. 197–206.（未解析）
+- W.-C. Kang and J. McAuley, “[Self-attentive sequential recommendation](https://doi.org/10.1109/icdm.2018.00035),” in 2018 IEEE international conference on data mining (ICDM). IEEE, 2018, pp. 197–206.
 
-- Y. Dang, E. Yang, G. Guo, L. Jiang, X. Wang, X. Xu, Q. Sun, and H. Liu, “Ticoserec: Augmenting data to uniform sequences by time intervals for effective recommendation,” IEEE Transactions on Knowledge and Data Engineering, vol. 36, no. 6, pp. 2686–2700, 2023.（未解析）
+- Y. Dang, E. Yang, G. Guo, L. Jiang, X. Wang, X. Xu, Q. Sun, and H. Liu, “[Ticoserec: Augmenting data to uniform sequences by time intervals for effective recommendation](https://doi.org/10.1109/tkde.2023.3324312),” IEEE Transactions on Knowledge and Data Engineering, vol. 36, no. 6, pp. 2686–2700, 2023.
 
-- X. Du, H. Yuan, P. Zhao, J. Qu, F. Zhuang, G. Liu, Y. Liu, and V. S. Sheng, “Frequency enhanced hybrid attention network for sequential recommendation,” in Proceedings of the 46th International ACM SIGIR conference on research and development in information retrieval, 2023, pp. 78–88.（未解析）
+- X. Du, H. Yuan, P. Zhao, J. Qu, F. Zhuang, G. Liu, Y. Liu, and V. S. Sheng, “[Frequency enhanced hybrid attention network for sequential recommendation](https://doi.org/10.1145/3539618.3591689),” in Proceedings of the 46th International ACM SIGIR conference on research and development in information retrieval, 2023, pp. 78–88.
 
-- J. Xu, Z. Chen, S. Yang, J. Li, H. Wang, and E. C. Ngai, “Mentor: multi-level self-supervised learning for multimodal recommendation,” in Proceedings of the AAAI Conference on Artificial Intelligence, vol. 39, no. 12, 2025, pp. 12908–12917.（未解析）
+- J. Xu, Z. Chen, S. Yang, J. Li, H. Wang, and E. C. Ngai, “[Mentor: multi-level self-supervised learning for multimodal recommendation](https://doi.org/10.1609/aaai.v39i12.33408),” in Proceedings of the AAAI Conference on Artificial Intelligence, vol. 39, no. 12, 2025, pp. 12908–12917.
 
-- Z. Chen, J. Xu, and H. Hu, “Don’t lose yourself: Boosting multimodal recommendation via reducing node-neighbor discrepancy in graph convolutional network,” in ICASSP 2025-2025 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP). IEEE, 2025, pp. 1–5.（未解析）
+- Z. Chen, J. Xu, and H. Hu, “[Don’t lose yourself: Boosting multimodal recommendation via reducing node-neighbor discrepancy in graph convolutional network](https://doi.org/10.1109/icassp49660.2025.10887910),” in ICASSP 2025-2025 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP). IEEE, 2025, pp. 1–5.
+
