@@ -1,5 +1,5 @@
 /**
- * 悬浮音乐控件 —— 纯本地 5 首随机播放
+ * 悬浮音乐控件 —— 纯本地 6 首随机播放
  *
  * 设计约定（详见 docs/music-player-design.md）：
  * - 随机选歌是纯前端逻辑（Math.random），页面每次刷新随机起始
@@ -13,13 +13,14 @@
   "use strict";
 
   // ========== 曲目配置：把音频放进 source/audio/ 后按此命名，或改这里 ==========
-  // song4/song5 已由 QQ musicex 解密 + MP3 320k 转码补入（2026-11-08）
+  // song4/song5/song6 已由 QQ musicex 解密 + MP3 320k 转码补入。
   var PLAYLIST = [
     { title: "氧化氢 - 李沛恩 / 江衡", src: "/audio/song1.ogg" },
     { title: "红色高跟鞋 (Single Version) - 旺仔小乔", src: "/audio/song2.ogg" },
     { title: "爱的供养 - 张一年", src: "/audio/song3.ogg" },
     { title: "琵琶曲 (DJ筱轩版) - 郑浩 / 冰洁", src: "/audio/song4.mp3" },
-    { title: "山海留不住云雾 - 指尖笑", src: "/audio/song5.mp3" }
+    { title: "山海留不住云雾 - 指尖笑", src: "/audio/song5.mp3" },
+    { title: "下个，路口，见 - 李宇春", src: "/audio/song6.mp3" }
   ];
 
   var LOG_KEY = "mp_logs_v1";
@@ -64,7 +65,7 @@
   // 页面每次刷新随机起始（Math.random 纯前端逻辑，无 API 参与）
   var currentIndex = Math.floor(Math.random() * PLAYLIST.length);
   var audio = null; // 首次用户手势时才创建，避免预加载流量与 autoplay 限制
-  var widget, trackEl, statusEl, toggleBtn;
+  var widget, trackEl, statusEl, toggleBtn, detailsBtn, playlistEl;
 
   // ========== DOM ==========
   function buildWidget() {
@@ -74,17 +75,21 @@
       '<img class="mp-trigger" src="/icons/logo-keyboard-music.svg" alt="music" title="点击播放/暂停">' +
       '<div class="mp-panel">' +
       '  <div class="mp-track"></div>' +
+      '  <button class="mp-details-toggle" data-act="details" type="button" aria-expanded="false" aria-controls="mp-playlist" title="查看播放列表">详情</button>' +
       '  <div class="mp-buttons">' +
-      '    <button data-act="prev" title="上一首">⏮</button>' +
-      '    <button data-act="toggle" title="播放/暂停">▶</button>' +
-      '    <button data-act="next" title="下一首">⏭</button>' +
+      '    <button data-act="prev" type="button" title="上一首">⏮</button>' +
+      '    <button data-act="toggle" type="button" title="播放/暂停">▶</button>' +
+      '    <button data-act="next" type="button" title="下一首">⏭</button>' +
       '  </div>' +
       '  <div class="mp-status"></div>' +
+      '  <div class="mp-playlist" id="mp-playlist" role="listbox" aria-label="播放列表" hidden></div>' +
       "</div>";
     document.body.appendChild(widget);
     trackEl = widget.querySelector(".mp-track");
     statusEl = widget.querySelector(".mp-status");
     toggleBtn = widget.querySelector('[data-act="toggle"]');
+    detailsBtn = widget.querySelector('[data-act="details"]');
+    playlistEl = widget.querySelector(".mp-playlist");
 
     widget.querySelector(".mp-trigger").addEventListener("click", togglePlay);
     widget.querySelector('[data-act="prev"]').addEventListener("click", function () {
@@ -94,12 +99,42 @@
       step(1);
     });
     toggleBtn.addEventListener("click", togglePlay);
+    detailsBtn.addEventListener("click", toggleDetails);
+    renderPlaylist();
   }
 
   function updateUI(state) {
     trackEl.textContent = PLAYLIST[currentIndex].title;
     toggleBtn.textContent = state === "playing" ? "⏸" : "▶";
     widget.classList.toggle("is-playing", state === "playing");
+    if (playlistEl) {
+      Array.prototype.forEach.call(playlistEl.querySelectorAll("[data-playlist-index]"), function (item) {
+        var isCurrent = Number(item.getAttribute("data-playlist-index")) === currentIndex;
+        item.classList.toggle("is-current", isCurrent);
+        item.setAttribute("aria-current", isCurrent ? "true" : "false");
+      });
+    }
+  }
+
+  function renderPlaylist() {
+    PLAYLIST.forEach(function (track, index) {
+      var item = document.createElement("button");
+      item.className = "mp-playlist-item";
+      item.type = "button";
+      item.setAttribute("role", "option");
+      item.setAttribute("data-playlist-index", String(index));
+      item.textContent = (index + 1) + ". " + track.title;
+      item.addEventListener("click", function () { selectTrack(index); });
+      playlistEl.appendChild(item);
+    });
+  }
+
+  function toggleDetails() {
+    var isOpen = playlistEl.hidden;
+    playlistEl.hidden = !isOpen;
+    detailsBtn.setAttribute("aria-expanded", String(isOpen));
+    widget.classList.toggle("is-details-open", isOpen);
+    log(isOpen ? "details_open" : "details_close");
   }
 
   function setStatus(msg, isError) {
@@ -158,6 +193,15 @@
     log(delta > 0 ? "next" : "prev");
     if (audio && audio.src) { playCurrent(); }
     else { updateUI("paused"); }
+  }
+
+  function selectTrack(index) {
+    if (index < 0 || index >= PLAYLIST.length) return;
+    currentIndex = index;
+    // 先同步曲名；实际播放态仍以 Audio 的 playing/pause 事件为准。
+    updateUI(audio && !audio.paused ? "playing" : "paused");
+    log("select", { source: "playlist" });
+    playCurrent();
   }
 
   // ========== 启动 ==========
