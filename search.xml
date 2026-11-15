@@ -65,6 +65,55 @@
       </tags>
   </entry>
   <entry>
+    <title>噪声过滤 + 度数敏感剪边：AMMRM 处理多模态噪声与热门偏置</title>
+    <url>/article/ammrm-noise-filtering-adaptive-fusion/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://doi.org/10.1007/s44443-025-00026-1">DOI</a></p>
+</blockquote>
+<p>多模态推荐的两个老问题是”模态里有噪声”和”推荐结果同质化”，AMMRM 把它们放在同一个模型里处理：<strong>噪声过滤门</strong>降噪，<strong>度数敏感剪边</strong>抑制热门物品带来的同质化。</p>
+<h2 id="现象：噪声与热门偏置是一对孪生问题"><a href="#现象：噪声与热门偏置是一对孪生问题" class="headerlink" title="现象：噪声与热门偏置是一对孪生问题"></a>现象：噪声与热门偏置是一对孪生问题</h2><p>论文点出两件事：多模态数据里普遍存在无关的视觉细节与冗余文本描述，会干扰物品建模；同时推荐系统对热门物品的偏好会让结果趋同。两者在图上其实是同一个机制的两面——<strong>热门物品连接度高，既容易把噪声沿边传播出去，也容易主导表示学习</strong>。</p>
+<h2 id="机制一：多模态噪声过滤门"><a href="#机制一：多模态噪声过滤门" class="headerlink" title="机制一：多模态噪声过滤门"></a>机制一：多模态噪声过滤门</h2><p><img src="/images/d835b9add4df4afc3ec5f66194cb3b73.png" alt="AMMRM 整体架构"></p>
+<p><em>架构图分三块：(a) 噪声过滤模块、(b) 特征增强模块、(c) 融合与预测。(a) 里有两个递进的过滤器：多模态噪声过滤门处理模态特征层面的噪声，用户-物品图噪声过滤处理图结构层面的噪声。这个”特征层 + 结构层”两级过滤是它的设计特点——很多方法只在特征层降噪，忽略了噪声会沿图结构扩散。</em></p>
+<p><img src="/images/e25c1b4f50efc2dba55655eb34938cbb.png" alt="过滤门的工作流程"></p>
+<p><em>这张图专门展开过滤门内部：输入模态特征如何被门控机制加权、哪部分被保留、哪部分被压掉。它的意义是把”滤波”这个抽象说法落到可检查的操作上——每一个模态维度上的保留强度都是学出来的，而不是固定阈值截断。</em></p>
+<h2 id="机制二：度数敏感剪边（degree-sensitive-edge-pruning）"><a href="#机制二：度数敏感剪边（degree-sensitive-edge-pruning）" class="headerlink" title="机制二：度数敏感剪边（degree-sensitive edge-pruning）"></a>机制二：度数敏感剪边（degree-sensitive edge-pruning）</h2><p>针对热门偏置，论文设计了<strong>度数敏感的边剪枝</strong>：按节点的度数（连接数）区别对待，缓解热门物品造成的过拟合。这个策略与”随机丢边”的图增强不同——它的丢边概率<strong>与度数挂钩</strong>，是定向的。</p>
+<h2 id="机制三：跨模态多头注意力-行为引导网络"><a href="#机制三：跨模态多头注意力-行为引导网络" class="headerlink" title="机制三：跨模态多头注意力 + 行为引导网络"></a>机制三：跨模态多头注意力 + 行为引导网络</h2><p>特征增强部分包含：</p>
+<ul>
+<li><p><strong>跨模态多头注意力</strong>：让图与文之间做交互式增强，而不是各自独立编码后直接拼接；</p>
+</li>
+<li><p><strong>行为引导分离网络</strong>：用行为信号引导模态向量的优化；</p>
+</li>
+<li><p><strong>用户偏好自适应融合</strong>：融合权重按用户偏好自适应。</p>
+</li>
+</ul>
+<p><img src="/images/0f8c4527b9d4a28ed9054c8c805af9df.png" alt="跨模态多头注意力与自适应融合"></p>
+<p><em>这张图展示跨模态注意力的结构：以某一模态为 query、另一模态为 key&#x2F;value 做注意力，实现”用文本纠正视觉、用视觉补充文本”。配合后面的自适应融合模块，整体形成”先跨模态增强、再按用户偏好加权”的两步流程。</em></p>
+<h2 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h2><p>三个 Amazon 数据集（Baby &#x2F; Sports &#x2F; Clothing，与常见多模态推荐基准一致），对比 MF、LightGCN、VBPR、LATTICE、BM3、MMSSL、FREEDOM、MGCN：</p>
+<p><strong>主结果</strong>（Baby &#x2F; Sports，与最强基线 FREEDOM 对比）：</p>
+<p>值得注意的是 <strong>MGCN 在 Baby 的 NDCG@10（0.0339）上曾高于 FREEDOM（0.0330）</strong>，说明不同指标下的最优基线并不一致——这类对比需要一个综合口径，而不是单看一个指标。</p>
+<p><strong>消融</strong>：完整模型（论文中的 variant 7）在所有指标上最好，去掉任一模块都掉点（噪声过滤门与度数敏感剪边是可分离的两项贡献）。</p>
+<p><strong>图卷积深度</strong>：用户-物品图的卷积深度增加时性能<strong>先升后稳</strong>，在某个深度达到峰值后不再改善——一层一层堆深在这个任务上没有收益，这与 GNN 推荐的普遍经验一致。</p>
+<p><img src="/images/a14dc63f7c84ea08bd3cab626f11b2d1.png" alt="推荐物品多样性"></p>
+<p><em>这张图单列了”推荐结果的多样性”。它是本文相对其他多模态推荐论文的差异化评估项——大多数论文只报精度，而 AMMRM 的主张里包含”缓解同质化”，所以必须拿出多样性指标来证明。读法是看 AMMRM 与基线的多样性曲线位置，配合精度一起判断是否”精度与多样性同时改善”。</em></p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>AMMRM 把”降噪”和”去热门偏置”合并到一个框架里，两个机制分别落在特征层&#x2F;结构层与图剪枝上。可迁移的两点：<strong>噪声要分两层处理</strong>（模态特征噪声 + 图结构传播噪声）；<strong>度数敏感剪边是缓解热门偏置的一种定向手段</strong>，比随机丢边更有针对性。此外它把多样性作为一等评估项，这在多模态推荐论文里不常见。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>论文：AMMRM: an adaptive multi-modal recommendation model with noise filtering and modal feature enhancement（DOI 10.1007&#x2F;s44443-025-00026-1）</p>
+</li>
+<li><p>相关基线：MF、LightGCN、VBPR、LATTICE、BM3、MMSSL、FREEDOM、MGCN</p>
+</li>
+<li><p>关键组件：多模态噪声过滤门、用户-物品图噪声过滤、度数敏感剪边、跨模态多头注意力、行为引导分离网络、用户偏好自适应融合</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>多模态推荐</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>从排序器到目标追求者：智能体推荐系统的自主性分级</title>
     <url>/article/agentic-recsys-autonomy-roadmap/</url>
     <content><![CDATA[<blockquote>
@@ -158,123 +207,6 @@
       <categories>
         <category>推荐系统</category>
         <category>生成式推荐</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>噪声过滤 + 度数敏感剪边：AMMRM 处理多模态噪声与热门偏置</title>
-    <url>/article/ammrm-noise-filtering-adaptive-fusion/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://doi.org/10.1007/s44443-025-00026-1">DOI</a></p>
-</blockquote>
-<p>多模态推荐的两个老问题是”模态里有噪声”和”推荐结果同质化”，AMMRM 把它们放在同一个模型里处理：<strong>噪声过滤门</strong>降噪，<strong>度数敏感剪边</strong>抑制热门物品带来的同质化。</p>
-<h2 id="现象：噪声与热门偏置是一对孪生问题"><a href="#现象：噪声与热门偏置是一对孪生问题" class="headerlink" title="现象：噪声与热门偏置是一对孪生问题"></a>现象：噪声与热门偏置是一对孪生问题</h2><p>论文点出两件事：多模态数据里普遍存在无关的视觉细节与冗余文本描述，会干扰物品建模；同时推荐系统对热门物品的偏好会让结果趋同。两者在图上其实是同一个机制的两面——<strong>热门物品连接度高，既容易把噪声沿边传播出去，也容易主导表示学习</strong>。</p>
-<h2 id="机制一：多模态噪声过滤门"><a href="#机制一：多模态噪声过滤门" class="headerlink" title="机制一：多模态噪声过滤门"></a>机制一：多模态噪声过滤门</h2><p><img src="/images/d835b9add4df4afc3ec5f66194cb3b73.png" alt="AMMRM 整体架构"></p>
-<p><em>架构图分三块：(a) 噪声过滤模块、(b) 特征增强模块、(c) 融合与预测。(a) 里有两个递进的过滤器：多模态噪声过滤门处理模态特征层面的噪声，用户-物品图噪声过滤处理图结构层面的噪声。这个”特征层 + 结构层”两级过滤是它的设计特点——很多方法只在特征层降噪，忽略了噪声会沿图结构扩散。</em></p>
-<p><img src="/images/e25c1b4f50efc2dba55655eb34938cbb.png" alt="过滤门的工作流程"></p>
-<p><em>这张图专门展开过滤门内部：输入模态特征如何被门控机制加权、哪部分被保留、哪部分被压掉。它的意义是把”滤波”这个抽象说法落到可检查的操作上——每一个模态维度上的保留强度都是学出来的，而不是固定阈值截断。</em></p>
-<h2 id="机制二：度数敏感剪边（degree-sensitive-edge-pruning）"><a href="#机制二：度数敏感剪边（degree-sensitive-edge-pruning）" class="headerlink" title="机制二：度数敏感剪边（degree-sensitive edge-pruning）"></a>机制二：度数敏感剪边（degree-sensitive edge-pruning）</h2><p>针对热门偏置，论文设计了<strong>度数敏感的边剪枝</strong>：按节点的度数（连接数）区别对待，缓解热门物品造成的过拟合。这个策略与”随机丢边”的图增强不同——它的丢边概率<strong>与度数挂钩</strong>，是定向的。</p>
-<h2 id="机制三：跨模态多头注意力-行为引导网络"><a href="#机制三：跨模态多头注意力-行为引导网络" class="headerlink" title="机制三：跨模态多头注意力 + 行为引导网络"></a>机制三：跨模态多头注意力 + 行为引导网络</h2><p>特征增强部分包含：</p>
-<ul>
-<li><p><strong>跨模态多头注意力</strong>：让图与文之间做交互式增强，而不是各自独立编码后直接拼接；</p>
-</li>
-<li><p><strong>行为引导分离网络</strong>：用行为信号引导模态向量的优化；</p>
-</li>
-<li><p><strong>用户偏好自适应融合</strong>：融合权重按用户偏好自适应。</p>
-</li>
-</ul>
-<p><img src="/images/0f8c4527b9d4a28ed9054c8c805af9df.png" alt="跨模态多头注意力与自适应融合"></p>
-<p><em>这张图展示跨模态注意力的结构：以某一模态为 query、另一模态为 key&#x2F;value 做注意力，实现”用文本纠正视觉、用视觉补充文本”。配合后面的自适应融合模块，整体形成”先跨模态增强、再按用户偏好加权”的两步流程。</em></p>
-<h2 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h2><p>三个 Amazon 数据集（Baby &#x2F; Sports &#x2F; Clothing，与常见多模态推荐基准一致），对比 MF、LightGCN、VBPR、LATTICE、BM3、MMSSL、FREEDOM、MGCN：</p>
-<p><strong>主结果</strong>（Baby &#x2F; Sports，与最强基线 FREEDOM 对比）：</p>
-<p>值得注意的是 <strong>MGCN 在 Baby 的 NDCG@10（0.0339）上曾高于 FREEDOM（0.0330）</strong>，说明不同指标下的最优基线并不一致——这类对比需要一个综合口径，而不是单看一个指标。</p>
-<p><strong>消融</strong>：完整模型（论文中的 variant 7）在所有指标上最好，去掉任一模块都掉点（噪声过滤门与度数敏感剪边是可分离的两项贡献）。</p>
-<p><strong>图卷积深度</strong>：用户-物品图的卷积深度增加时性能<strong>先升后稳</strong>，在某个深度达到峰值后不再改善——一层一层堆深在这个任务上没有收益，这与 GNN 推荐的普遍经验一致。</p>
-<p><img src="/images/a14dc63f7c84ea08bd3cab626f11b2d1.png" alt="推荐物品多样性"></p>
-<p><em>这张图单列了”推荐结果的多样性”。它是本文相对其他多模态推荐论文的差异化评估项——大多数论文只报精度，而 AMMRM 的主张里包含”缓解同质化”，所以必须拿出多样性指标来证明。读法是看 AMMRM 与基线的多样性曲线位置，配合精度一起判断是否”精度与多样性同时改善”。</em></p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>AMMRM 把”降噪”和”去热门偏置”合并到一个框架里，两个机制分别落在特征层&#x2F;结构层与图剪枝上。可迁移的两点：<strong>噪声要分两层处理</strong>（模态特征噪声 + 图结构传播噪声）；<strong>度数敏感剪边是缓解热门偏置的一种定向手段</strong>，比随机丢边更有针对性。此外它把多样性作为一等评估项，这在多模态推荐论文里不常见。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>论文：AMMRM: an adaptive multi-modal recommendation model with noise filtering and modal feature enhancement（DOI 10.1007&#x2F;s44443-025-00026-1）</p>
-</li>
-<li><p>相关基线：MF、LightGCN、VBPR、LATTICE、BM3、MMSSL、FREEDOM、MGCN</p>
-</li>
-<li><p>关键组件：多模态噪声过滤门、用户-物品图噪声过滤、度数敏感剪边、跨模态多头注意力、行为引导分离网络、用户偏好自适应融合</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>多模态推荐</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>模态缺失时补出来的特征为什么不能用：CaIRec 的两阶段校准</title>
-    <url>/article/cairec-calibrated-modality-imputation/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2607.26720">arXiv 2607.26720</a></p>
-</blockquote>
-<p>多模态推荐的前提是”每个物品都有图和文”，但真实系统里这个前提经常不成立：新上架的商品没有评论文本、老内容没有图片、UGC 平台大量条目只有单模态。于是”把缺失的模态补出来”成了一个独立方向——问题在于，<strong>补出来的特征经常并不能真的提升推荐</strong>。</p>
-<p>CaIRec 这篇论文把原因拆成了两个连续的、被此前工作混在一起的问题，并给出了一个两阶段的校准框架。</p>
-<h2 id="两个被混为一谈的问题"><a href="#两个被混为一谈的问题" class="headerlink" title="两个被混为一谈的问题"></a>两个被混为一谈的问题</h2><p>论文指出，此前的方法（鲁棒表示学习派如 MILK &#x2F; I³-MRec，补全派如 LRMM &#x2F; CI2MG &#x2F; CalMRL）都默认了”补出来的表示只要和真实表示接近就有用”，但实际上连着两道坎：</p>
-<p><img src="/images/dad101cb8df171216b3319d45df3f7ee.png" alt="不完整多模态推荐中的两个挑战"></p>
-<p><em>这张图把两道坎画在一起。左边是 Cross-modal Structural Distortion（跨模态结构畸变）：补全模块通常按”单个模态的表示误差”去优化，于是补出来的图像向量和已有文本向量之间</em>组织关系<em>是错乱的——论文用归一化后两个模态表示构成的 Gram 矩阵来描述这种”物品内部结构”，补全后的主方向会和观测到的结构不一致。右边是 Preference Adaptation Gap（偏好适配鸿沟）：就算补得”结构上正确”，它也未必落在排序任务真正使用的表示空间里——因为排序监督只告诉模型”哪个物品排前面”，并不提供”补出来的内容应该长什么样”的成对参照。</em></p>
-<p>第一道坎是”补得像不像”，第二道坎是”补得有没有用”。这是本文最值得记的一句判断。</p>
-<h2 id="CaIRec-的两阶段框架"><a href="#CaIRec-的两阶段框架" class="headerlink" title="CaIRec 的两阶段框架"></a>CaIRec 的两阶段框架</h2><p>针对两道坎，论文给出两个阶段：<strong>SIC</strong>（结构补全校准）解决畸变，<strong>PRC</strong>（面向偏好的表示校准）解决适配。</p>
-<p><img src="/images/7d2ec42eaccea345ac7fbe72619447f1.png" alt="CaIRec 整体框架"></p>
-<p><em>框架图分上下两条主流程。上半是 SIC：把各模态特征经模态专属投影 <strong><code>P_c^m</code></strong> 映射进一个共享的”补全空间”并做 L2 归一化，用共轭高斯隐变量建模得到缺失模态的后验分布，再用伪缺失推断（把某个已观测模态临时移除，构造”已知→未知”的监督对）训练补全能力；随后做两项结构校准——结构校准（StrCal，约束物品内部跨模态结构的主方向）与对应校准（CorrCal，约束跨模态对应关系）。下半是 PRC：把观测到的表示与补出来的表示分别走两条投影分支 <strong><code>P_r^m</code></strong> 映射进推荐空间，再在图传播里融合协同相似度与内容相似度。最后 BPR 收口。</em></p>
-<p>注意框架里没有的东西：<strong>没有一个独立的”补全损失”被当成最终目标</strong>。补全只服务于”产出结构正确的表示”，而这类表示是否适配排序，交给第二个阶段和最终的排序损失去回答。</p>
-<h2 id="机制一：SIC-——-先补，再校准结构"><a href="#机制一：SIC-——-先补，再校准结构" class="headerlink" title="机制一：SIC —— 先补，再校准结构"></a>机制一：SIC —— 先补，再校准结构</h2><p>SIC 的策略可以概括为”impute-then-calibrate”：</p>
-<ul>
-<li><p><strong>共享隐空间的补全</strong>：各模态维度与分布都不同，先统一投到补全空间并归一化（<code>z_i^m = P_c^m(x_i^m) / ‖P_c^m(x_i^m)‖₂</code>）。论文用共轭高斯隐变量模型给出后验 <code>q_i(β_i) = N(b_i, Σ_i)</code>，即”给定已观测模态，缺失模态的分布”——这是标准的概率补全思路。</p>
-</li>
-<li><p><strong>伪缺失监督</strong>：这是让补全真的能用的关键。对每个 <code>(物品, 模态)</code> 对，把该模态从观测集里拿掉（<code>O_i^(-m) = O_i \ &#123;m&#125;</code>），要求模型从剩下的模态把它恢复出来。这样就有了成对的”真实—补出”监督信号，而不需要人造数据。</p>
-</li>
-<li><p><strong>结构校准</strong>：补全只保证逐维度接近，管不了跨模态的<strong>组织</strong>。论文的做法是把归一化后两个模态表示的内积 <code>c_i = (z̃_i¹)ᵀ z̃_i²</code> 组成 Gram 矩阵 <code>G_i = [[1, c_i], [c_i, 1]]</code>，然后约束补全后的结构与观测到的结构一致——一项提升主特征值的相对权重（让跨模态组织更”集中”），另一项做正则。STR 校准（StrCal）与对应校准（CorrCal）分别管这两件事。</p>
-</li>
-</ul>
-<h2 id="机制二：PRC-——-把”补出来的”对齐到排序空间"><a href="#机制二：PRC-——-把”补出来的”对齐到排序空间" class="headerlink" title="机制二：PRC —— 把”补出来的”对齐到排序空间"></a>机制二：PRC —— 把”补出来的”对齐到排序空间</h2><p>第二道坎要的是另一件事：补出的表示要参与排序，就得先变成排序空间的表示。PRC 的做法是<strong>双分支投影</strong>——观测到的模态和补出来的模态走各自独立的投影 <code>P_r^m</code>，而不是共用一条（共用会把”真实内容”和”推断内容”混同，丢掉信息来源的区别）。</p>
-<p>论文在附录里专门解释了它与 CalMRL 的区别：CalMRL 把恢复出来的表示当作对齐用的”共享语义”，而 CaIRec 保留了真正观测到的模态作为直接内容，把共享语义用于估计缺失的部分——<strong>恢复的”角色”变了</strong>：不再是答案，而是填充。这个区分也顺带解释了为什么”结构上可靠”不等于”排序上有用”。</p>
-<p>图传播部分则把协同相似度与补全后的内容相似度融合：</p>
-<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">S^(m,fuse) = (1 - η) · S^cf + η · S^m</span><br></pre></td></tr></table></figure>
-
-<p>即模态图不是纯内容图，而是”协同 + 内容”的加权混合，<code>η</code> 控制内容补全对图结构的影响程度。</p>
-<h2 id="训练策略：分阶段比联合训练好"><a href="#训练策略：分阶段比联合训练好" class="headerlink" title="训练策略：分阶段比联合训练好"></a>训练策略：分阶段比联合训练好</h2><p>论文做了一组容易被忽略但很有信息量的对照——<strong>SIC 和 PRC 该不该联合训练</strong>（Clothing 数据集，50% 模态缺失）：</p>
-<p>热启动联合训练用了同样的 SIC 初始化，仍然掉 7.5%。论文的解释是：SIC 与 PRC 优化的是两个不同的表示空间，固定 SIC 能给 PRC 一个稳定的输入空间，减少”补全目标”与”排序目标”之间的耦合。</p>
-<h2 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h2><p>三个 Amazon 数据集（图与文两个模态）：</p>
-<p><strong>设定</strong>：随机选 50% 的物品作为”模态不完整”（其图或文之一不可用），全量排序评测，指标 R@{10,20} &#x2F; N@{10,20}，5 次运行平均。</p>
-<p><strong>主结果</strong>：CaIRec 在所有数据集×指标组合上都取得最好成绩，**相对最强基线平均提升 3.77%**。论文还给了三条趋势判断：</p>
-<ol>
-<li><p>补全类方法整体优于鲁棒类方法（I³-MRec、MILK 通过提取”模态不变”信息来减少对缺失模态的敏感，但不会主动恢复内容）；</p>
-</li>
-<li><p>MIG-GT 在缺失场景下依然是很强的基线（它本来不是为不完整模态设计的）；</p>
-</li>
-<li><p>补全 + 适配两条线都做，才能拿到最好结果。</p>
-</li>
-</ol>
-<p><strong>消融</strong>（去掉任一组件都掉点，结构校准的影响最大）：</p>
-<p>在 SIC 内部，<strong>去掉结构校准比去掉对应校准掉得多</strong>——这正好呼应了引言里那道”跨模态组织”的坎：光让补出来的向量接近真实值不够，还得让它的跨模态结构对。</p>
-<p><strong>稳健性</strong>：把模态缺失比例从 10% 扫到 90%，与 MIG-GT、DGMRec、HEAT 对比：</p>
-<p><img src="/images/6e116b15bfff69cfde64ad45b5e209a3.png" alt="不同模态缺失比例下的性能"></p>
-<p><em>这张图横轴是模态缺失比例（10%→90%），纵轴是推荐指标，每条线是一种方法。关键读法是看斜率：补全类方法的曲线下降更平缓，而 MIG-GT 随着缺失率上升掉得更快——说明”显式估计缺失模态”在极端缺失下比”只用可观测信息硬扛”更有韧性。论文另外还做了单方向缺失的对照（文→图、图→文），结论一致：缺失率越高，SIC 带来的相对优势越大。</em></p>
-<p><strong>插件式验证</strong>：把 SIC 直接挂到已有的多模态推荐骨干 PGL 上（PGL+SIC），三个数据集的 R@20 与 N@20 都优于原版 PGL——说明 SIC 产出的补全表示是可迁移的，不是只能配自己那套排序模块。</p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>CaIRec 的贡献不在于”又一个补全模块”，而在于把不完整多模态推荐拆成了两个可分别验证的问题：<strong>补出来的表示在结构上是否正确</strong>（SIC 用伪缺失监督 + 跨模态结构校准回答），以及<strong>它是否适配排序空间</strong>（PRC 用双分支投影回答）。两者必须分开做，而且分阶段训练优于联合训练。附带一个很有用的工程结论：SIC 可以像插件一样接到别的多模态推荐骨干上。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>论文：CaIRec: Calibrated Modality Imputation for Incomplete Multimodal Recommendation（arXiv:2607.26720）</p>
-</li>
-<li><p>相关工作：LightGCN（SIGIR’20）、SimGCL（SIGIR’22）、VBPR（AAAI’16）、MILK、I³-MRec、MIG-GT、LRMM、CI2MG、CalMRL、DGMRec、HEAT、PGL</p>
-</li>
-<li><p>评测基线覆盖：协同过滤、通用多模态推荐、缺失感知多模态推荐三类共 11 个</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>多模态推荐</category>
       </categories>
       <tags>
         <tag>论文速读</tag>
@@ -426,6 +358,74 @@
       <categories>
         <category>推荐系统</category>
         <category>冷启动</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>模态缺失时补出来的特征为什么不能用：CaIRec 的两阶段校准</title>
+    <url>/article/cairec-calibrated-modality-imputation/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://arxiv.org/abs/2607.26720">arXiv 2607.26720</a></p>
+</blockquote>
+<p>多模态推荐的前提是”每个物品都有图和文”，但真实系统里这个前提经常不成立：新上架的商品没有评论文本、老内容没有图片、UGC 平台大量条目只有单模态。于是”把缺失的模态补出来”成了一个独立方向——问题在于，<strong>补出来的特征经常并不能真的提升推荐</strong>。</p>
+<p>CaIRec 这篇论文把原因拆成了两个连续的、被此前工作混在一起的问题，并给出了一个两阶段的校准框架。</p>
+<h2 id="两个被混为一谈的问题"><a href="#两个被混为一谈的问题" class="headerlink" title="两个被混为一谈的问题"></a>两个被混为一谈的问题</h2><p>论文指出，此前的方法（鲁棒表示学习派如 MILK &#x2F; I³-MRec，补全派如 LRMM &#x2F; CI2MG &#x2F; CalMRL）都默认了”补出来的表示只要和真实表示接近就有用”，但实际上连着两道坎：</p>
+<p><img src="/images/dad101cb8df171216b3319d45df3f7ee.png" alt="不完整多模态推荐中的两个挑战"></p>
+<p><em>这张图把两道坎画在一起。左边是 Cross-modal Structural Distortion（跨模态结构畸变）：补全模块通常按”单个模态的表示误差”去优化，于是补出来的图像向量和已有文本向量之间</em>组织关系<em>是错乱的——论文用归一化后两个模态表示构成的 Gram 矩阵来描述这种”物品内部结构”，补全后的主方向会和观测到的结构不一致。右边是 Preference Adaptation Gap（偏好适配鸿沟）：就算补得”结构上正确”，它也未必落在排序任务真正使用的表示空间里——因为排序监督只告诉模型”哪个物品排前面”，并不提供”补出来的内容应该长什么样”的成对参照。</em></p>
+<p>第一道坎是”补得像不像”，第二道坎是”补得有没有用”。这是本文最值得记的一句判断。</p>
+<h2 id="CaIRec-的两阶段框架"><a href="#CaIRec-的两阶段框架" class="headerlink" title="CaIRec 的两阶段框架"></a>CaIRec 的两阶段框架</h2><p>针对两道坎，论文给出两个阶段：<strong>SIC</strong>（结构补全校准）解决畸变，<strong>PRC</strong>（面向偏好的表示校准）解决适配。</p>
+<p><img src="/images/7d2ec42eaccea345ac7fbe72619447f1.png" alt="CaIRec 整体框架"></p>
+<p><em>框架图分上下两条主流程。上半是 SIC：把各模态特征经模态专属投影 <strong><code>P_c^m</code></strong> 映射进一个共享的”补全空间”并做 L2 归一化，用共轭高斯隐变量建模得到缺失模态的后验分布，再用伪缺失推断（把某个已观测模态临时移除，构造”已知→未知”的监督对）训练补全能力；随后做两项结构校准——结构校准（StrCal，约束物品内部跨模态结构的主方向）与对应校准（CorrCal，约束跨模态对应关系）。下半是 PRC：把观测到的表示与补出来的表示分别走两条投影分支 <strong><code>P_r^m</code></strong> 映射进推荐空间，再在图传播里融合协同相似度与内容相似度。最后 BPR 收口。</em></p>
+<p>注意框架里没有的东西：<strong>没有一个独立的”补全损失”被当成最终目标</strong>。补全只服务于”产出结构正确的表示”，而这类表示是否适配排序，交给第二个阶段和最终的排序损失去回答。</p>
+<h2 id="机制一：SIC-——-先补，再校准结构"><a href="#机制一：SIC-——-先补，再校准结构" class="headerlink" title="机制一：SIC —— 先补，再校准结构"></a>机制一：SIC —— 先补，再校准结构</h2><p>SIC 的策略可以概括为”impute-then-calibrate”：</p>
+<ul>
+<li><p><strong>共享隐空间的补全</strong>：各模态维度与分布都不同，先统一投到补全空间并归一化（<code>z_i^m = P_c^m(x_i^m) / ‖P_c^m(x_i^m)‖₂</code>）。论文用共轭高斯隐变量模型给出后验 <code>q_i(β_i) = N(b_i, Σ_i)</code>，即”给定已观测模态，缺失模态的分布”——这是标准的概率补全思路。</p>
+</li>
+<li><p><strong>伪缺失监督</strong>：这是让补全真的能用的关键。对每个 <code>(物品, 模态)</code> 对，把该模态从观测集里拿掉（<code>O_i^(-m) = O_i \ &#123;m&#125;</code>），要求模型从剩下的模态把它恢复出来。这样就有了成对的”真实—补出”监督信号，而不需要人造数据。</p>
+</li>
+<li><p><strong>结构校准</strong>：补全只保证逐维度接近，管不了跨模态的<strong>组织</strong>。论文的做法是把归一化后两个模态表示的内积 <code>c_i = (z̃_i¹)ᵀ z̃_i²</code> 组成 Gram 矩阵 <code>G_i = [[1, c_i], [c_i, 1]]</code>，然后约束补全后的结构与观测到的结构一致——一项提升主特征值的相对权重（让跨模态组织更”集中”），另一项做正则。STR 校准（StrCal）与对应校准（CorrCal）分别管这两件事。</p>
+</li>
+</ul>
+<h2 id="机制二：PRC-——-把”补出来的”对齐到排序空间"><a href="#机制二：PRC-——-把”补出来的”对齐到排序空间" class="headerlink" title="机制二：PRC —— 把”补出来的”对齐到排序空间"></a>机制二：PRC —— 把”补出来的”对齐到排序空间</h2><p>第二道坎要的是另一件事：补出的表示要参与排序，就得先变成排序空间的表示。PRC 的做法是<strong>双分支投影</strong>——观测到的模态和补出来的模态走各自独立的投影 <code>P_r^m</code>，而不是共用一条（共用会把”真实内容”和”推断内容”混同，丢掉信息来源的区别）。</p>
+<p>论文在附录里专门解释了它与 CalMRL 的区别：CalMRL 把恢复出来的表示当作对齐用的”共享语义”，而 CaIRec 保留了真正观测到的模态作为直接内容，把共享语义用于估计缺失的部分——<strong>恢复的”角色”变了</strong>：不再是答案，而是填充。这个区分也顺带解释了为什么”结构上可靠”不等于”排序上有用”。</p>
+<p>图传播部分则把协同相似度与补全后的内容相似度融合：</p>
+<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">S^(m,fuse) = (1 - η) · S^cf + η · S^m</span><br></pre></td></tr></table></figure>
+
+<p>即模态图不是纯内容图，而是”协同 + 内容”的加权混合，<code>η</code> 控制内容补全对图结构的影响程度。</p>
+<h2 id="训练策略：分阶段比联合训练好"><a href="#训练策略：分阶段比联合训练好" class="headerlink" title="训练策略：分阶段比联合训练好"></a>训练策略：分阶段比联合训练好</h2><p>论文做了一组容易被忽略但很有信息量的对照——<strong>SIC 和 PRC 该不该联合训练</strong>（Clothing 数据集，50% 模态缺失）：</p>
+<p>热启动联合训练用了同样的 SIC 初始化，仍然掉 7.5%。论文的解释是：SIC 与 PRC 优化的是两个不同的表示空间，固定 SIC 能给 PRC 一个稳定的输入空间，减少”补全目标”与”排序目标”之间的耦合。</p>
+<h2 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h2><p>三个 Amazon 数据集（图与文两个模态）：</p>
+<p><strong>设定</strong>：随机选 50% 的物品作为”模态不完整”（其图或文之一不可用），全量排序评测，指标 R@{10,20} &#x2F; N@{10,20}，5 次运行平均。</p>
+<p><strong>主结果</strong>：CaIRec 在所有数据集×指标组合上都取得最好成绩，**相对最强基线平均提升 3.77%**。论文还给了三条趋势判断：</p>
+<ol>
+<li><p>补全类方法整体优于鲁棒类方法（I³-MRec、MILK 通过提取”模态不变”信息来减少对缺失模态的敏感，但不会主动恢复内容）；</p>
+</li>
+<li><p>MIG-GT 在缺失场景下依然是很强的基线（它本来不是为不完整模态设计的）；</p>
+</li>
+<li><p>补全 + 适配两条线都做，才能拿到最好结果。</p>
+</li>
+</ol>
+<p><strong>消融</strong>（去掉任一组件都掉点，结构校准的影响最大）：</p>
+<p>在 SIC 内部，<strong>去掉结构校准比去掉对应校准掉得多</strong>——这正好呼应了引言里那道”跨模态组织”的坎：光让补出来的向量接近真实值不够，还得让它的跨模态结构对。</p>
+<p><strong>稳健性</strong>：把模态缺失比例从 10% 扫到 90%，与 MIG-GT、DGMRec、HEAT 对比：</p>
+<p><img src="/images/6e116b15bfff69cfde64ad45b5e209a3.png" alt="不同模态缺失比例下的性能"></p>
+<p><em>这张图横轴是模态缺失比例（10%→90%），纵轴是推荐指标，每条线是一种方法。关键读法是看斜率：补全类方法的曲线下降更平缓，而 MIG-GT 随着缺失率上升掉得更快——说明”显式估计缺失模态”在极端缺失下比”只用可观测信息硬扛”更有韧性。论文另外还做了单方向缺失的对照（文→图、图→文），结论一致：缺失率越高，SIC 带来的相对优势越大。</em></p>
+<p><strong>插件式验证</strong>：把 SIC 直接挂到已有的多模态推荐骨干 PGL 上（PGL+SIC），三个数据集的 R@20 与 N@20 都优于原版 PGL——说明 SIC 产出的补全表示是可迁移的，不是只能配自己那套排序模块。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>CaIRec 的贡献不在于”又一个补全模块”，而在于把不完整多模态推荐拆成了两个可分别验证的问题：<strong>补出来的表示在结构上是否正确</strong>（SIC 用伪缺失监督 + 跨模态结构校准回答），以及<strong>它是否适配排序空间</strong>（PRC 用双分支投影回答）。两者必须分开做，而且分阶段训练优于联合训练。附带一个很有用的工程结论：SIC 可以像插件一样接到别的多模态推荐骨干上。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>论文：CaIRec: Calibrated Modality Imputation for Incomplete Multimodal Recommendation（arXiv:2607.26720）</p>
+</li>
+<li><p>相关工作：LightGCN（SIGIR’20）、SimGCL（SIGIR’22）、VBPR（AAAI’16）、MILK、I³-MRec、MIG-GT、LRMM、CI2MG、CalMRL、DGMRec、HEAT、PGL</p>
+</li>
+<li><p>评测基线覆盖：协同过滤、通用多模态推荐、缺失感知多模态推荐三类共 11 个</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>多模态推荐</category>
       </categories>
       <tags>
         <tag>论文速读</tag>
@@ -589,6 +589,47 @@
       </tags>
   </entry>
   <entry>
+    <title>Hello Rec: 我和推荐系统的故事</title>
+    <url>/article/hello-rec-3fb59581/</url>
+    <content><![CDATA[<p>有些相遇，只发生一次；有些相遇，却会在漫长的岁月里一遍遍重来。</p>
+<p>我和推荐系统，大概属于后者。</p>
+<p>第一次认识它时，我以为它只是一道题：在许多人、许多物品和许多选择之间，猜出下一次点击，排好一列结果。那时的它安静地藏在公式里，藏在矩阵未被填满的空白里，也藏在屏幕另一端一个尚未发生的选择里。我并不知道，这个看似冷静的问题，会陪我走那么久。</p>
+<p>后来，每当我以为已经熟悉它，它都会换一种样子回来。它有时像一张庞大的关系网，有时像一段被认真读过的文字，有时记得人的来路，有时努力理解一个人此刻的心情。名字在变，方法在变，时代也在变，可我总能认出它——它仍在做那件温柔又困难的事：在浩瀚的世界里，试着为一个具体的人，找到一件可能喜欢的东西。</p>
+<p>于是每一次重逢，我都想对它说：</p>
+<p><strong>Hello, Rec。好久不见。</strong></p>
+<h2 id="像一位总在重新认识你的故人"><a href="#像一位总在重新认识你的故人" class="headerlink" title="像一位总在重新认识你的故人"></a>像一位总在重新认识你的故人</h2><p>推荐系统很像故人。</p>
+<p>它认识过去的你：你停留过的页面，听完的歌，读到深夜的文字，反复回看的电影。可它若只记得过去，又会把你困在过去。人会改变，昨天喜欢的东西今天可能已经无感；从前从未靠近的方向，也许正是明天真正想去的地方。</p>
+<p>所以我喜欢推荐系统，不是因为它能够完美地“猜中”我，而是因为它必须永远学习怎样重新认识一个人。</p>
+<p>好的故人不会只说“我早就知道你是什么样”。他会在久别重逢时重新看你，允许你推翻从前的自己，也愿意把一件意料之外的事物递到你面前。好的推荐也应当如此：它记得，却不武断；它理解，却不替你决定；它给出熟悉，也为偶然留下位置。</p>
+<p>真正动人的推荐，并不是连续十次准确命中。它也许只是某个普通夜晚，递来一首你从未听过的歌、一篇恰好回答了困惑的文章，或一本你原本不会翻开的书。那一刻你会觉得，世界那么大，自己却没有完全被遗漏。</p>
+<h2 id="它并不总是懂我"><a href="#它并不总是懂我" class="headerlink" title="它并不总是懂我"></a>它并不总是懂我</h2><p>故人也会认错人。</p>
+<p>推荐系统有时固执，有时迟钝。你只是偶然看了一眼，它却以为那就是长久的爱好；你已经走出一段旧时光，它还不断送来旧日的回声。它可能把热闹当成喜欢，把停留当成认同，把相似当成理解。</p>
+<p>但也正因为这些误解，我越来越觉得它像一个值得长期相处的研究对象。它不是一个完成了的答案，而是一场没有结束的对话。我们告诉它什么是相关，它反过来追问我们什么是喜欢；我们教它预测选择，它又逼着我们思考选择是否真的代表内心。</p>
+<p>喜欢推荐系统，并不意味着相信它永远正确。恰恰相反，是因为看见它会误解、会偏心、会把人困在熟悉之中，才更想让它变得诚实一点、克制一点，也更懂得尊重每个人保留秘密和改变方向的权利。</p>
+<p>故人之间最珍贵的从来不是无所不知，而是即使不完全懂，也愿意继续听。</p>
+<h2 id="为什么会有这个网站"><a href="#为什么会有这个网站" class="headerlink" title="为什么会有这个网站"></a>为什么会有这个网站</h2><p>这个网站，就是我写给这位故人的一叠长信。</p>
+<p>这里会有论文，有方法，有实验，有一张张被认真保存下来的图。可它们并不只是冷冰冰的记录。每读一篇论文，都像看见推荐系统又学会了一种理解世界的方式；每拆开一个模块，都像在辨认故人这些年新长出的性格；每一次复现实验、核对数据和追问结论，也是在认真回答它留给我的问题。</p>
+<p>我想把这些相遇记下来。</p>
+<p>不是为了证明已经掌握了多少，也不是为了替推荐系统写一部没有遗漏的历史。只是希望来到这里的人能够知道：推荐系统不只是一排商品、一串视频或一个猜你喜欢。它关心的是人与信息如何相遇，记忆与新鲜如何平衡，理解与自由如何同时存在。</p>
+<p>如果你是第一次来到这里，那么这篇文章就是我为你留在门口的一句问候。后面的每一篇技术文章，都是这句问候的回声。</p>
+<h2 id="硕士生涯里的一剂良药"><a href="#硕士生涯里的一剂良药" class="headerlink" title="硕士生涯里的一剂良药"></a>硕士生涯里的一剂良药</h2><p>坦白说，我的硕士生涯曾经有很长一段时间，几乎不知道科研究竟是什么。</p>
+<p>没有一个真正抓得住的问题，没有一条能够持续走下去的路线。看过一些论文，学过一些模型，也做过一些零散的尝试，可那些知识像从手里流过去的水，很难沉淀成自己的东西。科研不是完全没有发生，而是没有形成方向；日子在向前走，我却不知道自己究竟在向哪里走。</p>
+<p>推荐系统是在那段时间里出现的一剂良药。</p>
+<p>它没有突然解决我的所有困惑，却给了我一个可以不断追问的问题：人为什么会喜欢一件东西，系统又怎样在海量信息中理解这种喜欢？这个问题足够具体，可以写成代码、做成实验；又足够宽广，能够容纳我对算法、产品和真实世界的好奇。第一次，我觉得那些分散的知识开始向同一个地方汇聚。</p>
+<p>推荐系统并不只活在论文里。它可以走进商场项目：理解顾客真正需要什么，让商品、店铺、活动与具体的人更自然地相遇；它也可以留在更深的算法世界里，把表示学习、序列建模、图神经网络、多模态信息与大语言模型变成一次次可验证的探索。商业场景给它真实的问题，深度学习给它不断生长的方法，而推荐系统恰好站在两者之间。</p>
+<p>也正因为如此，我愿意把它当成一个长期方向。信息只会越来越多，人们需要的并不是更多堆在眼前的内容，而是更好的理解、更合适的连接，以及在熟悉之外仍能遇见新事物的可能。推荐系统的前景不只在于把预测做得更准，也在于它能否真正理解人、服务人，同时尊重人的选择。</p>
+<p>回头看，推荐系统没有替我补回那段缺少科研方向的硕士时光，却让我终于知道，接下来可以往哪里走。它让我从迷茫里找到一条能够把工程实践、商业项目与深度学习研究连接起来的路。</p>
+<p>所以我仍然愿意在每一次新的开始，对这位故人说：</p>
+<p><strong>Hello, Rec。我们继续往前走。</strong></p>
+]]></content>
+      <categories>
+        <category>随笔</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>生成式推荐综述导读：给 20+ 个工业系统画一张四维坐标</title>
     <url>/article/generative-recommendation-survey/</url>
     <content><![CDATA[<blockquote>
@@ -650,88 +691,6 @@
       <categories>
         <category>推荐系统</category>
         <category>生成式推荐</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>图检索不等于图推理：Graph-R1 用端到端强化学习在知识超图上走</title>
-    <url>/article/graph-r1-agentic-graphrag-rl/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2507.21892">arXiv 2507.21892</a> · 代码：<a href="https://github.com/LHRLAB/Graph-R1">GitHub</a></p>
-</blockquote>
-<p>“把知识组织成图”这件事，在 RAG 里看起来天经地义：文本块检索丢了结构语义，那就把文档抽成实体关系图，检索时沿着图走。但真做起来有个尴尬的结果——<strong>图结构本身并不会自动带来收益</strong>。</p>
-<p>论文用一组对比直接点破了这一点。在 2WikiMultiHopQA 上，用 GPT-4o-mini 做纯提示的场景里：</p>
-<p>也就是说，几个主流 GraphRAG 变体的 F1 都<strong>低于</strong>不做图、只做文本块检索的 StandardRAG。问题不在图，而在<strong>怎么用图</strong>：这些方法都是”一次性检索 + 拼进提示”，图只是换了一种取文档的方式，模型并没有真正”在图上推理”。</p>
-<p>Graph-R1 的答案是：把图检索变成<strong>多轮智能体交互</strong>，并用<strong>端到端强化学习</strong>训练这套交互策略。</p>
-<p><img src="/images/8bca3cd871a7575d5fa199f7dffec004.png" alt="Graph-R1 把 GraphRAG 建模为知识超图上的多轮智能体检索过程，用端到端强化学习优化"></p>
-<hr>
-<h2 id="一、方法：知识超图-结构化动作空间-GRPO"><a href="#一、方法：知识超图-结构化动作空间-GRPO" class="headerlink" title="一、方法：知识超图 + 结构化动作空间 + GRPO"></a>一、方法：知识超图 + 结构化动作空间 + GRPO</h2><p><img src="/images/db76c845a2ccf9aabb08eab564057274.png" alt="Graph-R1 框架：强化学习增强的推理轨迹，智能体迭代地思考、查询图环境、并作答"></p>
-<p>如上图，整条链路有三段：<strong>知识构建 → 多轮图交互 → 结果导向的端到端强化学习</strong>。</p>
-<h3 id="1-知识超图：比普通图更贴近”多跳事实”"><a href="#1-知识超图：比普通图更贴近”多跳事实”" class="headerlink" title="1. 知识超图：比普通图更贴近”多跳事实”"></a>1. 知识超图：比普通图更贴近”多跳事实”</h3><p>论文没有用普通三元组图，而是构建<strong>知识超图（knowledge hypergraph）</strong>：</p>
-<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">G_H = (V, E_H, φ)</span><br><span class="line">π_ext(d) → &#123; (h_i, V_&#123;h_i&#125;) &#125;_&#123;i=1..m&#125;</span><br></pre></td></tr></table></figure>
-
-<p>即从每个文本块 <code>d</code> 中抽取事实时，允许<strong>一条超边连接多个节点</strong>（<code>V_&#123;h_i&#125;</code> 是一个集合），而不是只能两两相连。原因是多跳问答里大量事实天然是 n 元的——“某奖项由某机构在某年颁给某作品”这类陈述，硬拆成二元组会丢信息。</p>
-<p>超图的抽取用 GPT-4o-mini 完成，检索侧的向量模型统一用 <code>bge-large-en-v1.5</code>。</p>
-<h3 id="2-多轮交互：把推理拆成可训练的动作"><a href="#2-多轮交互：把推理拆成可训练的动作" class="headerlink" title="2. 多轮交互：把推理拆成可训练的动作"></a>2. 多轮交互：把推理拆成可训练的动作</h3><p>每一步 <code>t</code>，智能体生成一个<strong>结构化输出</strong>，包含三部分：</p>
-<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">π_θ( a_t^think , α_t , a_t^out | s_t )</span><br></pre></td></tr></table></figure>
-
-<ul>
-<li><p><code>a_t^think</code>：思考&#x2F;反思（当前已知什么、还缺什么）</p>
-</li>
-<li><p><code>α_t</code>：<strong>动作选择</strong>——在动作空间里选一个（从图环境查询、检索、作答…）</p>
-</li>
-<li><p><code>a_t^out</code>：本步输出的内容</p>
-</li>
-</ul>
-<p>关键在于 <code>α_t</code> 让”查什么”变成<strong>可学习的离散决策</strong>。图在这里不是”取文档的工具”，而是一个可以被反复访问的<strong>环境</strong>：智能体可以查一次、看到结果、再决定要不要沿另一条边继续查。这才是”在图上推理”与”用图取文档”的区别。</p>
-<h3 id="3-训练：只给结果打分"><a href="#3-训练：只给结果打分" class="headerlink" title="3. 训练：只给结果打分"></a>3. 训练：只给结果打分</h3><p>优化目标用的是 <strong>GRPO（Group Relative Policy Optimization）</strong>：</p>
-<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">J_GRPO(θ) = E[ ... ]      每个问题采样一组轨迹，用组内相对优势更新策略</span><br></pre></td></tr></table></figure>
-
-<p>设计上值得注意的一点是<strong>结果导向（outcome-directed）</strong>：奖励只来自最终答案的正确性（EM&#x2F;F1 这类），<strong>不对中间步骤做显式监督</strong>。理由是多跳问答的中间步骤没有可靠标注，强行监督反而会引入错误引导；而用组内相对比较（同一问题的多条轨迹互相比），可以在没有步骤标注的情况下得到稳定的梯度信号。</p>
-<p>一个容易被忽略的工程细节：知识构建与检索生成是<strong>分开算成本</strong>的。Graph-R1 的检索阶段成本记为 <strong>0 美元</strong>（表 3），因为检索发生在自建的超图环境里，不需要调用外部 API——这与依赖商业 API 做检索的 GraphRAG 变体形成直接对比。</p>
-<hr>
-<h2 id="二、实验"><a href="#二、实验" class="headerlink" title="二、实验"></a>二、实验</h2><h3 id="设置"><a href="#设置" class="headerlink" title="设置"></a>设置</h3><p>六个标准 RAG 数据集：2WikiMultiHopQA、HotpotQA、Musique、NQ、PopQA、TriviaQA。四个指标：EM、F1、R-S（检索相似度）、G-E（生成评测）。主干模型覆盖 <strong>Qwen2.5 的 1.5B &#x2F; 3B &#x2F; 7B</strong> 三档。</p>
-<p>基线包括：NaiveGeneration、StandardRAG、SFT、R1、Search-R1、R1-Searcher，以及 GPT-4o-mini 驱动的各 GraphRAG 变体（GraphRAG、LightRAG、PathRAG、HippoRAG2、HyperGraphRAG）。</p>
-<h3 id="主结果：随基座增大稳定拉开差距"><a href="#主结果：随基座增大稳定拉开差距" class="headerlink" title="主结果：随基座增大稳定拉开差距"></a>主结果：随基座增大稳定拉开差距</h3><p>两个观察值得摘出来：</p>
-<p><strong>① 强化学习才让图表示”活”起来。</strong> 纯提示的 GraphRAG 变体普遍不如 StandardRAG（开头那张表），而 Graph-R1 靠多轮交互 + RL 把同一份图结构用出了完全不同的效果。<strong>结论是”图的价值取决于使用方式”，而不是”图本身有没有价值”。</strong></p>
-<p><strong>② 基座越大，优势越大。</strong> 三档参数下 F1 分别是 40.09 &#x2F; 51.26 &#x2F; 57.82，与次优基线的差距同步扩大。这说明该框架吃的是”策略学习能力”，模型越强越能把它用好。</p>
-<p>单数据集上差距更直观（7B）：</p>
-<p><strong>多跳数据集（2Wiki、Musique）上的差距最大</strong>——2Wiki 上 F1 从 41.29 提到 65.04，Musique 从 22.35 到 46.17。这与设计意图完全吻合：<strong>需要跨多条边串起事实的任务，才是图结构真正能发挥作用的地方</strong>；单跳事实问答上优势就小得多（PopQA 只从 50.76 到 51.22）。</p>
-<p><img src="/images/7be62fa67e228386cc16159c5bc1bdfb.png" alt="跨 RAG 基准的 F1 对比：以图为知识环境让强化学习获得更高的性能上限"></p>
-<h3 id="消融：三个组件里-RL-最不能少"><a href="#消融：三个组件里-RL-最不能少" class="headerlink" title="消融：三个组件里 RL 最不能少"></a>消融：三个组件里 RL 最不能少</h3><p>这张表里最刺眼的是最后一行：<strong>去掉 RL 后，平均 EM 掉到 1.56、F1 掉到 17.79</strong>——模型基本不会用了，几乎退化为随机输出。3B 档同样（EM 3.13 &#x2F; F1 10.74）。</p>
-<p>一个非常有价值的细节：<strong>w&#x2F;o R.L. 的 G-E 仍有 77.37</strong>，与完整模型的 81.23 相差不大。也就是说，<strong>去掉 RL 之后，生成的文字看起来依然顺畅、格式依然像样，但答案基本是错的</strong>。如果只靠”读起来像不像”来判断，这个崩塌会被完全掩盖——这对所有做生成式 agent 评测的人都是一个提醒：<strong>生成质量指标不能替代任务正确性指标</strong>。</p>
-<p>三个组件的相对重要性也很清楚：RL（不可替代）&gt; 多轮交互 &gt; 知识构建。</p>
-<h3 id="成本与效率"><a href="#成本与效率" class="headerlink" title="成本与效率"></a>成本与效率</h3><p>（成本按 GPT-4o-mini 计价；检索阶段 0 美元是因为查询发生在自建超图环境内，不调用外部 API。）</p>
-<p>两个结论：<strong>一是知识构建成本与图规模并不决定效果</strong>（HyperGraphRAG 建了 17 万节点，F1 只有 21.1）；**二是把成本从”每次查询付费”转移到”一次构建 + 本地检索”**，使单次查询的边际成本变成 0——这在生产环境里比峰值精度更有吸引力。</p>
-<hr>
-<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>Graph-R1 的核心主张可以浓缩成一句：<strong>图的价值取决于使用方式，而使用方式本身是可以被强化学习学出来的。</strong></p>
-<p>四个可迁移的判断：</p>
-<ol>
-<li><p>**”用了图”不等于”用好了图”**：纯提示的 GraphRAG 变体在多跳数据上会输给朴素文本检索——把图塞进提示，和让模型在图上多轮探索，是两件事。</p>
-</li>
-<li><p><strong>让”查什么”变成可微的决策</strong>：把动作空间显式建模（查询图 &#x2F; 检索 &#x2F; 作答），才谈得上训练策略。</p>
-</li>
-<li><p><strong>结果导向的 RL 足以驱动多步推理</strong>：只看最终答案正确性、不做步骤监督，即可训练多轮检索；GRPO 的组内相对比较是关键抓手。</p>
-</li>
-<li><p><strong>警惕”看起来正常”的评测假象</strong>：去掉 RL 后生成质量指标仅从 81.23 降到 77.37，但任务指标从 63.87 崩到 17.79——<strong>评测必须绑定任务正确性</strong>。</p>
-</li>
-</ol>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>Graph-R1: Towards Agentic GraphRAG Framework via End-to-end Reinforcement Learning — <a href="https://arxiv.org/abs/2507.21892">arXiv:2507.21892</a> · 代码：<a href="https://github.com/LHRLAB/Graph-R1">GitHub</a></p>
-</li>
-<li><p>对比基线：StandardRAG、GraphRAG、LightRAG、PathRAG、HippoRAG2、HyperGraphRAG（图 &#x2F; 超图检索增强生成变体）</p>
-</li>
-<li><p>对比基线（RL 侧）：Search-R1、R1-Searcher、R1</p>
-</li>
-<li><p>训练方法：GRPO（Group Relative Policy Optimization）</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>AI</category>
-        <category>检索增强生成</category>
       </categories>
       <tags>
         <tag>论文速读</tag>
@@ -841,41 +800,130 @@
       </tags>
   </entry>
   <entry>
-    <title>Hello Rec: 我和推荐系统的故事</title>
-    <url>/article/hello-rec-3fb59581/</url>
-    <content><![CDATA[<p>有些相遇，只发生一次；有些相遇，却会在漫长的岁月里一遍遍重来。</p>
-<p>我和推荐系统，大概属于后者。</p>
-<p>第一次认识它时，我以为它只是一道题：在许多人、许多物品和许多选择之间，猜出下一次点击，排好一列结果。那时的它安静地藏在公式里，藏在矩阵未被填满的空白里，也藏在屏幕另一端一个尚未发生的选择里。我并不知道，这个看似冷静的问题，会陪我走那么久。</p>
-<p>后来，每当我以为已经熟悉它，它都会换一种样子回来。它有时像一张庞大的关系网，有时像一段被认真读过的文字，有时记得人的来路，有时努力理解一个人此刻的心情。名字在变，方法在变，时代也在变，可我总能认出它——它仍在做那件温柔又困难的事：在浩瀚的世界里，试着为一个具体的人，找到一件可能喜欢的东西。</p>
-<p>于是每一次重逢，我都想对它说：</p>
-<p><strong>Hello, Rec。好久不见。</strong></p>
-<h2 id="像一位总在重新认识你的故人"><a href="#像一位总在重新认识你的故人" class="headerlink" title="像一位总在重新认识你的故人"></a>像一位总在重新认识你的故人</h2><p>推荐系统很像故人。</p>
-<p>它认识过去的你：你停留过的页面，听完的歌，读到深夜的文字，反复回看的电影。可它若只记得过去，又会把你困在过去。人会改变，昨天喜欢的东西今天可能已经无感；从前从未靠近的方向，也许正是明天真正想去的地方。</p>
-<p>所以我喜欢推荐系统，不是因为它能够完美地“猜中”我，而是因为它必须永远学习怎样重新认识一个人。</p>
-<p>好的故人不会只说“我早就知道你是什么样”。他会在久别重逢时重新看你，允许你推翻从前的自己，也愿意把一件意料之外的事物递到你面前。好的推荐也应当如此：它记得，却不武断；它理解，却不替你决定；它给出熟悉，也为偶然留下位置。</p>
-<p>真正动人的推荐，并不是连续十次准确命中。它也许只是某个普通夜晚，递来一首你从未听过的歌、一篇恰好回答了困惑的文章，或一本你原本不会翻开的书。那一刻你会觉得，世界那么大，自己却没有完全被遗漏。</p>
-<h2 id="它并不总是懂我"><a href="#它并不总是懂我" class="headerlink" title="它并不总是懂我"></a>它并不总是懂我</h2><p>故人也会认错人。</p>
-<p>推荐系统有时固执，有时迟钝。你只是偶然看了一眼，它却以为那就是长久的爱好；你已经走出一段旧时光，它还不断送来旧日的回声。它可能把热闹当成喜欢，把停留当成认同，把相似当成理解。</p>
-<p>但也正因为这些误解，我越来越觉得它像一个值得长期相处的研究对象。它不是一个完成了的答案，而是一场没有结束的对话。我们告诉它什么是相关，它反过来追问我们什么是喜欢；我们教它预测选择，它又逼着我们思考选择是否真的代表内心。</p>
-<p>喜欢推荐系统，并不意味着相信它永远正确。恰恰相反，是因为看见它会误解、会偏心、会把人困在熟悉之中，才更想让它变得诚实一点、克制一点，也更懂得尊重每个人保留秘密和改变方向的权利。</p>
-<p>故人之间最珍贵的从来不是无所不知，而是即使不完全懂，也愿意继续听。</p>
-<h2 id="为什么会有这个网站"><a href="#为什么会有这个网站" class="headerlink" title="为什么会有这个网站"></a>为什么会有这个网站</h2><p>这个网站，就是我写给这位故人的一叠长信。</p>
-<p>这里会有论文，有方法，有实验，有一张张被认真保存下来的图。可它们并不只是冷冰冰的记录。每读一篇论文，都像看见推荐系统又学会了一种理解世界的方式；每拆开一个模块，都像在辨认故人这些年新长出的性格；每一次复现实验、核对数据和追问结论，也是在认真回答它留给我的问题。</p>
-<p>我想把这些相遇记下来。</p>
-<p>不是为了证明已经掌握了多少，也不是为了替推荐系统写一部没有遗漏的历史。只是希望来到这里的人能够知道：推荐系统不只是一排商品、一串视频或一个猜你喜欢。它关心的是人与信息如何相遇，记忆与新鲜如何平衡，理解与自由如何同时存在。</p>
-<p>如果你是第一次来到这里，那么这篇文章就是我为你留在门口的一句问候。后面的每一篇技术文章，都是这句问候的回声。</p>
-<h2 id="硕士生涯里的一剂良药"><a href="#硕士生涯里的一剂良药" class="headerlink" title="硕士生涯里的一剂良药"></a>硕士生涯里的一剂良药</h2><p>坦白说，我的硕士生涯曾经有很长一段时间，几乎不知道科研究竟是什么。</p>
-<p>没有一个真正抓得住的问题，没有一条能够持续走下去的路线。看过一些论文，学过一些模型，也做过一些零散的尝试，可那些知识像从手里流过去的水，很难沉淀成自己的东西。科研不是完全没有发生，而是没有形成方向；日子在向前走，我却不知道自己究竟在向哪里走。</p>
-<p>推荐系统是在那段时间里出现的一剂良药。</p>
-<p>它没有突然解决我的所有困惑，却给了我一个可以不断追问的问题：人为什么会喜欢一件东西，系统又怎样在海量信息中理解这种喜欢？这个问题足够具体，可以写成代码、做成实验；又足够宽广，能够容纳我对算法、产品和真实世界的好奇。第一次，我觉得那些分散的知识开始向同一个地方汇聚。</p>
-<p>推荐系统并不只活在论文里。它可以走进商场项目：理解顾客真正需要什么，让商品、店铺、活动与具体的人更自然地相遇；它也可以留在更深的算法世界里，把表示学习、序列建模、图神经网络、多模态信息与大语言模型变成一次次可验证的探索。商业场景给它真实的问题，深度学习给它不断生长的方法，而推荐系统恰好站在两者之间。</p>
-<p>也正因为如此，我愿意把它当成一个长期方向。信息只会越来越多，人们需要的并不是更多堆在眼前的内容，而是更好的理解、更合适的连接，以及在熟悉之外仍能遇见新事物的可能。推荐系统的前景不只在于把预测做得更准，也在于它能否真正理解人、服务人，同时尊重人的选择。</p>
-<p>回头看，推荐系统没有替我补回那段缺少科研方向的硕士时光，却让我终于知道，接下来可以往哪里走。它让我从迷茫里找到一条能够把工程实践、商业项目与深度学习研究连接起来的路。</p>
-<p>所以我仍然愿意在每一次新的开始，对这位故人说：</p>
-<p><strong>Hello, Rec。我们继续往前走。</strong></p>
+    <title>图检索不等于图推理：Graph-R1 用端到端强化学习在知识超图上走</title>
+    <url>/article/graph-r1-agentic-graphrag-rl/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://arxiv.org/abs/2507.21892">arXiv 2507.21892</a> · 代码：<a href="https://github.com/LHRLAB/Graph-R1">GitHub</a></p>
+</blockquote>
+<p>“把知识组织成图”这件事，在 RAG 里看起来天经地义：文本块检索丢了结构语义，那就把文档抽成实体关系图，检索时沿着图走。但真做起来有个尴尬的结果——<strong>图结构本身并不会自动带来收益</strong>。</p>
+<p>论文用一组对比直接点破了这一点。在 2WikiMultiHopQA 上，用 GPT-4o-mini 做纯提示的场景里：</p>
+<p>也就是说，几个主流 GraphRAG 变体的 F1 都<strong>低于</strong>不做图、只做文本块检索的 StandardRAG。问题不在图，而在<strong>怎么用图</strong>：这些方法都是”一次性检索 + 拼进提示”，图只是换了一种取文档的方式，模型并没有真正”在图上推理”。</p>
+<p>Graph-R1 的答案是：把图检索变成<strong>多轮智能体交互</strong>，并用<strong>端到端强化学习</strong>训练这套交互策略。</p>
+<p><img src="/images/8bca3cd871a7575d5fa199f7dffec004.png" alt="Graph-R1 把 GraphRAG 建模为知识超图上的多轮智能体检索过程，用端到端强化学习优化"></p>
+<hr>
+<h2 id="一、方法：知识超图-结构化动作空间-GRPO"><a href="#一、方法：知识超图-结构化动作空间-GRPO" class="headerlink" title="一、方法：知识超图 + 结构化动作空间 + GRPO"></a>一、方法：知识超图 + 结构化动作空间 + GRPO</h2><p><img src="/images/db76c845a2ccf9aabb08eab564057274.png" alt="Graph-R1 框架：强化学习增强的推理轨迹，智能体迭代地思考、查询图环境、并作答"></p>
+<p>如上图，整条链路有三段：<strong>知识构建 → 多轮图交互 → 结果导向的端到端强化学习</strong>。</p>
+<h3 id="1-知识超图：比普通图更贴近”多跳事实”"><a href="#1-知识超图：比普通图更贴近”多跳事实”" class="headerlink" title="1. 知识超图：比普通图更贴近”多跳事实”"></a>1. 知识超图：比普通图更贴近”多跳事实”</h3><p>论文没有用普通三元组图，而是构建<strong>知识超图（knowledge hypergraph）</strong>：</p>
+<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">G_H = (V, E_H, φ)</span><br><span class="line">π_ext(d) → &#123; (h_i, V_&#123;h_i&#125;) &#125;_&#123;i=1..m&#125;</span><br></pre></td></tr></table></figure>
+
+<p>即从每个文本块 <code>d</code> 中抽取事实时，允许<strong>一条超边连接多个节点</strong>（<code>V_&#123;h_i&#125;</code> 是一个集合），而不是只能两两相连。原因是多跳问答里大量事实天然是 n 元的——“某奖项由某机构在某年颁给某作品”这类陈述，硬拆成二元组会丢信息。</p>
+<p>超图的抽取用 GPT-4o-mini 完成，检索侧的向量模型统一用 <code>bge-large-en-v1.5</code>。</p>
+<h3 id="2-多轮交互：把推理拆成可训练的动作"><a href="#2-多轮交互：把推理拆成可训练的动作" class="headerlink" title="2. 多轮交互：把推理拆成可训练的动作"></a>2. 多轮交互：把推理拆成可训练的动作</h3><p>每一步 <code>t</code>，智能体生成一个<strong>结构化输出</strong>，包含三部分：</p>
+<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">π_θ( a_t^think , α_t , a_t^out | s_t )</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><p><code>a_t^think</code>：思考&#x2F;反思（当前已知什么、还缺什么）</p>
+</li>
+<li><p><code>α_t</code>：<strong>动作选择</strong>——在动作空间里选一个（从图环境查询、检索、作答…）</p>
+</li>
+<li><p><code>a_t^out</code>：本步输出的内容</p>
+</li>
+</ul>
+<p>关键在于 <code>α_t</code> 让”查什么”变成<strong>可学习的离散决策</strong>。图在这里不是”取文档的工具”，而是一个可以被反复访问的<strong>环境</strong>：智能体可以查一次、看到结果、再决定要不要沿另一条边继续查。这才是”在图上推理”与”用图取文档”的区别。</p>
+<h3 id="3-训练：只给结果打分"><a href="#3-训练：只给结果打分" class="headerlink" title="3. 训练：只给结果打分"></a>3. 训练：只给结果打分</h3><p>优化目标用的是 <strong>GRPO（Group Relative Policy Optimization）</strong>：</p>
+<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">J_GRPO(θ) = E[ ... ]      每个问题采样一组轨迹，用组内相对优势更新策略</span><br></pre></td></tr></table></figure>
+
+<p>设计上值得注意的一点是<strong>结果导向（outcome-directed）</strong>：奖励只来自最终答案的正确性（EM&#x2F;F1 这类），<strong>不对中间步骤做显式监督</strong>。理由是多跳问答的中间步骤没有可靠标注，强行监督反而会引入错误引导；而用组内相对比较（同一问题的多条轨迹互相比），可以在没有步骤标注的情况下得到稳定的梯度信号。</p>
+<p>一个容易被忽略的工程细节：知识构建与检索生成是<strong>分开算成本</strong>的。Graph-R1 的检索阶段成本记为 <strong>0 美元</strong>（表 3），因为检索发生在自建的超图环境里，不需要调用外部 API——这与依赖商业 API 做检索的 GraphRAG 变体形成直接对比。</p>
+<hr>
+<h2 id="二、实验"><a href="#二、实验" class="headerlink" title="二、实验"></a>二、实验</h2><h3 id="设置"><a href="#设置" class="headerlink" title="设置"></a>设置</h3><p>六个标准 RAG 数据集：2WikiMultiHopQA、HotpotQA、Musique、NQ、PopQA、TriviaQA。四个指标：EM、F1、R-S（检索相似度）、G-E（生成评测）。主干模型覆盖 <strong>Qwen2.5 的 1.5B &#x2F; 3B &#x2F; 7B</strong> 三档。</p>
+<p>基线包括：NaiveGeneration、StandardRAG、SFT、R1、Search-R1、R1-Searcher，以及 GPT-4o-mini 驱动的各 GraphRAG 变体（GraphRAG、LightRAG、PathRAG、HippoRAG2、HyperGraphRAG）。</p>
+<h3 id="主结果：随基座增大稳定拉开差距"><a href="#主结果：随基座增大稳定拉开差距" class="headerlink" title="主结果：随基座增大稳定拉开差距"></a>主结果：随基座增大稳定拉开差距</h3><p>两个观察值得摘出来：</p>
+<p><strong>① 强化学习才让图表示”活”起来。</strong> 纯提示的 GraphRAG 变体普遍不如 StandardRAG（开头那张表），而 Graph-R1 靠多轮交互 + RL 把同一份图结构用出了完全不同的效果。<strong>结论是”图的价值取决于使用方式”，而不是”图本身有没有价值”。</strong></p>
+<p><strong>② 基座越大，优势越大。</strong> 三档参数下 F1 分别是 40.09 &#x2F; 51.26 &#x2F; 57.82，与次优基线的差距同步扩大。这说明该框架吃的是”策略学习能力”，模型越强越能把它用好。</p>
+<p>单数据集上差距更直观（7B）：</p>
+<p><strong>多跳数据集（2Wiki、Musique）上的差距最大</strong>——2Wiki 上 F1 从 41.29 提到 65.04，Musique 从 22.35 到 46.17。这与设计意图完全吻合：<strong>需要跨多条边串起事实的任务，才是图结构真正能发挥作用的地方</strong>；单跳事实问答上优势就小得多（PopQA 只从 50.76 到 51.22）。</p>
+<p><img src="/images/7be62fa67e228386cc16159c5bc1bdfb.png" alt="跨 RAG 基准的 F1 对比：以图为知识环境让强化学习获得更高的性能上限"></p>
+<h3 id="消融：三个组件里-RL-最不能少"><a href="#消融：三个组件里-RL-最不能少" class="headerlink" title="消融：三个组件里 RL 最不能少"></a>消融：三个组件里 RL 最不能少</h3><p>这张表里最刺眼的是最后一行：<strong>去掉 RL 后，平均 EM 掉到 1.56、F1 掉到 17.79</strong>——模型基本不会用了，几乎退化为随机输出。3B 档同样（EM 3.13 &#x2F; F1 10.74）。</p>
+<p>一个非常有价值的细节：<strong>w&#x2F;o R.L. 的 G-E 仍有 77.37</strong>，与完整模型的 81.23 相差不大。也就是说，<strong>去掉 RL 之后，生成的文字看起来依然顺畅、格式依然像样，但答案基本是错的</strong>。如果只靠”读起来像不像”来判断，这个崩塌会被完全掩盖——这对所有做生成式 agent 评测的人都是一个提醒：<strong>生成质量指标不能替代任务正确性指标</strong>。</p>
+<p>三个组件的相对重要性也很清楚：RL（不可替代）&gt; 多轮交互 &gt; 知识构建。</p>
+<h3 id="成本与效率"><a href="#成本与效率" class="headerlink" title="成本与效率"></a>成本与效率</h3><p>（成本按 GPT-4o-mini 计价；检索阶段 0 美元是因为查询发生在自建超图环境内，不调用外部 API。）</p>
+<p>两个结论：<strong>一是知识构建成本与图规模并不决定效果</strong>（HyperGraphRAG 建了 17 万节点，F1 只有 21.1）；**二是把成本从”每次查询付费”转移到”一次构建 + 本地检索”**，使单次查询的边际成本变成 0——这在生产环境里比峰值精度更有吸引力。</p>
+<hr>
+<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>Graph-R1 的核心主张可以浓缩成一句：<strong>图的价值取决于使用方式，而使用方式本身是可以被强化学习学出来的。</strong></p>
+<p>四个可迁移的判断：</p>
+<ol>
+<li><p>**”用了图”不等于”用好了图”**：纯提示的 GraphRAG 变体在多跳数据上会输给朴素文本检索——把图塞进提示，和让模型在图上多轮探索，是两件事。</p>
+</li>
+<li><p><strong>让”查什么”变成可微的决策</strong>：把动作空间显式建模（查询图 &#x2F; 检索 &#x2F; 作答），才谈得上训练策略。</p>
+</li>
+<li><p><strong>结果导向的 RL 足以驱动多步推理</strong>：只看最终答案正确性、不做步骤监督，即可训练多轮检索；GRPO 的组内相对比较是关键抓手。</p>
+</li>
+<li><p><strong>警惕”看起来正常”的评测假象</strong>：去掉 RL 后生成质量指标仅从 81.23 降到 77.37，但任务指标从 63.87 崩到 17.79——<strong>评测必须绑定任务正确性</strong>。</p>
+</li>
+</ol>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>Graph-R1: Towards Agentic GraphRAG Framework via End-to-end Reinforcement Learning — <a href="https://arxiv.org/abs/2507.21892">arXiv:2507.21892</a> · 代码：<a href="https://github.com/LHRLAB/Graph-R1">GitHub</a></p>
+</li>
+<li><p>对比基线：StandardRAG、GraphRAG、LightRAG、PathRAG、HippoRAG2、HyperGraphRAG（图 &#x2F; 超图检索增强生成变体）</p>
+</li>
+<li><p>对比基线（RL 侧）：Search-R1、R1-Searcher、R1</p>
+</li>
+<li><p>训练方法：GRPO（Group Relative Policy Optimization）</p>
+</li>
+</ul>
 ]]></content>
       <categories>
-        <category>随笔</category>
+        <category>AI</category>
+        <category>检索增强生成</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>冷启动推荐的知识引导检索增强生成</title>
+    <url>/article/kg-guided-rag-cold-start/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://arxiv.org/abs/2505.20773">arXiv 2505.20773</a> · 代码：论文未公开</p>
+</blockquote>
+<h2 id="主要贡献"><a href="#主要贡献" class="headerlink" title="主要贡献"></a>主要贡献</h2><p>提出ColdRAG框架，通过动态构建领域知识图谱和LLM引导的多跳推理，解决了冷启动推荐中静态知识图谱维护成本高、LLM依赖预过滤候选列表的问题。在三个Amazon数据集上，Recall@10相对最优基线提升26.76%-123.81%，同时降低了生成不稳定性和幻觉率。</p>
+<h2 id="创新点"><a href="#创新点" class="headerlink" title="创新点"></a>创新点</h2><ol>
+<li><p>创新点1：动态知识图谱构建。利用LLM从商品元数据（标题、描述、属性、评论）中自动提取实体和关系，构建可增量更新的结构化语义图，避免了静态图谱的维护成本和过时问题。</p>
+</li>
+<li><p>创新点2：LLM引导的自适应候选检索。将候选生成视为目标导向的图遍历，通过LLM对边进行相关性评分（阈值λ&#x3D;7），实现多跳推理，无需预过滤候选列表，解决了LLM上下文窗口限制。</p>
+</li>
+<li><p>创新点3：证据路径驱动的推荐。检索过程中保留实体和关系的自然语言描述作为证据，在最终推荐时作为系统提示提供语义基础，显著降低了LLM的幻觉率（降至3.15%）。</p>
+</li>
+</ol>
+<h2 id="方法论"><a href="#方法论" class="headerlink" title="方法论"></a>方法论</h2><p>采用检索增强生成（RAG）框架，结合动态知识图谱构建与LLM推理。首先用LLM生成商品画像并提取实体关系构建图结构；推理时，基于用户历史嵌入定位图节点，通过LLM评分边进行多跳扩展，收集候选集；最后用检索到的上下文和候选集生成推荐。</p>
+<h2 id="Benchmark-与数据集"><a href="#Benchmark-与数据集" class="headerlink" title="Benchmark 与数据集"></a>Benchmark 与数据集</h2><ul>
+<li><p>Amazon Review数据集（Games）</p>
+</li>
+<li><p>Amazon Review数据集（Toys）</p>
+</li>
+<li><p>Amazon Review数据集（Office）</p>
+</li>
+</ul>
+<h2 id="实验条件"><a href="#实验条件" class="headerlink" title="实验条件"></a>实验条件</h2><ul>
+<li><p><strong>数据与任务设置</strong>：数据集：Amazon Review数据集（Games）、Amazon Review数据集（Toys）、Amazon Review数据集（Office）；任务：Experiments We conduct comprehensive experiments to evaluate the effectiveness of ColdRAG in item cold-start recommendation.；划分：leave-one-out</p>
+</li>
+<li><p><strong>基线与对照</strong>：For training-based baselines, these 500 cold-item sequences are used for testing, and all remaining sequences form the training set, ensuring consistent evaluation between training-based and training-free settings.；## 4.1.2 Baselines We compare ColdRAG with representative baselines spanning both training-based and trainingfree paradigms.；Among the training-based baselines, UniSRec fine-tunes a pretrained model, whereas CLCRec and TDRO are trained from scratch.</p>
+</li>
+<li><p><strong>评价指标</strong>：RECALL@10、NDCG@10</p>
+</li>
+<li><p><strong>实现环境与关键参数</strong>：原文未披露</p>
+</li>
+</ul>
+<blockquote>
+<p>实验条件由 Summary 2.0 从解析原文提取；证据锚点：ev-experiment-01。</p>
+</blockquote>
+<h2 id="实验效果"><a href="#实验效果" class="headerlink" title="实验效果"></a>实验效果</h2><p>在Games、Toys、Office三个数据集上，ColdRAG（使用GPT）的Recall@10分别达到12.38%、5.40%、8.60%，NDCG@10分别为4.37%、2.29%、3.26%。相比最强基线（KALM4Rec&#x2F;LLMRank），Recall@10提升78.22%、26.76%、123.81%。使用Qwen模型时，Games数据集Recall@10达19.57%。幻觉率仅3.15%，远低于其他LLM方法的5-10%。</p>
+<h2 id="对推荐系统-Agent-开发的借鉴"><a href="#对推荐系统-Agent-开发的借鉴" class="headerlink" title="对推荐系统 Agent 开发的借鉴"></a>对推荐系统 Agent 开发的借鉴</h2><p>对推荐Agent开发有重要借鉴价值：1）算法设计：可采用动态知识图谱作为Agent的长期记忆，支持增量更新；2）推理机制：LLM引导的多跳图遍历可作为Agent的推理策略，实现目标导向的探索；3）评估方法：论文的稳定性（5次运行方差）和幻觉率评估指标可直接用于Agent质量监控；4）系统架构：混合存储（图拓扑+向量数据库）的设计可复用，支持高效语义检索与结构化推理的结合。</p>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>知识图谱</category>
       </categories>
       <tags>
         <tag>论文速读</tag>
@@ -1011,54 +1059,6 @@
 <li><p>相关检索增强工作：GRAG（Graph Retrieval-Augmented Generation）、Coral（协同检索增强的长尾推荐）</p>
 </li>
 </ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>知识图谱</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>冷启动推荐的知识引导检索增强生成</title>
-    <url>/article/kg-guided-rag-cold-start/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2505.20773">arXiv 2505.20773</a> · 代码：论文未公开</p>
-</blockquote>
-<h2 id="主要贡献"><a href="#主要贡献" class="headerlink" title="主要贡献"></a>主要贡献</h2><p>提出ColdRAG框架，通过动态构建领域知识图谱和LLM引导的多跳推理，解决了冷启动推荐中静态知识图谱维护成本高、LLM依赖预过滤候选列表的问题。在三个Amazon数据集上，Recall@10相对最优基线提升26.76%-123.81%，同时降低了生成不稳定性和幻觉率。</p>
-<h2 id="创新点"><a href="#创新点" class="headerlink" title="创新点"></a>创新点</h2><ol>
-<li><p>创新点1：动态知识图谱构建。利用LLM从商品元数据（标题、描述、属性、评论）中自动提取实体和关系，构建可增量更新的结构化语义图，避免了静态图谱的维护成本和过时问题。</p>
-</li>
-<li><p>创新点2：LLM引导的自适应候选检索。将候选生成视为目标导向的图遍历，通过LLM对边进行相关性评分（阈值λ&#x3D;7），实现多跳推理，无需预过滤候选列表，解决了LLM上下文窗口限制。</p>
-</li>
-<li><p>创新点3：证据路径驱动的推荐。检索过程中保留实体和关系的自然语言描述作为证据，在最终推荐时作为系统提示提供语义基础，显著降低了LLM的幻觉率（降至3.15%）。</p>
-</li>
-</ol>
-<h2 id="方法论"><a href="#方法论" class="headerlink" title="方法论"></a>方法论</h2><p>采用检索增强生成（RAG）框架，结合动态知识图谱构建与LLM推理。首先用LLM生成商品画像并提取实体关系构建图结构；推理时，基于用户历史嵌入定位图节点，通过LLM评分边进行多跳扩展，收集候选集；最后用检索到的上下文和候选集生成推荐。</p>
-<h2 id="Benchmark-与数据集"><a href="#Benchmark-与数据集" class="headerlink" title="Benchmark 与数据集"></a>Benchmark 与数据集</h2><ul>
-<li><p>Amazon Review数据集（Games）</p>
-</li>
-<li><p>Amazon Review数据集（Toys）</p>
-</li>
-<li><p>Amazon Review数据集（Office）</p>
-</li>
-</ul>
-<h2 id="实验条件"><a href="#实验条件" class="headerlink" title="实验条件"></a>实验条件</h2><ul>
-<li><p><strong>数据与任务设置</strong>：数据集：Amazon Review数据集（Games）、Amazon Review数据集（Toys）、Amazon Review数据集（Office）；任务：Experiments We conduct comprehensive experiments to evaluate the effectiveness of ColdRAG in item cold-start recommendation.；划分：leave-one-out</p>
-</li>
-<li><p><strong>基线与对照</strong>：For training-based baselines, these 500 cold-item sequences are used for testing, and all remaining sequences form the training set, ensuring consistent evaluation between training-based and training-free settings.；## 4.1.2 Baselines We compare ColdRAG with representative baselines spanning both training-based and trainingfree paradigms.；Among the training-based baselines, UniSRec fine-tunes a pretrained model, whereas CLCRec and TDRO are trained from scratch.</p>
-</li>
-<li><p><strong>评价指标</strong>：RECALL@10、NDCG@10</p>
-</li>
-<li><p><strong>实现环境与关键参数</strong>：原文未披露</p>
-</li>
-</ul>
-<blockquote>
-<p>实验条件由 Summary 2.0 从解析原文提取；证据锚点：ev-experiment-01。</p>
-</blockquote>
-<h2 id="实验效果"><a href="#实验效果" class="headerlink" title="实验效果"></a>实验效果</h2><p>在Games、Toys、Office三个数据集上，ColdRAG（使用GPT）的Recall@10分别达到12.38%、5.40%、8.60%，NDCG@10分别为4.37%、2.29%、3.26%。相比最强基线（KALM4Rec&#x2F;LLMRank），Recall@10提升78.22%、26.76%、123.81%。使用Qwen模型时，Games数据集Recall@10达19.57%。幻觉率仅3.15%，远低于其他LLM方法的5-10%。</p>
-<h2 id="对推荐系统-Agent-开发的借鉴"><a href="#对推荐系统-Agent-开发的借鉴" class="headerlink" title="对推荐系统 Agent 开发的借鉴"></a>对推荐系统 Agent 开发的借鉴</h2><p>对推荐Agent开发有重要借鉴价值：1）算法设计：可采用动态知识图谱作为Agent的长期记忆，支持增量更新；2）推理机制：LLM引导的多跳图遍历可作为Agent的推理策略，实现目标导向的探索；3）评估方法：论文的稳定性（5次运行方差）和幻觉率评估指标可直接用于Agent质量监控；4）系统架构：混合存储（图拓扑+向量数据库）的设计可复用，支持高效语义检索与结构化推理的结合。</p>
 ]]></content>
       <categories>
         <category>推荐系统</category>
@@ -2028,46 +2028,6 @@
       </tags>
   </entry>
   <entry>
-    <title>智能体推荐不能只读文本：MMEACR 的多模态双轨记忆</title>
-    <url>/article/mmeacr-multimodal-memory-agent/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2607.07108">arXiv 2607.07108</a></p>
-</blockquote>
-<p>基于 LLM 智能体的推荐把”用户画像”写进自然语言的记忆里，靠推理做出推荐。MMEACR 指出这条路线有三个结构性限制：<strong>输入是纯文本的</strong>（漏掉视觉证据）、<strong>记忆更新是粗粒度的</strong>（一次反思可能把多条证据压成一句错话）、以及由此导致的<strong>偏好漂移</strong>。</p>
-<h2 id="现象：纯文本智能体看不到图"><a href="#现象：纯文本智能体看不到图" class="headerlink" title="现象：纯文本智能体看不到图"></a>现象：纯文本智能体看不到图</h2><p><img src="/images/5f0d222360d0e7e2202bbb74fcd35931.png" alt="文本中心智能体与 MMEACR 的对比"></p>
-<p><em>这张图把两条路线并列：左侧是常规的”文本中心”智能体推荐——物品只有文字描述，推理链全在语言空间里；右侧是 MMEACR，把多模态记忆（图像证据 + 交互叙述）纳入进来，并且在记忆演化与反思中同时使用两类信息。论文的论点是：当”视觉证据”决定偏好时（服饰、唱片封面、手机外观），纯文本智能体根本没有可用的证据输入，推理再强也补不回来。</em></p>
-<h2 id="机制：双轨记忆-RRF-融合"><a href="#机制：双轨记忆-RRF-融合" class="headerlink" title="机制：双轨记忆 + RRF 融合"></a>机制：双轨记忆 + RRF 融合</h2><p>MMEACR 把系统拆成两条互不干扰的轨道：</p>
-<p><strong>推理轨</strong>：协作式的 <strong>User Memory Agent 与 Item Memory Agent</strong> 各自维护持久的多模态记忆，更新方式是<strong>属性引导的”强化 + 反思”机制</strong>——先按属性维度分析证据（哪条属性被这条证据支持&#x2F;削弱），再做记忆强化或反思修正。相比于”让 LLM 自由总结”，属性引导把更新收敛到可检查的维度上。</p>
-<p><strong>匹配轨</strong>：一条<strong>解耦的多模态嵌入记忆</strong>，从原始交互叙述与物品图像构建，绕开结构化记忆更新的信息损失，保留细粒度的跨模态信号。</p>
-<p>两轨的输出用<strong>加权 RRF（Reciprocal Rank Fusion）</strong>融合成最终排序——即”推理给出的序”与”嵌入匹配给出的序”各自排序后做秩融合，而不是把两边的分数直接相加。</p>
-<p><img src="/images/8366e344ec7a3d2589ec24d3a6e41f00.png" alt="MMEACR 整体框架"></p>
-<p><em>框架图上半是推理轨（User&#x2F;Item Memory Agent 的属性引导记忆演化），下半是匹配轨（物品嵌入记忆、用户嵌入记忆）；两轨在末端通过加权 RRF 汇合。这个”推理与匹配解耦”的设计是有意为之：推理轨负责可解释性，匹配轨负责细粒度召回能力，两者用秩融合而不是分数融合来拼接，避免两套不同量纲的分数互相污染。</em></p>
-<h2 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h2><p>三个 Amazon 域，每个域的用户&#x2F;物品&#x2F;交互规模都很小（<strong>100 用户 &#x2F; 约 760 物品 &#x2F; 500 条交互</strong>），属于典型的”用 LLM 做冷启动&#x2F;小规模精排”场景：</p>
-<p><strong>主结果</strong>（Cell_Phones 为例：N@1 &#x2F; N@5 &#x2F; N@10 &#x2F; MRR）：</p>
-<p>一个直接可读的现象：<strong>序列模型 SASRec 在这个设定下打不过 BM25</strong>（MRR 0.3020 vs 0.3741）——数据太稀疏，协同信号不够用，这也是 LLM&#x2F;智能体路线在这个场景的价值所在。</p>
-<p><strong>消融</strong>（Cell_Phones，逐步拆掉组件）：</p>
-<p>读法上有个细节：<strong>只去掉属性引导时 N@10&#x2F;MRR 甚至略高于完整模型</strong>（0.5987 &#x2F; 0.4749 vs 0.5926 &#x2F; 0.4692），但把”反思”也一起去掉就明显掉（0.5663 &#x2F; 0.4323）。这说明<strong>属性引导的价值不在于单独涨点，而在于让”反思”这一步不至于把记忆改坏</strong>——去掉反思才是真正的损失来源。另外<strong>去掉 User Agent 掉得最多（N@1 0.3000 → 0.1800）</strong>，用户侧记忆是这套双轨设计里更关键的一半。</p>
-<p><img src="/images/7e4816df1e2bdb3524082dd96fb055e1.png" alt="推理耗时对比"></p>
-<p><em>这张图对比 AgentCF 与 MMEACR 在三个数据集上的推理耗时（单位秒）。多出的一条匹配轨带来了多少额外开销，决定了这套方案能不能落地——论文把推理时间单列成图，正是在回答”双轨是否可承担”这个问题。</em></p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>MMEACR 的两个设计判断值得记：<strong>推理与匹配解耦</strong>（推理轨管可解释性、匹配轨管细粒度召回，用秩融合拼接而非分数相加）；<strong>属性引导作为反思的约束</strong>（消融显示它的作用主要是防止反思把记忆改坏，而不是自己贡献精度）。此外它明确暴露了这类方法的适用边界——评测规模是”100 用户 &#x2F; 500 交互”级别，属于稀疏小规模场景，而非大规模工业排序。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>论文：Seeing and Reflecting: Multimodal Memory-Enhanced Agent Collaboration for Recommendation（arXiv:2607.07108）</p>
-</li>
-<li><p>相关基线：Pop、BM25、SASRec、LLMSeqSim、MLLMSqSim、LLMRank、AgentCF</p>
-</li>
-<li><p>关键组件：双轨记忆（推理轨 &#x2F; 匹配轨）、属性引导的记忆演化与反思、加权 RRF 融合</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>多模态推荐</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>检索粒度该由谁决定？拆解 MixRAGRec 的三智能体 KG-RAG 推荐</title>
     <url>/article/mixragrec-moe-kg-retrieval/</url>
     <content><![CDATA[<blockquote>
@@ -2177,6 +2137,46 @@
       </tags>
   </entry>
   <entry>
+    <title>智能体推荐不能只读文本：MMEACR 的多模态双轨记忆</title>
+    <url>/article/mmeacr-multimodal-memory-agent/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://arxiv.org/abs/2607.07108">arXiv 2607.07108</a></p>
+</blockquote>
+<p>基于 LLM 智能体的推荐把”用户画像”写进自然语言的记忆里，靠推理做出推荐。MMEACR 指出这条路线有三个结构性限制：<strong>输入是纯文本的</strong>（漏掉视觉证据）、<strong>记忆更新是粗粒度的</strong>（一次反思可能把多条证据压成一句错话）、以及由此导致的<strong>偏好漂移</strong>。</p>
+<h2 id="现象：纯文本智能体看不到图"><a href="#现象：纯文本智能体看不到图" class="headerlink" title="现象：纯文本智能体看不到图"></a>现象：纯文本智能体看不到图</h2><p><img src="/images/5f0d222360d0e7e2202bbb74fcd35931.png" alt="文本中心智能体与 MMEACR 的对比"></p>
+<p><em>这张图把两条路线并列：左侧是常规的”文本中心”智能体推荐——物品只有文字描述，推理链全在语言空间里；右侧是 MMEACR，把多模态记忆（图像证据 + 交互叙述）纳入进来，并且在记忆演化与反思中同时使用两类信息。论文的论点是：当”视觉证据”决定偏好时（服饰、唱片封面、手机外观），纯文本智能体根本没有可用的证据输入，推理再强也补不回来。</em></p>
+<h2 id="机制：双轨记忆-RRF-融合"><a href="#机制：双轨记忆-RRF-融合" class="headerlink" title="机制：双轨记忆 + RRF 融合"></a>机制：双轨记忆 + RRF 融合</h2><p>MMEACR 把系统拆成两条互不干扰的轨道：</p>
+<p><strong>推理轨</strong>：协作式的 <strong>User Memory Agent 与 Item Memory Agent</strong> 各自维护持久的多模态记忆，更新方式是<strong>属性引导的”强化 + 反思”机制</strong>——先按属性维度分析证据（哪条属性被这条证据支持&#x2F;削弱），再做记忆强化或反思修正。相比于”让 LLM 自由总结”，属性引导把更新收敛到可检查的维度上。</p>
+<p><strong>匹配轨</strong>：一条<strong>解耦的多模态嵌入记忆</strong>，从原始交互叙述与物品图像构建，绕开结构化记忆更新的信息损失，保留细粒度的跨模态信号。</p>
+<p>两轨的输出用<strong>加权 RRF（Reciprocal Rank Fusion）</strong>融合成最终排序——即”推理给出的序”与”嵌入匹配给出的序”各自排序后做秩融合，而不是把两边的分数直接相加。</p>
+<p><img src="/images/8366e344ec7a3d2589ec24d3a6e41f00.png" alt="MMEACR 整体框架"></p>
+<p><em>框架图上半是推理轨（User&#x2F;Item Memory Agent 的属性引导记忆演化），下半是匹配轨（物品嵌入记忆、用户嵌入记忆）；两轨在末端通过加权 RRF 汇合。这个”推理与匹配解耦”的设计是有意为之：推理轨负责可解释性，匹配轨负责细粒度召回能力，两者用秩融合而不是分数融合来拼接，避免两套不同量纲的分数互相污染。</em></p>
+<h2 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h2><p>三个 Amazon 域，每个域的用户&#x2F;物品&#x2F;交互规模都很小（<strong>100 用户 &#x2F; 约 760 物品 &#x2F; 500 条交互</strong>），属于典型的”用 LLM 做冷启动&#x2F;小规模精排”场景：</p>
+<p><strong>主结果</strong>（Cell_Phones 为例：N@1 &#x2F; N@5 &#x2F; N@10 &#x2F; MRR）：</p>
+<p>一个直接可读的现象：<strong>序列模型 SASRec 在这个设定下打不过 BM25</strong>（MRR 0.3020 vs 0.3741）——数据太稀疏，协同信号不够用，这也是 LLM&#x2F;智能体路线在这个场景的价值所在。</p>
+<p><strong>消融</strong>（Cell_Phones，逐步拆掉组件）：</p>
+<p>读法上有个细节：<strong>只去掉属性引导时 N@10&#x2F;MRR 甚至略高于完整模型</strong>（0.5987 &#x2F; 0.4749 vs 0.5926 &#x2F; 0.4692），但把”反思”也一起去掉就明显掉（0.5663 &#x2F; 0.4323）。这说明<strong>属性引导的价值不在于单独涨点，而在于让”反思”这一步不至于把记忆改坏</strong>——去掉反思才是真正的损失来源。另外<strong>去掉 User Agent 掉得最多（N@1 0.3000 → 0.1800）</strong>，用户侧记忆是这套双轨设计里更关键的一半。</p>
+<p><img src="/images/7e4816df1e2bdb3524082dd96fb055e1.png" alt="推理耗时对比"></p>
+<p><em>这张图对比 AgentCF 与 MMEACR 在三个数据集上的推理耗时（单位秒）。多出的一条匹配轨带来了多少额外开销，决定了这套方案能不能落地——论文把推理时间单列成图，正是在回答”双轨是否可承担”这个问题。</em></p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>MMEACR 的两个设计判断值得记：<strong>推理与匹配解耦</strong>（推理轨管可解释性、匹配轨管细粒度召回，用秩融合拼接而非分数相加）；<strong>属性引导作为反思的约束</strong>（消融显示它的作用主要是防止反思把记忆改坏，而不是自己贡献精度）。此外它明确暴露了这类方法的适用边界——评测规模是”100 用户 &#x2F; 500 交互”级别，属于稀疏小规模场景，而非大规模工业排序。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>论文：Seeing and Reflecting: Multimodal Memory-Enhanced Agent Collaboration for Recommendation（arXiv:2607.07108）</p>
+</li>
+<li><p>相关基线：Pop、BM25、SASRec、LLMSeqSim、MLLMSqSim、LLMRank、AgentCF</p>
+</li>
+<li><p>关键组件：双轨记忆（推理轨 &#x2F; 匹配轨）、属性引导的记忆演化与反思、加权 RRF 融合</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>多模态推荐</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>多模态特征该以多少成本接入：MMGCF 的极简路线</title>
     <url>/article/mmgcf-graph-collaborative-filtering/</url>
     <content><![CDATA[<blockquote>
@@ -2270,6 +2270,61 @@
       </tags>
   </entry>
   <entry>
+    <title>模态偏好不均的稀疏场景：MMSSL 的多模态自监督学习</title>
+    <url>/article/mmssl-multimodal-self-supervised/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://arxiv.org/abs/2302.10632">arXiv 2302.10632</a> · 代码：<a href="https://github.com/HKUDS/MMSSL">GitHub</a></p>
+</blockquote>
+<p>多模态推荐里有一个容易被忽略的差异：<strong>不同用户对不同模态的依赖程度不一样</strong>。有人看视频先看画面，有人只看标题；同一个人在不同场景下的偏好也会变。MMSSL 把”模态感知的用户偏好学习”和自监督学习放在一起解决，并在 WWW’23 上给出了理论层面的解释。</p>
+<h2 id="问题：稀疏-模态偏好不均-增强带来的分布偏移"><a href="#问题：稀疏-模态偏好不均-增强带来的分布偏移" class="headerlink" title="问题：稀疏 + 模态偏好不均 + 增强带来的分布偏移"></a>问题：稀疏 + 模态偏好不均 + 增强带来的分布偏移</h2><p>论文从一张图讲起：把用户按交互频次分组，看不同方法在各组上的表现（Figure 1）。</p>
+<p><img src="/images/3b36487e2392db08ad2974535962499d.png" alt="按用户交互频次分组的性能对比"></p>
+<p><em>这张图有两个纵轴：左侧是每组里的用户数量（柱状），右侧是各方法的推荐性能（折线）。横轴是用户交互频次分组——从”高频用户”一直排到”极低频用户”。读法是看折线在最右侧（低频段）的走势：所有方法在低频段都掉，但掉的速度不同。论文用这张图说明两件事：稀疏是主要矛盾；而单纯堆模态特征（VBPR 那类）在低频段几乎无帮助——因为模态特征本身没被”对齐”到协同信号上。</em></p>
+<p>这也是 MMSSL 要解决的：模态信息要能被协同信号”吸收”。</p>
+<h2 id="整体设计"><a href="#整体设计" class="headerlink" title="整体设计"></a>整体设计</h2><p><img src="/images/a70db2b5d0e507a46dba9fd5cb8470e1.png" alt="MMSSL 模型流程"></p>
+<p><em>这张图给出模型的三条并行支路。①多模态自增强（上）：把模态层面的用户-物品关系图做”对抗式生成”，用 Gumbel 变换采样出增强后的关系图，再用 Wasserstein 对抗去缩小”增强分布”与”原始交互分布”之间的 gap——目的是把协同信号注入模态分布；②跨模态对比学习（中）：在模态感知的邻域上分别聚合出用户&#x2F;物品的模态视图，再做跨模态对齐；③多任务训练（下）：把协同过滤表示与各模态表示加权融合成最终表示，与主任务损失联合优化。</em></p>
+<p>三块里最”非标准”的是第一块。</p>
+<h2 id="机制一：对抗自增强（ASL）"><a href="#机制一：对抗自增强（ASL）" class="headerlink" title="机制一：对抗自增强（ASL）"></a>机制一：对抗自增强（ASL）</h2><p>GCL 类方法通常用”随机丢边&#x2F;丢特征”造增强视图，MMSSL 认为这在多媒体场景下不够——随机扰动后的模态关系图与真实交互分布之间会出现<strong>分布偏移</strong>，于是它改用生成式增强：</p>
+<ul>
+<li><p>用 <strong>Gumbel 变换</strong>让采样过程可微，从而可以端到端生成”增强后的用户-物品关系模式”；</p>
+</li>
+<li><p>用 <strong>Wasserstein 对抗</strong>去度量并缩小生成分布与真实分布的距离。</p>
+</li>
+</ul>
+<p>论文在理论上给的说法是”协同知识迁移”：对抗式自监督任务把协同信号注入模态特异性分布，使得模态表示不只是”内容描述”，还带上了”谁会买它”的信息。</p>
+<h2 id="机制二：跨模态对比学习（CL）"><a href="#机制二：跨模态对比学习（CL）" class="headerlink" title="机制二：跨模态对比学习（CL）"></a>机制二：跨模态对比学习（CL）</h2><p>第二块是标准的跨模态对齐，但视图的构造方式有讲究——不是随机增强，而是<strong>在模态感知的邻域上聚合</strong>：</p>
+<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">e_u^m = Σ_&#123;i ∈ N_u^m&#125; e_i / sqrt(|N_u^m|)</span><br><span class="line">e_i^m = Σ_&#123;u ∈ N_i^m&#125; e_u / sqrt(|N_i^m|)</span><br></pre></td></tr></table></figure>
+
+<p>即”用户在第 m 个模态下的表示”&#x3D; 他在该模态上有交互的物品的聚合。然后对同一用户&#x2F;物品的不同模态视图做 InfoNCE。这样对齐的是”同一个人在不同模态世界里的行为模式”，而不是任意两路特征。</p>
+<p>最终表示由协同表示与归一化后的模态表示加权求和得到（<code>h_u = ê_u + ω Σ_m f_u^m / ‖f_u^m‖₂</code>），理论部分称之为”跨模态共性”的捕获。</p>
+<h2 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h2><p>四个数据集（TikTok 三模态：视觉&#x2F;音频&#x2F;标题；Amazon-Baby、Amazon-Sports、Allrecipes 图+文），指标 Recall@20 &#x2F; Precision@20 &#x2F; NDCG@20。</p>
+<p><strong>主结果</strong>（R@20 &#x2F; P@20 &#x2F; N@20）：</p>
+<p>在 R@20 上相对 LATTICE 提升约 <strong>9%（TikTok）&#x2F; 16%（Baby）&#x2F; 9%（Sports）</strong>。值得注意的是传统多模态方法 VBPR 在这些数据集上已经明显落后（如 TikTok R@20 仅 0.0380），说明”直接拼特征”这条路确实到顶了。</p>
+<p><strong>消融</strong>（三块组件的贡献，Recall &#x2F; NDCG）：</p>
+<p>三点可读：<strong>去掉对抗自增强掉得最多</strong>（Baby 上 R@20 −5.7%），说明”增强分布别跑偏”这件事比对比学习本身更关键；去掉 Gumbel 变换也掉（约 −3.4%），验证了”可微采样”不是装饰；Allrecipes 上三块都掉、且互相之间差距小，说明在这个更稀疏的数据集上每块都有贡献但不极端依赖某一块。</p>
+<p><img src="/images/ecd976f9af2d315e569c15a4affb760f.png" alt="MMSSL 与基线的训练曲线"></p>
+<p><em>这张图是训练过程的收敛对比：横轴是训练轮次、纵轴是评测指标，多条曲线对应 MMSSL 与若干基线。它的作用是把”最终精度”和”训练稳定性”分开看——MMSSL 的曲线更早收敛到更高平台，而不是靠多训几十轮磨出来。对实际项目来说，这决定了同样的算力预算下能不能复现出论文数字。</em></p>
+<p><strong>超参</strong>：GNN 层数在 1–4 之间取最优；对比温度 τ 在 (0, 0.9) 区间内取值（论文在 TikTok 上给了扫描结果）。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>MMSSL 的核心不是”多模态 + 自监督”这个组合本身，而是它对自监督任务的两点改造：<strong>增强方式从随机扰动换成带分布约束的对抗式生成</strong>（避免模态关系图跑偏），<strong>对比视图的构造绑定到模态感知的邻域</strong>（对齐的是行为模式而非任意特征）。消融结果也把优先级排清楚了——对抗自增强是第一位的，对比学习次之。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>论文：Multi-Modal Self-Supervised Learning for Recommendation（WWW’23，DOI 10.1145&#x2F;3543507.3583206）</p>
+</li>
+<li><p>代码：<a href="https://github.com/HKUDS/MMSSL">https://github.com/HKUDS/MMSSL</a></p>
+</li>
+<li><p>相关基线：VBPR（AAAI’16）、LightGCN（SIGIR’20）、SGL、NCL、HCCF、LATTICE、LightGCN-M</p>
+</li>
+<li><p>关键组件：Gumbel 变换、Wasserstein 对抗学习、跨模态 InfoNCE</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>多模态推荐</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>语义像不等于共现多：MSCA 的多视图对比对齐</title>
     <url>/article/msca-multi-view-semantic-alignment/</url>
     <content><![CDATA[<blockquote>
@@ -2327,109 +2382,6 @@
 <li><p>数据集：Baby、Sports、Electronics</p>
 </li>
 </ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>多模态推荐</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>模态偏好不均的稀疏场景：MMSSL 的多模态自监督学习</title>
-    <url>/article/mmssl-multimodal-self-supervised/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2302.10632">arXiv 2302.10632</a> · 代码：<a href="https://github.com/HKUDS/MMSSL">GitHub</a></p>
-</blockquote>
-<p>多模态推荐里有一个容易被忽略的差异：<strong>不同用户对不同模态的依赖程度不一样</strong>。有人看视频先看画面，有人只看标题；同一个人在不同场景下的偏好也会变。MMSSL 把”模态感知的用户偏好学习”和自监督学习放在一起解决，并在 WWW’23 上给出了理论层面的解释。</p>
-<h2 id="问题：稀疏-模态偏好不均-增强带来的分布偏移"><a href="#问题：稀疏-模态偏好不均-增强带来的分布偏移" class="headerlink" title="问题：稀疏 + 模态偏好不均 + 增强带来的分布偏移"></a>问题：稀疏 + 模态偏好不均 + 增强带来的分布偏移</h2><p>论文从一张图讲起：把用户按交互频次分组，看不同方法在各组上的表现（Figure 1）。</p>
-<p><img src="/images/3b36487e2392db08ad2974535962499d.png" alt="按用户交互频次分组的性能对比"></p>
-<p><em>这张图有两个纵轴：左侧是每组里的用户数量（柱状），右侧是各方法的推荐性能（折线）。横轴是用户交互频次分组——从”高频用户”一直排到”极低频用户”。读法是看折线在最右侧（低频段）的走势：所有方法在低频段都掉，但掉的速度不同。论文用这张图说明两件事：稀疏是主要矛盾；而单纯堆模态特征（VBPR 那类）在低频段几乎无帮助——因为模态特征本身没被”对齐”到协同信号上。</em></p>
-<p>这也是 MMSSL 要解决的：模态信息要能被协同信号”吸收”。</p>
-<h2 id="整体设计"><a href="#整体设计" class="headerlink" title="整体设计"></a>整体设计</h2><p><img src="/images/a70db2b5d0e507a46dba9fd5cb8470e1.png" alt="MMSSL 模型流程"></p>
-<p><em>这张图给出模型的三条并行支路。①多模态自增强（上）：把模态层面的用户-物品关系图做”对抗式生成”，用 Gumbel 变换采样出增强后的关系图，再用 Wasserstein 对抗去缩小”增强分布”与”原始交互分布”之间的 gap——目的是把协同信号注入模态分布；②跨模态对比学习（中）：在模态感知的邻域上分别聚合出用户&#x2F;物品的模态视图，再做跨模态对齐；③多任务训练（下）：把协同过滤表示与各模态表示加权融合成最终表示，与主任务损失联合优化。</em></p>
-<p>三块里最”非标准”的是第一块。</p>
-<h2 id="机制一：对抗自增强（ASL）"><a href="#机制一：对抗自增强（ASL）" class="headerlink" title="机制一：对抗自增强（ASL）"></a>机制一：对抗自增强（ASL）</h2><p>GCL 类方法通常用”随机丢边&#x2F;丢特征”造增强视图，MMSSL 认为这在多媒体场景下不够——随机扰动后的模态关系图与真实交互分布之间会出现<strong>分布偏移</strong>，于是它改用生成式增强：</p>
-<ul>
-<li><p>用 <strong>Gumbel 变换</strong>让采样过程可微，从而可以端到端生成”增强后的用户-物品关系模式”；</p>
-</li>
-<li><p>用 <strong>Wasserstein 对抗</strong>去度量并缩小生成分布与真实分布的距离。</p>
-</li>
-</ul>
-<p>论文在理论上给的说法是”协同知识迁移”：对抗式自监督任务把协同信号注入模态特异性分布，使得模态表示不只是”内容描述”，还带上了”谁会买它”的信息。</p>
-<h2 id="机制二：跨模态对比学习（CL）"><a href="#机制二：跨模态对比学习（CL）" class="headerlink" title="机制二：跨模态对比学习（CL）"></a>机制二：跨模态对比学习（CL）</h2><p>第二块是标准的跨模态对齐，但视图的构造方式有讲究——不是随机增强，而是<strong>在模态感知的邻域上聚合</strong>：</p>
-<figure class="highlight plaintext"><figcaption><span>text</span></figcaption><table><tr><td class="code"><pre><span class="line">e_u^m = Σ_&#123;i ∈ N_u^m&#125; e_i / sqrt(|N_u^m|)</span><br><span class="line">e_i^m = Σ_&#123;u ∈ N_i^m&#125; e_u / sqrt(|N_i^m|)</span><br></pre></td></tr></table></figure>
-
-<p>即”用户在第 m 个模态下的表示”&#x3D; 他在该模态上有交互的物品的聚合。然后对同一用户&#x2F;物品的不同模态视图做 InfoNCE。这样对齐的是”同一个人在不同模态世界里的行为模式”，而不是任意两路特征。</p>
-<p>最终表示由协同表示与归一化后的模态表示加权求和得到（<code>h_u = ê_u + ω Σ_m f_u^m / ‖f_u^m‖₂</code>），理论部分称之为”跨模态共性”的捕获。</p>
-<h2 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h2><p>四个数据集（TikTok 三模态：视觉&#x2F;音频&#x2F;标题；Amazon-Baby、Amazon-Sports、Allrecipes 图+文），指标 Recall@20 &#x2F; Precision@20 &#x2F; NDCG@20。</p>
-<p><strong>主结果</strong>（R@20 &#x2F; P@20 &#x2F; N@20）：</p>
-<p>在 R@20 上相对 LATTICE 提升约 <strong>9%（TikTok）&#x2F; 16%（Baby）&#x2F; 9%（Sports）</strong>。值得注意的是传统多模态方法 VBPR 在这些数据集上已经明显落后（如 TikTok R@20 仅 0.0380），说明”直接拼特征”这条路确实到顶了。</p>
-<p><strong>消融</strong>（三块组件的贡献，Recall &#x2F; NDCG）：</p>
-<p>三点可读：<strong>去掉对抗自增强掉得最多</strong>（Baby 上 R@20 −5.7%），说明”增强分布别跑偏”这件事比对比学习本身更关键；去掉 Gumbel 变换也掉（约 −3.4%），验证了”可微采样”不是装饰；Allrecipes 上三块都掉、且互相之间差距小，说明在这个更稀疏的数据集上每块都有贡献但不极端依赖某一块。</p>
-<p><img src="/images/ecd976f9af2d315e569c15a4affb760f.png" alt="MMSSL 与基线的训练曲线"></p>
-<p><em>这张图是训练过程的收敛对比：横轴是训练轮次、纵轴是评测指标，多条曲线对应 MMSSL 与若干基线。它的作用是把”最终精度”和”训练稳定性”分开看——MMSSL 的曲线更早收敛到更高平台，而不是靠多训几十轮磨出来。对实际项目来说，这决定了同样的算力预算下能不能复现出论文数字。</em></p>
-<p><strong>超参</strong>：GNN 层数在 1–4 之间取最优；对比温度 τ 在 (0, 0.9) 区间内取值（论文在 TikTok 上给了扫描结果）。</p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>MMSSL 的核心不是”多模态 + 自监督”这个组合本身，而是它对自监督任务的两点改造：<strong>增强方式从随机扰动换成带分布约束的对抗式生成</strong>（避免模态关系图跑偏），<strong>对比视图的构造绑定到模态感知的邻域</strong>（对齐的是行为模式而非任意特征）。消融结果也把优先级排清楚了——对抗自增强是第一位的，对比学习次之。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>论文：Multi-Modal Self-Supervised Learning for Recommendation（WWW’23，DOI 10.1145&#x2F;3543507.3583206）</p>
-</li>
-<li><p>代码：<a href="https://github.com/HKUDS/MMSSL">https://github.com/HKUDS/MMSSL</a></p>
-</li>
-<li><p>相关基线：VBPR（AAAI’16）、LightGCN（SIGIR’20）、SGL、NCL、HCCF、LATTICE、LightGCN-M</p>
-</li>
-<li><p>关键组件：Gumbel 变换、Wasserstein 对抗学习、跨模态 InfoNCE</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>多模态推荐</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>多模态大模型摘要与检索增强序列推荐</title>
-    <url>/article/multimodal-summary-rag-seqrec/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2512.20916">arXiv 2512.20916</a> · 代码：论文未公开</p>
-</blockquote>
-<h2 id="主要贡献"><a href="#主要贡献" class="headerlink" title="主要贡献"></a>主要贡献</h2><p>提出MMSRARec，一种基于多模态大语言模型（MLLM）的序列推荐方法。该方法通过三个核心阶段：1）利用强化学习（RLVR）将多模态物品信息自适应摘要为可解释的关键词；2）通过检索相似用户的历史行为，将协同信号转化为关键词上下文；3）采用多任务学习的参数高效微调（PEFT）对齐MLLM与推荐任务。该方法在三个真实数据集上取得了最优或次优性能，有效平衡了推荐性能、可解释性和推理效率，解决了现有MLLM方法在序列推荐中忽视协同信号、推理成本高和可解释性差的问题。</p>
-<h2 id="创新点"><a href="#创新点" class="headerlink" title="创新点"></a>创新点</h2><ol>
-<li><p>创新点1：首次将物品多模态信息通过MLLM摘要为自然语言关键词，并采用RLVR（含信息损失、重构难度和长度三重奖励）自适应优化摘要策略，替代了不可解释的向量或语义ID。</p>
-</li>
-<li><p>创新点2：受RAG启发，通过传统序列推荐模型（如SASRec）检索行为相似用户，将其后续交互物品的关键词作为协同信号上下文注入MLLM，首次将协同信号以自然语言形式融入语言模型推荐系统。</p>
-</li>
-<li><p>创新点3：设计多任务学习框架，通过构建多种推荐指令和正负样本对比训练，结合LoRA参数高效微调，使MLLM仅需单次推理即可完成推荐，大幅降低计算和时延成本。</p>
-</li>
-</ol>
-<h2 id="方法论"><a href="#方法论" class="headerlink" title="方法论"></a>方法论</h2><p>采用三阶段流水线：1）离线多模态摘要阶段，使用MLLM结合RLVR（GRPO算法）将物品图像和文本摘要为关键词；2）相似用户检索阶段，基于SASRec的ID特征嵌入计算余弦相似度，检索k个相似用户并将其后续交互物品的关键词作为上下文；3）多任务学习阶段，通过PEFT（LoRA）微调MLLM，使用包含正负样本的多种推荐指令进行监督学习，基于首token概率进行推荐。</p>
-<h2 id="Benchmark-与数据集"><a href="#Benchmark-与数据集" class="headerlink" title="Benchmark 与数据集"></a>Benchmark 与数据集</h2><ul>
-<li><p>Microlens</p>
-</li>
-<li><p>Amazon Baby</p>
-</li>
-<li><p>Amazon Games</p>
-</li>
-</ul>
-<h2 id="实验条件"><a href="#实验条件" class="headerlink" title="实验条件"></a>实验条件</h2><ul>
-<li><p><strong>数据与任务设置</strong>：数据集：Microlens、Amazon Baby、Amazon Games；任务：Experiment ## 4.1 Dataset We utilized open-source and real-world datasets from diverse recommendation domains to ensure broad applicability and robust validation: (1) Microlens [18], a micro-video recommendation dataset; (2) Amazon Baby [6], from the ecommerce domain, representing dense purchasing behavior in the baby product category; and (3) Amazon Games [16], which reflects user preferences in the digital goods sector.；划分：8:1:1</p>
-</li>
-<li><p><strong>基线与对照</strong>：Table 3: The Statistics of Datasets <table><tr><td>Dataset</td><td>Microlens</td><td>Amazon Baby</td><td>Amazon Game</td></tr><tr><td>#User</td><td>25411</td><td>41081</td><td>38808</td></tr><tr><td>#Item</td><td>20276</td><td>14393</td><td>13379</td></tr><tr><td>#Interaction</td><td>223263</td><td>400876</td><td>352136</td></tr><tr><td>#Avg Seqlen</td><td>11.35</td><td>13.65</td><td>13.23</td></tr></table> ## 4.2 Experimental Setup To assess the performance of baseline and our proposed method for multimodal sequential recommendations, we utilize HR@5, NDCG@5 and AUC as evaluation metrics.；## 4.3 Baseline To evaluate the efectiveness of our proposed method, we select several mainstream methods for comparison covering four categories of recommendation systems: 1.；## 4.4 Main Results Table 4 presents a comparison between our proposed MMSRARec and baseline methods across three real-world datasets.</p>
-</li>
-<li><p><strong>评价指标</strong>：HR@5、NDCG@5、AUC、HITRATE</p>
-</li>
-<li><p><strong>实现环境与关键参数</strong>：硬件：8×A800；框架：PyTorch</p>
-</li>
-</ul>
-<blockquote>
-<p>实验条件由 Summary 2.0 从解析原文提取；证据锚点：ev-experiment-01。</p>
-</blockquote>
-<h2 id="实验效果"><a href="#实验效果" class="headerlink" title="实验效果"></a>实验效果</h2><p>MMSRARec在三个数据集上均取得最佳或次优结果。在Microlens上HR@5达85.09（次优81.32），AUC达84.36；Amazon Baby上HR@5达81.50（次优77.61），AUC达85.27；Amazon Games上HR@5达83.74（次优79.86），AUC达85.81。相比MLLM-MSR（需6次推理，耗时7.35s），MMSRARec仅需1次推理，耗时0.73s（Qwen2.5VL-7B），性能显著提升。</p>
-<h2 id="对推荐系统-Agent-开发的借鉴"><a href="#对推荐系统-Agent-开发的借鉴" class="headerlink" title="对推荐系统 Agent 开发的借鉴"></a>对推荐系统 Agent 开发的借鉴</h2><p>对推荐Agent开发有重要借鉴价值：1）算法设计上，摘要+检索增强的范式可被Agent用于压缩用户画像和引入外部知识，RLVR奖励设计（信息性、重构性、长度）可指导Agent生成更精准的摘要；2）评估方法上，HR&#x2F;NDCG&#x2F;AUC指标及消融实验设计（分阶段移除组件）可直接复用；3）系统架构上，离线摘要+在线推理的分离设计降低了Agent的实时计算压力，多任务指令微调策略可增强Agent对多样化推荐场景的适应能力；4）数据处理上，将协同信号转化为自然语言关键词的方法，为Agent融合结构化与非结构化信息提供了新思路。</p>
 ]]></content>
       <categories>
         <category>推荐系统</category>
@@ -2535,52 +2487,48 @@
       </tags>
   </entry>
   <entry>
-    <title>CoRAL：用协同检索对齐LLM推理，破解长尾推荐</title>
-    <url>/article/paper-2403.06447/</url>
+    <title>多模态大模型摘要与检索增强序列推荐</title>
+    <url>/article/multimodal-summary-rag-seqrec/</url>
     <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2403.06447">arXiv 2403.06447</a> · PDF：<a href="https://app.notion.com/papers/2403.06447.pdf">本地阅读</a></p>
+<p>论文：<a href="https://arxiv.org/abs/2512.20916">arXiv 2512.20916</a> · 代码：论文未公开</p>
 </blockquote>
-<p>长尾推荐长期受困于数据稀疏与分布不均：长尾物品交互极少，传统协同过滤难以准确捕捉用户-物品交互模式，还容易受流行度偏差影响而过拟合热门物品。数据重平衡和因果去偏方法虽能缓解部分问题，但往往在长尾数据上学习效率低下，或在热门物品上出现知识遗忘。</p>
-<p>大语言模型（LLM）的复杂推理能力为长尾推荐提供了新思路：即使只有少量历史交互，LLM也能基于物品的语义描述推断用户偏好。然而，现有LLM推荐方法大多仅依赖物品的语义含义作为推理证据，忽略了用户-物品交互中的协同信息，导致LLM的推理与具体推荐任务的数据集协同模式不对齐。例如，LLM可能因为两个物品主题相同就推荐，而协同信息却显示：喜欢同类物品的用户其实并不喜欢目标物品。</p>
-<p>CoRAL的核心主张是：把协同证据直接放进提示里，让LLM在推理时“看到”相似用户对候选物品的偏好模式，从而把推理对齐到任务特定的用户-物品交互知识。但提示容量有限，不能把所有交互都塞进去，因此需要学习一个检索策略，在有限步数内找到“最小充分”的协同信息。</p>
-<p>论文将检索过程形式化为马尔可夫决策过程，用DDPG在连续动作空间中训练轻量级检索策略，以边际信息增益为奖励；LLM本身保持冻结，仅作为环境的一部分提供预测概率。为缓解强化学习早期的奖励稀疏问题，论文还利用热门物品数据预训练协同过滤模型来初始化检索策略，实现热启动。</p>
-<p>实验在四个Amazon产品数据集上进行，CoRAL在平均AUC和F1上显著优于协同过滤、流行度去偏和LLM基线。需要说明的是，这些提升是在特定数据划分和GPT-4作为骨干模型的条件下取得的，检索策略的训练依赖LLM的反复调用，计算成本是实际部署时需要权衡的边界。</p>
-<h2 id="一、方法：协同提示与强化学习检索策略"><a href="#一、方法：协同提示与强化学习检索策略" class="headerlink" title="一、方法：协同提示与强化学习检索策略"></a>一、方法：协同提示与强化学习检索策略</h2><p>CoRAL把长尾推荐建模为LLM的自然语言推理任务。给定用户u和长尾物品i，系统需要预测用户是否喜欢该物品。LLM本身没有关于特定用户偏好或数据集协同模式的先验知识，因此必须通过提示注入支持证据。</p>
-<p>协同提示由两部分组成。第一部分是用户偏好表示：将用户历史交互物品按评分阈值分为正负两组，分别列出用户喜欢和不喜欢的物品描述。第二部分是协同信息：检索策略选出若干支持用户和支持物品，对每个支持物品，根据这些支持用户的评分矩阵，汇总哪些用户喜欢它、哪些用户不喜欢它，并以自然语言描述注入提示。提示中还包含一条“总结”指令，要求LLM基于上述信息理解“哪类用户会喜欢该物品”的模式。最后，LLM被要求只回答“Yes”或“No”，系统取生成“Yes”的概率作为预测分数。</p>
-<p><img src="/images/3112d9c5436b148cdbd3de795b8618e7.png" alt="图1：传统基于物品的LLM推理流程"></p>
-<p>这张图展示了传统基于物品的LLM推理流程：LLM只看到用户历史中物品的语义描述，便推断用户会喜欢主题相似的新物品。阅读时注意左侧的用户历史与右侧的推理结论之间的对应关系——推理完全建立在物品语义相似性上，没有引入其他用户的交互证据。它支撑了论文的问题诊断：仅靠语义的推理可能与真实协同模式不一致。</p>
-<p><img src="/images/b538e3c6ee71e7c15869373c8f6f5b15.png" alt="图2：协同检索增强的LLM推理流程"></p>
-<p>这张图展示了CoRAL的协同提示流程：除了用户历史，还检索了支持用户及其对候选物品的偏好，LLM据此发现“虽然主题相同，但相似用户并不喜欢该物品”。对比图1，关键变化是提示中多出了其他用户的交互证据，推理结论从“喜欢”翻转为“不喜欢”。这直接支撑了论文的核心主张：协同信息能纠正LLM仅凭语义产生的误判。</p>
-<p>检索策略被形式化为MDP。状态编码当前已检索到的协同信息，动作是连续空间中的用户-物品查询向量，策略根据当前状态生成查询，再在嵌入空间中用欧氏距离找到最近的真实用户和物品，加入支持集。状态转移用MLP聚合已检索的用户和物品嵌入。奖励定义为相邻两步预测误差的减少量，即边际信息增益：如果新检索到的用户-物品对让LLM的预测更接近真实标签，就给予正奖励。</p>
-<p>训练采用DDPG的Actor-Critic框架，critic学习Q值函数，actor通过策略梯度更新，并在目标策略上加入Ornstein-Uhlenbeck噪声以探索未充分探索的区域。LLM作为环境的一部分保持冻结，只有轻量级检索策略网络可训练，这显著降低了计算开销。</p>
-<p>为缓解早期随机探索导致的奖励稀疏，论文用热门物品数据预训练协同过滤模型（DFM、WDL、AFM、DCN），用其学到的用户和物品嵌入初始化检索策略。这一热启动设计让策略在训练初期就能在更有意义的嵌入空间中探索，而不是从随机初始化的嵌入开始。</p>
-<h2 id="二、实验：四个Amazon数据集上的长尾推荐"><a href="#二、实验：四个Amazon数据集上的长尾推荐" class="headerlink" title="二、实验：四个Amazon数据集上的长尾推荐"></a>二、实验：四个Amazon数据集上的长尾推荐</h2><p>实验在四个Amazon产品数据集上进行，任务为预测用户对长尾物品的偏好（二分类）。长尾物品按80&#x2F;20规则定义，即交互最少的80%物品为长尾物品；过滤交互少于5次的用户和物品；使用70%长尾数据加全部非长尾数据作为训练集，剩余30%长尾数据均分为验证集和测试集；原始5分制评分以3为阈值转为二分类标签。评价指标为AUC和F1。</p>
-<p>主结果如下表所示（数值来自论文表1）：</p>
-<p>从主结果看，最强相关基线是CausE，其平均AUC为74.71、平均F1为67.02。CoRAL-DFM的平均AUC为93.99、平均F1为82.42，相比CausE分别提升约25.8%和23.0%。四个CoRAL变体的平均AUC均超过91，平均F1均超过80，说明提升并非依赖单一协同过滤初始化模型。</p>
-<p>一个值得注意的例外是CoRAL-random：它的平均AUC为77.61，高于LLM-Language的70.61，但平均F1仅为57.44，低于LLM-Language的63.29。论文解释为随机检索引入无关信息，导致精确率-召回率权衡变差。这说明协同信息本身有帮助，但检索质量决定F1表现。</p>
-<p>另一个例外是LLM-Language在Gift Cards上AUC达到83.52，高于所有传统基线，但在Prime Pantry上AUC仅51.48，低于所有传统基线。这种不一致恰好说明LLM推理与具体推荐任务之间存在不对齐，而CoRAL通过强化学习对齐后，在四个数据集上表现更稳定。</p>
-<p>论文还报告了在线强化学习带来的平均提升：相比LLM-Language，CoRAL平均AUC和F1分别提升21.1%和25.1%。</p>
-<p><img src="/images/1134f44e47927f91c7f10fb0bf68d2c8.png" alt="图3：Appliances数据集上的AUC随迭代变化"></p>
-<p>这张图展示了Appliances数据集上不同CoRAL变体的AUC随训练迭代的变化曲线。横轴为迭代次数，纵轴为AUC。阅读时关注两条曲线：CoRAL-AFM和CoRAL-DCN在早期迭代中AUC较低，但随着训练推进逐步上升并趋于稳定；CoRAL-DFM和CoRAL-WDL则整体处于较高水平。它支撑的论点是：热启动的协同过滤初始化不同，会影响检索策略的学习轨迹，但强化学习过程能让策略逐步找到有效的协同证据。</p>
-<p>论文还进行了热启动与随机初始化策略的对比分析（RQ2），使用DFM和WDL作为骨干模型。结果显示，用热门物品数据预训练模型初始化检索策略，通常优于随机初始化策略，说明热启动提升了数据效率，缓解了早期探索的奖励稀疏问题。论文未报告独立的消融实验表格，因此这里不展开更多数值。</p>
-<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>CoRAL的机制可以概括为三步：用协同提示把用户-物品交互证据注入LLM；把检索过程形式化为MDP，用DDPG训练连续动作空间中的检索策略，以边际信息增益为奖励；用热门物品数据预训练协同过滤模型为策略提供热启动。LLM保持冻结，只有轻量级策略网络可训练。</p>
-<p>实验证据方面，在四个Amazon数据集上，CoRAL-DFM平均AUC和F1分别达到93.99和82.42，相比最强基线CausE的74.71和67.02分别提升约25.8%和23.0%；CoRAL-random的AUC高于LLM-Language但F1更低，说明检索质量对精确率-召回率权衡很关键；热启动分析显示预训练初始化通常优于随机初始化。</p>
-<p>限制与边界同样明显：检索策略的训练需要反复调用GPT-4作为环境，计算成本较高；实验仅覆盖四个Amazon产品数据集，长尾定义和过滤规则固定；CoRAL-random的F1下降也提示无关协同信息可能带来额外偏差。</p>
-<p>一个可迁移的设计启示是：当LLM的语义推理与任务特定的协同模式不对齐时，与其微调LLM，不如把任务证据作为可检索的上下文注入，并用轻量级策略学习“检索什么、检索多少”，在有限上下文容量下逼近最小充分证据。这一思路可迁移到其他需要外部证据对齐的LLM决策场景。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>CoRAL: Collaborative Retrieval-Augmented Large Language Models Improve Long-tail Recommendation. Junda Wu, Cheng-Chun Chang, Tong Yu, Zhankui He, Jianing Wang, Yupeng Hou, Julian McAuley. arXiv:2403.06447. <a href="https://arxiv.org/abs/2403.06447">https://arxiv.org/abs/2403.06447</a></p>
+<h2 id="主要贡献"><a href="#主要贡献" class="headerlink" title="主要贡献"></a>主要贡献</h2><p>提出MMSRARec，一种基于多模态大语言模型（MLLM）的序列推荐方法。该方法通过三个核心阶段：1）利用强化学习（RLVR）将多模态物品信息自适应摘要为可解释的关键词；2）通过检索相似用户的历史行为，将协同信号转化为关键词上下文；3）采用多任务学习的参数高效微调（PEFT）对齐MLLM与推荐任务。该方法在三个真实数据集上取得了最优或次优性能，有效平衡了推荐性能、可解释性和推理效率，解决了现有MLLM方法在序列推荐中忽视协同信号、推理成本高和可解释性差的问题。</p>
+<h2 id="创新点"><a href="#创新点" class="headerlink" title="创新点"></a>创新点</h2><ol>
+<li><p>创新点1：首次将物品多模态信息通过MLLM摘要为自然语言关键词，并采用RLVR（含信息损失、重构难度和长度三重奖励）自适应优化摘要策略，替代了不可解释的向量或语义ID。</p>
 </li>
-<li><p>LLM-Language: Sanner et al., 基于语言描述的用户偏好LLM提示方法（作为LLM基线）。</p>
+<li><p>创新点2：受RAG启发，通过传统序列推荐模型（如SASRec）检索行为相似用户，将其后续交互物品的关键词作为协同信号上下文注入MLLM，首次将协同信号以自然语言形式融入语言模型推荐系统。</p>
 </li>
-<li><p>CausE: 基于因果去偏的协同过滤方法（作为最强相关基线）。</p>
+<li><p>创新点3：设计多任务学习框架，通过构建多种推荐指令和正负样本对比训练，结合LoRA参数高效微调，使MLLM仅需单次推理即可完成推荐，大幅降低计算和时延成本。</p>
 </li>
-<li><p>DDPG: Lillicrap et al., Continuous control with deep reinforcement learning（检索策略训练算法）。</p>
+</ol>
+<h2 id="方法论"><a href="#方法论" class="headerlink" title="方法论"></a>方法论</h2><p>采用三阶段流水线：1）离线多模态摘要阶段，使用MLLM结合RLVR（GRPO算法）将物品图像和文本摘要为关键词；2）相似用户检索阶段，基于SASRec的ID特征嵌入计算余弦相似度，检索k个相似用户并将其后续交互物品的关键词作为上下文；3）多任务学习阶段，通过PEFT（LoRA）微调MLLM，使用包含正负样本的多种推荐指令进行监督学习，基于首token概率进行推荐。</p>
+<h2 id="Benchmark-与数据集"><a href="#Benchmark-与数据集" class="headerlink" title="Benchmark 与数据集"></a>Benchmark 与数据集</h2><ul>
+<li><p>Microlens</p>
+</li>
+<li><p>Amazon Baby</p>
+</li>
+<li><p>Amazon Games</p>
 </li>
 </ul>
+<h2 id="实验条件"><a href="#实验条件" class="headerlink" title="实验条件"></a>实验条件</h2><ul>
+<li><p><strong>数据与任务设置</strong>：数据集：Microlens、Amazon Baby、Amazon Games；任务：Experiment ## 4.1 Dataset We utilized open-source and real-world datasets from diverse recommendation domains to ensure broad applicability and robust validation: (1) Microlens [18], a micro-video recommendation dataset; (2) Amazon Baby [6], from the ecommerce domain, representing dense purchasing behavior in the baby product category; and (3) Amazon Games [16], which reflects user preferences in the digital goods sector.；划分：8:1:1</p>
+</li>
+<li><p><strong>基线与对照</strong>：Table 3: The Statistics of Datasets <table><tr><td>Dataset</td><td>Microlens</td><td>Amazon Baby</td><td>Amazon Game</td></tr><tr><td>#User</td><td>25411</td><td>41081</td><td>38808</td></tr><tr><td>#Item</td><td>20276</td><td>14393</td><td>13379</td></tr><tr><td>#Interaction</td><td>223263</td><td>400876</td><td>352136</td></tr><tr><td>#Avg Seqlen</td><td>11.35</td><td>13.65</td><td>13.23</td></tr></table> ## 4.2 Experimental Setup To assess the performance of baseline and our proposed method for multimodal sequential recommendations, we utilize HR@5, NDCG@5 and AUC as evaluation metrics.；## 4.3 Baseline To evaluate the efectiveness of our proposed method, we select several mainstream methods for comparison covering four categories of recommendation systems: 1.；## 4.4 Main Results Table 4 presents a comparison between our proposed MMSRARec and baseline methods across three real-world datasets.</p>
+</li>
+<li><p><strong>评价指标</strong>：HR@5、NDCG@5、AUC、HITRATE</p>
+</li>
+<li><p><strong>实现环境与关键参数</strong>：硬件：8×A800；框架：PyTorch</p>
+</li>
+</ul>
+<blockquote>
+<p>实验条件由 Summary 2.0 从解析原文提取；证据锚点：ev-experiment-01。</p>
+</blockquote>
+<h2 id="实验效果"><a href="#实验效果" class="headerlink" title="实验效果"></a>实验效果</h2><p>MMSRARec在三个数据集上均取得最佳或次优结果。在Microlens上HR@5达85.09（次优81.32），AUC达84.36；Amazon Baby上HR@5达81.50（次优77.61），AUC达85.27；Amazon Games上HR@5达83.74（次优79.86），AUC达85.81。相比MLLM-MSR（需6次推理，耗时7.35s），MMSRARec仅需1次推理，耗时0.73s（Qwen2.5VL-7B），性能显著提升。</p>
+<h2 id="对推荐系统-Agent-开发的借鉴"><a href="#对推荐系统-Agent-开发的借鉴" class="headerlink" title="对推荐系统 Agent 开发的借鉴"></a>对推荐系统 Agent 开发的借鉴</h2><p>对推荐Agent开发有重要借鉴价值：1）算法设计上，摘要+检索增强的范式可被Agent用于压缩用户画像和引入外部知识，RLVR奖励设计（信息性、重构性、长度）可指导Agent生成更精准的摘要；2）评估方法上，HR&#x2F;NDCG&#x2F;AUC指标及消融实验设计（分阶段移除组件）可直接复用；3）系统架构上，离线摘要+在线推理的分离设计降低了Agent的实时计算压力，多任务指令微调策略可增强Agent对多样化推荐场景的适应能力；4）数据处理上，将协同信号转化为自然语言关键词的方法，为Agent融合结构化与非结构化信息提供了新思路。</p>
 ]]></content>
       <categories>
         <category>推荐系统</category>
-        <category>论文速递</category>
+        <category>多模态推荐</category>
       </categories>
       <tags>
         <tag>论文速读</tag>
@@ -2650,6 +2598,58 @@
       <categories>
         <category>推荐系统</category>
         <category>多模态推荐</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>CoRAL：用协同检索对齐LLM推理，破解长尾推荐</title>
+    <url>/article/paper-2403.06447/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://arxiv.org/abs/2403.06447">arXiv 2403.06447</a> · PDF：<a href="https://app.notion.com/papers/2403.06447.pdf">本地阅读</a></p>
+</blockquote>
+<p>长尾推荐长期受困于数据稀疏与分布不均：长尾物品交互极少，传统协同过滤难以准确捕捉用户-物品交互模式，还容易受流行度偏差影响而过拟合热门物品。数据重平衡和因果去偏方法虽能缓解部分问题，但往往在长尾数据上学习效率低下，或在热门物品上出现知识遗忘。</p>
+<p>大语言模型（LLM）的复杂推理能力为长尾推荐提供了新思路：即使只有少量历史交互，LLM也能基于物品的语义描述推断用户偏好。然而，现有LLM推荐方法大多仅依赖物品的语义含义作为推理证据，忽略了用户-物品交互中的协同信息，导致LLM的推理与具体推荐任务的数据集协同模式不对齐。例如，LLM可能因为两个物品主题相同就推荐，而协同信息却显示：喜欢同类物品的用户其实并不喜欢目标物品。</p>
+<p>CoRAL的核心主张是：把协同证据直接放进提示里，让LLM在推理时“看到”相似用户对候选物品的偏好模式，从而把推理对齐到任务特定的用户-物品交互知识。但提示容量有限，不能把所有交互都塞进去，因此需要学习一个检索策略，在有限步数内找到“最小充分”的协同信息。</p>
+<p>论文将检索过程形式化为马尔可夫决策过程，用DDPG在连续动作空间中训练轻量级检索策略，以边际信息增益为奖励；LLM本身保持冻结，仅作为环境的一部分提供预测概率。为缓解强化学习早期的奖励稀疏问题，论文还利用热门物品数据预训练协同过滤模型来初始化检索策略，实现热启动。</p>
+<p>实验在四个Amazon产品数据集上进行，CoRAL在平均AUC和F1上显著优于协同过滤、流行度去偏和LLM基线。需要说明的是，这些提升是在特定数据划分和GPT-4作为骨干模型的条件下取得的，检索策略的训练依赖LLM的反复调用，计算成本是实际部署时需要权衡的边界。</p>
+<h2 id="一、方法：协同提示与强化学习检索策略"><a href="#一、方法：协同提示与强化学习检索策略" class="headerlink" title="一、方法：协同提示与强化学习检索策略"></a>一、方法：协同提示与强化学习检索策略</h2><p>CoRAL把长尾推荐建模为LLM的自然语言推理任务。给定用户u和长尾物品i，系统需要预测用户是否喜欢该物品。LLM本身没有关于特定用户偏好或数据集协同模式的先验知识，因此必须通过提示注入支持证据。</p>
+<p>协同提示由两部分组成。第一部分是用户偏好表示：将用户历史交互物品按评分阈值分为正负两组，分别列出用户喜欢和不喜欢的物品描述。第二部分是协同信息：检索策略选出若干支持用户和支持物品，对每个支持物品，根据这些支持用户的评分矩阵，汇总哪些用户喜欢它、哪些用户不喜欢它，并以自然语言描述注入提示。提示中还包含一条“总结”指令，要求LLM基于上述信息理解“哪类用户会喜欢该物品”的模式。最后，LLM被要求只回答“Yes”或“No”，系统取生成“Yes”的概率作为预测分数。</p>
+<p><img src="/images/3112d9c5436b148cdbd3de795b8618e7.png" alt="图1：传统基于物品的LLM推理流程"></p>
+<p>这张图展示了传统基于物品的LLM推理流程：LLM只看到用户历史中物品的语义描述，便推断用户会喜欢主题相似的新物品。阅读时注意左侧的用户历史与右侧的推理结论之间的对应关系——推理完全建立在物品语义相似性上，没有引入其他用户的交互证据。它支撑了论文的问题诊断：仅靠语义的推理可能与真实协同模式不一致。</p>
+<p><img src="/images/b538e3c6ee71e7c15869373c8f6f5b15.png" alt="图2：协同检索增强的LLM推理流程"></p>
+<p>这张图展示了CoRAL的协同提示流程：除了用户历史，还检索了支持用户及其对候选物品的偏好，LLM据此发现“虽然主题相同，但相似用户并不喜欢该物品”。对比图1，关键变化是提示中多出了其他用户的交互证据，推理结论从“喜欢”翻转为“不喜欢”。这直接支撑了论文的核心主张：协同信息能纠正LLM仅凭语义产生的误判。</p>
+<p>检索策略被形式化为MDP。状态编码当前已检索到的协同信息，动作是连续空间中的用户-物品查询向量，策略根据当前状态生成查询，再在嵌入空间中用欧氏距离找到最近的真实用户和物品，加入支持集。状态转移用MLP聚合已检索的用户和物品嵌入。奖励定义为相邻两步预测误差的减少量，即边际信息增益：如果新检索到的用户-物品对让LLM的预测更接近真实标签，就给予正奖励。</p>
+<p>训练采用DDPG的Actor-Critic框架，critic学习Q值函数，actor通过策略梯度更新，并在目标策略上加入Ornstein-Uhlenbeck噪声以探索未充分探索的区域。LLM作为环境的一部分保持冻结，只有轻量级检索策略网络可训练，这显著降低了计算开销。</p>
+<p>为缓解早期随机探索导致的奖励稀疏，论文用热门物品数据预训练协同过滤模型（DFM、WDL、AFM、DCN），用其学到的用户和物品嵌入初始化检索策略。这一热启动设计让策略在训练初期就能在更有意义的嵌入空间中探索，而不是从随机初始化的嵌入开始。</p>
+<h2 id="二、实验：四个Amazon数据集上的长尾推荐"><a href="#二、实验：四个Amazon数据集上的长尾推荐" class="headerlink" title="二、实验：四个Amazon数据集上的长尾推荐"></a>二、实验：四个Amazon数据集上的长尾推荐</h2><p>实验在四个Amazon产品数据集上进行，任务为预测用户对长尾物品的偏好（二分类）。长尾物品按80&#x2F;20规则定义，即交互最少的80%物品为长尾物品；过滤交互少于5次的用户和物品；使用70%长尾数据加全部非长尾数据作为训练集，剩余30%长尾数据均分为验证集和测试集；原始5分制评分以3为阈值转为二分类标签。评价指标为AUC和F1。</p>
+<p>主结果如下表所示（数值来自论文表1）：</p>
+<p>从主结果看，最强相关基线是CausE，其平均AUC为74.71、平均F1为67.02。CoRAL-DFM的平均AUC为93.99、平均F1为82.42，相比CausE分别提升约25.8%和23.0%。四个CoRAL变体的平均AUC均超过91，平均F1均超过80，说明提升并非依赖单一协同过滤初始化模型。</p>
+<p>一个值得注意的例外是CoRAL-random：它的平均AUC为77.61，高于LLM-Language的70.61，但平均F1仅为57.44，低于LLM-Language的63.29。论文解释为随机检索引入无关信息，导致精确率-召回率权衡变差。这说明协同信息本身有帮助，但检索质量决定F1表现。</p>
+<p>另一个例外是LLM-Language在Gift Cards上AUC达到83.52，高于所有传统基线，但在Prime Pantry上AUC仅51.48，低于所有传统基线。这种不一致恰好说明LLM推理与具体推荐任务之间存在不对齐，而CoRAL通过强化学习对齐后，在四个数据集上表现更稳定。</p>
+<p>论文还报告了在线强化学习带来的平均提升：相比LLM-Language，CoRAL平均AUC和F1分别提升21.1%和25.1%。</p>
+<p><img src="/images/1134f44e47927f91c7f10fb0bf68d2c8.png" alt="图3：Appliances数据集上的AUC随迭代变化"></p>
+<p>这张图展示了Appliances数据集上不同CoRAL变体的AUC随训练迭代的变化曲线。横轴为迭代次数，纵轴为AUC。阅读时关注两条曲线：CoRAL-AFM和CoRAL-DCN在早期迭代中AUC较低，但随着训练推进逐步上升并趋于稳定；CoRAL-DFM和CoRAL-WDL则整体处于较高水平。它支撑的论点是：热启动的协同过滤初始化不同，会影响检索策略的学习轨迹，但强化学习过程能让策略逐步找到有效的协同证据。</p>
+<p>论文还进行了热启动与随机初始化策略的对比分析（RQ2），使用DFM和WDL作为骨干模型。结果显示，用热门物品数据预训练模型初始化检索策略，通常优于随机初始化策略，说明热启动提升了数据效率，缓解了早期探索的奖励稀疏问题。论文未报告独立的消融实验表格，因此这里不展开更多数值。</p>
+<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>CoRAL的机制可以概括为三步：用协同提示把用户-物品交互证据注入LLM；把检索过程形式化为MDP，用DDPG训练连续动作空间中的检索策略，以边际信息增益为奖励；用热门物品数据预训练协同过滤模型为策略提供热启动。LLM保持冻结，只有轻量级策略网络可训练。</p>
+<p>实验证据方面，在四个Amazon数据集上，CoRAL-DFM平均AUC和F1分别达到93.99和82.42，相比最强基线CausE的74.71和67.02分别提升约25.8%和23.0%；CoRAL-random的AUC高于LLM-Language但F1更低，说明检索质量对精确率-召回率权衡很关键；热启动分析显示预训练初始化通常优于随机初始化。</p>
+<p>限制与边界同样明显：检索策略的训练需要反复调用GPT-4作为环境，计算成本较高；实验仅覆盖四个Amazon产品数据集，长尾定义和过滤规则固定；CoRAL-random的F1下降也提示无关协同信息可能带来额外偏差。</p>
+<p>一个可迁移的设计启示是：当LLM的语义推理与任务特定的协同模式不对齐时，与其微调LLM，不如把任务证据作为可检索的上下文注入，并用轻量级策略学习“检索什么、检索多少”，在有限上下文容量下逼近最小充分证据。这一思路可迁移到其他需要外部证据对齐的LLM决策场景。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>CoRAL: Collaborative Retrieval-Augmented Large Language Models Improve Long-tail Recommendation. Junda Wu, Cheng-Chun Chang, Tong Yu, Zhankui He, Jianing Wang, Yupeng Hou, Julian McAuley. arXiv:2403.06447. <a href="https://arxiv.org/abs/2403.06447">https://arxiv.org/abs/2403.06447</a></p>
+</li>
+<li><p>LLM-Language: Sanner et al., 基于语言描述的用户偏好LLM提示方法（作为LLM基线）。</p>
+</li>
+<li><p>CausE: 基于因果去偏的协同过滤方法（作为最强相关基线）。</p>
+</li>
+<li><p>DDPG: Lillicrap et al., Continuous control with deep reinforcement learning（检索策略训练算法）。</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>论文速递</category>
       </categories>
       <tags>
         <tag>论文速读</tag>
@@ -2834,6 +2834,56 @@
       </tags>
   </entry>
   <entry>
+    <title>从特征到智能体：FM4RecSys 三范式综述如何重新划分推荐系统</title>
+    <url>/article/paper-2504.16420/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://arxiv.org/abs/2504.16420">arXiv 2504.16420</a> · 代码：<a href="https://github.com/huggingface/smolagents">GitHub</a> · 代码：<a href="https://github.com/microsoft/autogen">GitHub</a> · PDF：<a href="https://app.notion.com/papers/2504.16420.pdf">本地阅读</a></p>
+</blockquote>
+<p>推荐系统长期依赖用户-物品交互矩阵与任务专用的小模型，在数据稀疏、冷启动和跨域迁移上反复碰壁。基础模型（Foundation Model, FM）的兴起——从 BERT、GPT 到 CLIP、LLaMA——为推荐系统提供了一条新路径：用大规模预训练获得的语义理解与多模态推理能力，弥补协同过滤在交互信号不足时的盲区。然而，FM 究竟以什么角色进入推荐流水线，学界并没有统一说法：有人把它当特征提取器，有人让它直接生成推荐结果，还有人把它包装成能规划、能调用工具的推荐智能体。</p>
+<p>这篇综述的定位不是提出一个新模型，而是给上述混乱局面建立坐标系。作者来自新南威尔士大学、Adobe Research、佐治亚理工、UCSD、ETH Zurich 与 Klagenfurt 大学等机构，文章以 IEEE TKDE 投稿形式发布在 arXiv。它系统收集了 150 余篇来自 ICLR、NeurIPS、WWW、SIGIR、KDD、RecSys、TOIS 等会议与期刊的文献，核心贡献是提出一个从数据特征、集成范式到下游任务与开放挑战的分类体系。</p>
+<p>综述要处理的核心矛盾在于：FM 的引入并非在所有推荐任务上都带来一致收益。在零样本、跨域和可解释性场景中，FM 的优势被反复验证；但在标准 Top-N 推荐中，充分训练的纯 ID 模型仍能取得有竞争力的结果。这意味着“是否用 FM”不是一个二元问题，真正需要回答的是“在什么数据条件、什么任务约束下，以哪种范式接入 FM 才划算”。</p>
+<p>另一个前置条件是部署成本。FM 的推理开销远高于传统推荐模型，综述在讨论特征增强范式时明确指出，由于 FM 规模庞大，特征计算的推理成本很高；生成式范式同样面临高推理成本与生成偏见放大的问题；智能体范式则额外引入实时推理与可扩展性挑战。因此，这篇综述的读者不应期待一个“全面超越基线”的结论，而应把它当作一张权衡地图：不同范式对应不同的能力上限与工程代价。</p>
+<h2 id="一、方法：三范式分类体系与数据流"><a href="#一、方法：三范式分类体系与数据流" class="headerlink" title="一、方法：三范式分类体系与数据流"></a>一、方法：三范式分类体系与数据流</h2><p>综述的方法论核心是“按 FM 在推荐流水线中的角色”划分范式，而不是按模型架构或训练目标划分。这一视角把 FM 从被动特征提供者到主动决策者的连续谱系切分为三段，并在每一段内部梳理代表性工作与技术路线。</p>
+<p><img src="/images/289620571b5c02c6f1d6228d64aadf88.png" alt="图 1：三种 FM 驱动的推荐系统范式对比"></p>
+<p>图 1 是理解全文的入口。它横向对比了特征增强、生成式和智能体三种范式：左侧的特征增强范式把 FM 放在推荐模型之前，FM 输出嵌入或语义 token，后续仍由传统推荐模型完成排序；中间的生成式范式让 FM 直接产出推荐结果或相关文本，推荐逻辑内化在生成过程里；右侧的智能体范式则把 FM 置于交互循环的中心，通过记忆、规划与工具调用动态调整推荐策略。阅读这张图时，可以先看箭头方向——FM 是从“辅助模块”逐步移动到“决策主体”，再对照每一栏下方列出的典型任务，就能快速定位一篇新论文在坐标系中的位置。</p>
+<p><img src="/images/13f358b84eec01f2c1d7579f9d178ec2.png" alt="图 2：FM4RecSys 分类总览"></p>
+<p>图 2 展开的是综述的完整分类骨架。左侧从推荐数据出发，区分传统交互数据与文本、视觉、音频、视频等多模态数据；中部是表示学习层，涵盖 ID 表示、多模态表示、图表示与混合表示；右侧进入集成范式与下游任务，最终汇聚到开放挑战。这张图支撑的主张是：范式的选择不是孤立的，它受数据形态和表示方式约束——例如 ID 表示主要服务于特征增强范式，而图表示更适合生成式与智能体框架。读者可以把它当作全文的目录图，按箭头顺序追踪某一类数据如何流经表示层进入具体范式。</p>
+<p>在特征增强范式内部，综述进一步区分了两条数据流。其一是 FM 嵌入：把物品标题、描述或用户评论送入语言模型，输出语义向量，再与协同过滤信号对齐。RLMRec 将 LLM 作为文本编码器，把用户和物品映射到语义空间并与协同关系建模对齐；AlphaRec 用线性映射把物品标题的语言表示投影到行为空间；BinLLM 则把协同嵌入转成二进制序列，使其能以文本形式被 LLM 直接利用。其二是 FM token：TIGER 用内容特征派生的语义 ID 元组自回归解码物品标识，LC-Rec 用学习式向量量化给物品分配语义索引，使模型无需预定义候选集即可生成物品。这两条路线的共同点是 FM 不改变推荐模型的主体结构，但 token 路线把语义信息推进到了检索与生成环节。</p>
+<p>生成式范式把 FM 的生成能力直接用于推荐输出。综述将其区分为生成推荐结果、生成解释、生成虚拟物品（如广告语、产品设计）以及通过自回归 token 预测用户偏好等形态。这一范式的关键风险在可控性：生成过程可能优先流畅性而非相关性，且存在偏见放大的隐患。智能体范式则引入记忆、规划、推理、工具使用与动作执行等组件，单智能体系统通过 ReAct、Reflexion 等框架把推理与具体动作交错执行，多智能体系统如 CAMEL、AutoGen 通过角色分工与通信机制协作完成复杂任务。综述特别指出，智能体范式在动态适应、多模态情境化和伦理对齐三方面具有变革潜力，但同时也面临可扩展性与智能体有效性评估的难题。</p>
+<p>表示学习层是连接数据与范式的中间层。综述用一张对比表梳理了 ID 表示、多模态表示、图表示与混合表示各自适配的范式与任务：ID 表示高效、易集成，适合 Top-N 与基础序列推荐，但缺乏语义深度；多模态表示语义丰富、利于冷启动与跨域，但预处理复杂且存在对齐噪声；图表示擅长捕捉关系与动态交互，适合序列与对话推荐，但计算成本高；混合表示试图平衡效率与表达力，代价是模型复杂度上升。这一层分析解释了为什么同一篇论文换个任务就可能失效——表示方式与任务需求不匹配时，FM 的增益会被结构性缺陷抵消。</p>
+<h2 id="二、实验：综述证据与范式权衡"><a href="#二、实验：综述证据与范式权衡" class="headerlink" title="二、实验：综述证据与范式权衡"></a>二、实验：综述证据与范式权衡</h2><p>本文是综述，没有统一的实验设置。它所引用的论文覆盖 Amazon Reviews、MovieLens、Yelp、Steam、Goodreads、<a href="http://last.fm/">Last.fm</a> 等数据集，任务包括 Top-N 推荐、序列推荐、零样本&#x2F;少样本推荐、对话推荐与内容生成，数据规模从数千到数百万用户&#x2F;物品不等，预处理与划分方式因原文而异。基线涵盖传统协同过滤（MF）、深度模型（NCF、SASRec）以及不同 FM 集成方式的变体。评价指标以 Recall@K、NDCG@K、Hit Rate@K、Precision@K、MRR 等排序指标为主，生成任务另用 BLEU、ROUGE 等。实现环境未统一披露，引用工作多在 PyTorch 或 TensorFlow 下使用 V100、A100 训练，模型版本包括 GPT-3、LLaMA、BERT、CLIP 等。</p>
+<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>这篇综述的机制贡献在于用“FM 在推荐流水线中的角色”这一条主线，把分散的特征增强、生成式与智能体工作串成连续谱系，并向下对接数据形态与表示学习、向上对接下游任务与开放挑战。它没有制造一个统一实验，而是通过跨论文的趋势归纳给出可操作的判断：FM 在零样本、跨域、对话与可解释性场景中优势明确，在标准 Top-N 任务中则需谨慎评估其边际收益。</p>
+<p>综述汇总的实证发现可以按任务归纳如下。需要强调的是，这些数字来自不同原文、不同数据划分，不能直接横向比较，只能作为趋势性证据。</p>
+<p>从这张表可以读出三层信息。第一，FM 的增益在交互信号稀缺的场景中最显著：零样本推荐的 10–30% Hit Rate 提升和对话推荐超过 20% 的满意度提升，都发生在传统模型难以获得足够监督信号的环节。第二，序列推荐中 5–15% 的 NDCG@10 提升说明，即使有交互历史，FM 表示仍能补充语义信息，但增益幅度明显小于零样本场景，暗示当协同信号充足时 FM 的边际价值递减。第三，标准 Top-N 任务中纯 ID 模型仍具竞争力，这是全文最重要的反例：它提醒读者，FM 不是普适的精度提升器，范式选择必须匹配任务的数据条件。</p>
+<p>综述没有提供统一的消融实验，但引用的工作通常通过移除 FM 组件或替换特征提取器来检验各模块贡献。这类消融的共性结论是：FM 带来的收益与任务对语义信息的需求强度正相关，在纯协同信号主导的任务中移除 FM 组件对指标影响有限，而在冷启动或跨域设置中移除 FM 会导致明显下降。由于各原文的消融设置不一致，这里只能给出方向性判断，不能量化统一增益。</p>
+<p>效率与成本方面，综述在范式对比中明确列出：特征增强范式面临 FM 规模带来的高推理成本，生成式范式同样受高推理成本与偏见放大困扰，智能体范式则叠加了实时推理与可扩展性挑战。这意味着从特征增强到智能体，能力上限提升的同时工程代价也在上升，实际部署需要在精度、延迟与成本之间做取舍。</p>
+<h2 id="三、总结-1"><a href="#三、总结-1" class="headerlink" title="三、总结"></a>三、总结</h2><p>这篇综述的机制贡献在于用“FM 在推荐流水线中的角色”这一条主线，把分散的特征增强、生成式与智能体工作串成连续谱系，并向下对接数据形态与表示学习、向上对接下游任务与开放挑战。它没有制造一个统一实验，而是通过跨论文的趋势归纳给出可操作的判断：FM 在零样本、跨域、对话与可解释性场景中优势明确，在标准 Top-N 任务中则需谨慎评估其边际收益。</p>
+<p>边界同样清楚。综述的实证证据来自不同原文的异构设置，数字不可直接比较；智能体范式的评估方法尚不成熟，综述本身也将其列为开放挑战；多模态融合的对齐噪声、生成偏见放大、跨域泛化与公平性等问题仍未解决。此外，参数高效微调在推荐任务中的实践仍然有限，这是综述指出的一个尚未充分探索的方向。</p>
+<p>可迁移的设计启示是：在构建 FM 驱动的推荐系统时，应先判断任务的数据条件——交互信号是否充足、是否需要跨域迁移、是否要求自然语言解释——再决定 FM 的接入位置。把 FM 当特征提取器是成本最低的起点，生成式范式适合需要直接产出内容或解释的场景，智能体范式则适用于多轮交互与动态规划需求明确的场景。范式不是越新越好，匹配数据条件是第一原则。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>Chengkai Huang, Hongtao Huang, Tong Yu, Kaige Xie, Junda Wu, Shuai Zhang, Julian McAuley, Dietmar Jannach, Lina Yao. A Survey of Foundation Model-Powered Recommender Systems: From Feature-Based, Generative to Agentic Paradigms. arXiv:2504.16420, 2025. <a href="https://arxiv.org/abs/2504.16420">arXiv</a></p>
+</li>
+<li><p>TIGER: Recommender Systems with Generative Retrieval. 见综述第 5.1 节引用。</p>
+</li>
+<li><p>RLMRec: Representation Learning with Large Language Models for Recommendation. 见综述第 5.1 节引用。</p>
+</li>
+<li><p>ReAct: Synergizing Reasoning and Acting in Language Models. 见综述第 3.3 节引用。</p>
+</li>
+<li><p>AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation. <a href="https://github.com/microsoft/autogen">GitHub</a></p>
+</li>
+<li><p>smolagents: 轻量级智能体框架. <a href="https://github.com/huggingface/smolagents">GitHub</a></p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>论文速递</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>PaSa：用双智能体与会话级PPO重塑学术搜索</title>
     <url>/article/paper-2501.10120/</url>
     <content><![CDATA[<blockquote>
@@ -2878,56 +2928,6 @@
 <li><p>Schulman, J., et al. (2017). Proximal Policy Optimization Algorithms. arXiv:1707.06347.</p>
 </li>
 <li><p>Yang, A., et al. (2024). Qwen2.5 Technical Report. arXiv:2412.15115.</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>论文速递</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>从特征到智能体：FM4RecSys 三范式综述如何重新划分推荐系统</title>
-    <url>/article/paper-2504.16420/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2504.16420">arXiv 2504.16420</a> · 代码：<a href="https://github.com/huggingface/smolagents">GitHub</a> · 代码：<a href="https://github.com/microsoft/autogen">GitHub</a> · PDF：<a href="https://app.notion.com/papers/2504.16420.pdf">本地阅读</a></p>
-</blockquote>
-<p>推荐系统长期依赖用户-物品交互矩阵与任务专用的小模型，在数据稀疏、冷启动和跨域迁移上反复碰壁。基础模型（Foundation Model, FM）的兴起——从 BERT、GPT 到 CLIP、LLaMA——为推荐系统提供了一条新路径：用大规模预训练获得的语义理解与多模态推理能力，弥补协同过滤在交互信号不足时的盲区。然而，FM 究竟以什么角色进入推荐流水线，学界并没有统一说法：有人把它当特征提取器，有人让它直接生成推荐结果，还有人把它包装成能规划、能调用工具的推荐智能体。</p>
-<p>这篇综述的定位不是提出一个新模型，而是给上述混乱局面建立坐标系。作者来自新南威尔士大学、Adobe Research、佐治亚理工、UCSD、ETH Zurich 与 Klagenfurt 大学等机构，文章以 IEEE TKDE 投稿形式发布在 arXiv。它系统收集了 150 余篇来自 ICLR、NeurIPS、WWW、SIGIR、KDD、RecSys、TOIS 等会议与期刊的文献，核心贡献是提出一个从数据特征、集成范式到下游任务与开放挑战的分类体系。</p>
-<p>综述要处理的核心矛盾在于：FM 的引入并非在所有推荐任务上都带来一致收益。在零样本、跨域和可解释性场景中，FM 的优势被反复验证；但在标准 Top-N 推荐中，充分训练的纯 ID 模型仍能取得有竞争力的结果。这意味着“是否用 FM”不是一个二元问题，真正需要回答的是“在什么数据条件、什么任务约束下，以哪种范式接入 FM 才划算”。</p>
-<p>另一个前置条件是部署成本。FM 的推理开销远高于传统推荐模型，综述在讨论特征增强范式时明确指出，由于 FM 规模庞大，特征计算的推理成本很高；生成式范式同样面临高推理成本与生成偏见放大的问题；智能体范式则额外引入实时推理与可扩展性挑战。因此，这篇综述的读者不应期待一个“全面超越基线”的结论，而应把它当作一张权衡地图：不同范式对应不同的能力上限与工程代价。</p>
-<h2 id="一、方法：三范式分类体系与数据流"><a href="#一、方法：三范式分类体系与数据流" class="headerlink" title="一、方法：三范式分类体系与数据流"></a>一、方法：三范式分类体系与数据流</h2><p>综述的方法论核心是“按 FM 在推荐流水线中的角色”划分范式，而不是按模型架构或训练目标划分。这一视角把 FM 从被动特征提供者到主动决策者的连续谱系切分为三段，并在每一段内部梳理代表性工作与技术路线。</p>
-<p><img src="/images/289620571b5c02c6f1d6228d64aadf88.png" alt="图 1：三种 FM 驱动的推荐系统范式对比"></p>
-<p>图 1 是理解全文的入口。它横向对比了特征增强、生成式和智能体三种范式：左侧的特征增强范式把 FM 放在推荐模型之前，FM 输出嵌入或语义 token，后续仍由传统推荐模型完成排序；中间的生成式范式让 FM 直接产出推荐结果或相关文本，推荐逻辑内化在生成过程里；右侧的智能体范式则把 FM 置于交互循环的中心，通过记忆、规划与工具调用动态调整推荐策略。阅读这张图时，可以先看箭头方向——FM 是从“辅助模块”逐步移动到“决策主体”，再对照每一栏下方列出的典型任务，就能快速定位一篇新论文在坐标系中的位置。</p>
-<p><img src="/images/13f358b84eec01f2c1d7579f9d178ec2.png" alt="图 2：FM4RecSys 分类总览"></p>
-<p>图 2 展开的是综述的完整分类骨架。左侧从推荐数据出发，区分传统交互数据与文本、视觉、音频、视频等多模态数据；中部是表示学习层，涵盖 ID 表示、多模态表示、图表示与混合表示；右侧进入集成范式与下游任务，最终汇聚到开放挑战。这张图支撑的主张是：范式的选择不是孤立的，它受数据形态和表示方式约束——例如 ID 表示主要服务于特征增强范式，而图表示更适合生成式与智能体框架。读者可以把它当作全文的目录图，按箭头顺序追踪某一类数据如何流经表示层进入具体范式。</p>
-<p>在特征增强范式内部，综述进一步区分了两条数据流。其一是 FM 嵌入：把物品标题、描述或用户评论送入语言模型，输出语义向量，再与协同过滤信号对齐。RLMRec 将 LLM 作为文本编码器，把用户和物品映射到语义空间并与协同关系建模对齐；AlphaRec 用线性映射把物品标题的语言表示投影到行为空间；BinLLM 则把协同嵌入转成二进制序列，使其能以文本形式被 LLM 直接利用。其二是 FM token：TIGER 用内容特征派生的语义 ID 元组自回归解码物品标识，LC-Rec 用学习式向量量化给物品分配语义索引，使模型无需预定义候选集即可生成物品。这两条路线的共同点是 FM 不改变推荐模型的主体结构，但 token 路线把语义信息推进到了检索与生成环节。</p>
-<p>生成式范式把 FM 的生成能力直接用于推荐输出。综述将其区分为生成推荐结果、生成解释、生成虚拟物品（如广告语、产品设计）以及通过自回归 token 预测用户偏好等形态。这一范式的关键风险在可控性：生成过程可能优先流畅性而非相关性，且存在偏见放大的隐患。智能体范式则引入记忆、规划、推理、工具使用与动作执行等组件，单智能体系统通过 ReAct、Reflexion 等框架把推理与具体动作交错执行，多智能体系统如 CAMEL、AutoGen 通过角色分工与通信机制协作完成复杂任务。综述特别指出，智能体范式在动态适应、多模态情境化和伦理对齐三方面具有变革潜力，但同时也面临可扩展性与智能体有效性评估的难题。</p>
-<p>表示学习层是连接数据与范式的中间层。综述用一张对比表梳理了 ID 表示、多模态表示、图表示与混合表示各自适配的范式与任务：ID 表示高效、易集成，适合 Top-N 与基础序列推荐，但缺乏语义深度；多模态表示语义丰富、利于冷启动与跨域，但预处理复杂且存在对齐噪声；图表示擅长捕捉关系与动态交互，适合序列与对话推荐，但计算成本高；混合表示试图平衡效率与表达力，代价是模型复杂度上升。这一层分析解释了为什么同一篇论文换个任务就可能失效——表示方式与任务需求不匹配时，FM 的增益会被结构性缺陷抵消。</p>
-<h2 id="二、实验：综述证据与范式权衡"><a href="#二、实验：综述证据与范式权衡" class="headerlink" title="二、实验：综述证据与范式权衡"></a>二、实验：综述证据与范式权衡</h2><p>本文是综述，没有统一的实验设置。它所引用的论文覆盖 Amazon Reviews、MovieLens、Yelp、Steam、Goodreads、<a href="http://last.fm/">Last.fm</a> 等数据集，任务包括 Top-N 推荐、序列推荐、零样本&#x2F;少样本推荐、对话推荐与内容生成，数据规模从数千到数百万用户&#x2F;物品不等，预处理与划分方式因原文而异。基线涵盖传统协同过滤（MF）、深度模型（NCF、SASRec）以及不同 FM 集成方式的变体。评价指标以 Recall@K、NDCG@K、Hit Rate@K、Precision@K、MRR 等排序指标为主，生成任务另用 BLEU、ROUGE 等。实现环境未统一披露，引用工作多在 PyTorch 或 TensorFlow 下使用 V100、A100 训练，模型版本包括 GPT-3、LLaMA、BERT、CLIP 等。</p>
-<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>这篇综述的机制贡献在于用“FM 在推荐流水线中的角色”这一条主线，把分散的特征增强、生成式与智能体工作串成连续谱系，并向下对接数据形态与表示学习、向上对接下游任务与开放挑战。它没有制造一个统一实验，而是通过跨论文的趋势归纳给出可操作的判断：FM 在零样本、跨域、对话与可解释性场景中优势明确，在标准 Top-N 任务中则需谨慎评估其边际收益。</p>
-<p>综述汇总的实证发现可以按任务归纳如下。需要强调的是，这些数字来自不同原文、不同数据划分，不能直接横向比较，只能作为趋势性证据。</p>
-<p>从这张表可以读出三层信息。第一，FM 的增益在交互信号稀缺的场景中最显著：零样本推荐的 10–30% Hit Rate 提升和对话推荐超过 20% 的满意度提升，都发生在传统模型难以获得足够监督信号的环节。第二，序列推荐中 5–15% 的 NDCG@10 提升说明，即使有交互历史，FM 表示仍能补充语义信息，但增益幅度明显小于零样本场景，暗示当协同信号充足时 FM 的边际价值递减。第三，标准 Top-N 任务中纯 ID 模型仍具竞争力，这是全文最重要的反例：它提醒读者，FM 不是普适的精度提升器，范式选择必须匹配任务的数据条件。</p>
-<p>综述没有提供统一的消融实验，但引用的工作通常通过移除 FM 组件或替换特征提取器来检验各模块贡献。这类消融的共性结论是：FM 带来的收益与任务对语义信息的需求强度正相关，在纯协同信号主导的任务中移除 FM 组件对指标影响有限，而在冷启动或跨域设置中移除 FM 会导致明显下降。由于各原文的消融设置不一致，这里只能给出方向性判断，不能量化统一增益。</p>
-<p>效率与成本方面，综述在范式对比中明确列出：特征增强范式面临 FM 规模带来的高推理成本，生成式范式同样受高推理成本与偏见放大困扰，智能体范式则叠加了实时推理与可扩展性挑战。这意味着从特征增强到智能体，能力上限提升的同时工程代价也在上升，实际部署需要在精度、延迟与成本之间做取舍。</p>
-<h2 id="三、总结-1"><a href="#三、总结-1" class="headerlink" title="三、总结"></a>三、总结</h2><p>这篇综述的机制贡献在于用“FM 在推荐流水线中的角色”这一条主线，把分散的特征增强、生成式与智能体工作串成连续谱系，并向下对接数据形态与表示学习、向上对接下游任务与开放挑战。它没有制造一个统一实验，而是通过跨论文的趋势归纳给出可操作的判断：FM 在零样本、跨域、对话与可解释性场景中优势明确，在标准 Top-N 任务中则需谨慎评估其边际收益。</p>
-<p>边界同样清楚。综述的实证证据来自不同原文的异构设置，数字不可直接比较；智能体范式的评估方法尚不成熟，综述本身也将其列为开放挑战；多模态融合的对齐噪声、生成偏见放大、跨域泛化与公平性等问题仍未解决。此外，参数高效微调在推荐任务中的实践仍然有限，这是综述指出的一个尚未充分探索的方向。</p>
-<p>可迁移的设计启示是：在构建 FM 驱动的推荐系统时，应先判断任务的数据条件——交互信号是否充足、是否需要跨域迁移、是否要求自然语言解释——再决定 FM 的接入位置。把 FM 当特征提取器是成本最低的起点，生成式范式适合需要直接产出内容或解释的场景，智能体范式则适用于多轮交互与动态规划需求明确的场景。范式不是越新越好，匹配数据条件是第一原则。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>Chengkai Huang, Hongtao Huang, Tong Yu, Kaige Xie, Junda Wu, Shuai Zhang, Julian McAuley, Dietmar Jannach, Lina Yao. A Survey of Foundation Model-Powered Recommender Systems: From Feature-Based, Generative to Agentic Paradigms. arXiv:2504.16420, 2025. <a href="https://arxiv.org/abs/2504.16420">arXiv</a></p>
-</li>
-<li><p>TIGER: Recommender Systems with Generative Retrieval. 见综述第 5.1 节引用。</p>
-</li>
-<li><p>RLMRec: Representation Learning with Large Language Models for Recommendation. 见综述第 5.1 节引用。</p>
-</li>
-<li><p>ReAct: Synergizing Reasoning and Acting in Language Models. 见综述第 3.3 节引用。</p>
-</li>
-<li><p>AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation. <a href="https://github.com/microsoft/autogen">GitHub</a></p>
-</li>
-<li><p>smolagents: 轻量级智能体框架. <a href="https://github.com/huggingface/smolagents">GitHub</a></p>
 </li>
 </ul>
 ]]></content>
@@ -3276,50 +3276,6 @@
       </tags>
   </entry>
   <entry>
-    <title>AstaBench：用可控文献环境与成本感知排行榜严格评测科研智能体</title>
-    <url>/article/paper-2510.21652/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2510.21652">arXiv 2510.21652</a> · 代码：<a href="https://github.com/UKGovernmentBEIS/inspect">GitHub</a> · 代码：<a href="https://github.com/laude-institute/terminal-bench">GitHub</a> · 代码：<a href="https://github.com/mlfoundations/evalchemy">GitHub</a> · 代码：<a href="https://github.com/princeton-pli/hal-harness">GitHub</a> · 代码：<a href="https://github.com/soheeyang/unified-prompt-selection">GitHub</a> · PDF：<a href="https://app.notion.com/papers/2510.21652.pdf">本地阅读</a></p>
-</blockquote>
-<p>AI 智能体被寄望于自动完成文献综述、复现实验、分析数据乃至提出新研究方向，但“哪个智能体真正更强”却难以回答。现有基准往往缺少可复现的工具环境，不控制推理成本与工具访问等混淆变量，任务接口也不统一，导致排行榜上的领先可能来自更贵模型或更全工具，而非核心智能体能力。</p>
-<p>AstaBench 的定位正是回应这些缺陷：它不是一个新智能体，而是一套评测方法论、环境、工具链与排行榜的组合。论文首先形式化严格评测智能体的原则，再据此构建覆盖文献理解、编码与执行、数据分析、端到端发现四大类别的 11 个基准，共 2400 多个问题，其中不少来自已部署 Asta 智能体的真实用户请求。</p>
-<p>核心矛盾在于：科研任务既需要通用推理，又依赖领域工具与信息检索。若不同智能体访问的文献语料不同，比较就失去意义；若不计成本，重复采样或多数投票就能刷高分数。AstaBench 用生产级文献检索环境固定语料与工具集，用 Inspect 记录模型用量并折算为冻结价格快照下的美元成本，从而把“能力”与“资源”分开。</p>
-<p>部署条件方面，AstaBench 提供标准化任务接口，新智能体可较快接入；排行榜同时标注智能体开放程度（开源开放权重、开源闭源权重、闭源 API、仅界面）与工具使用方式（标准、自定义接口、完全自定义），使读者能判断分数背后的控制程度。</p>
-<h2 id="一、方法：原则、环境与成本感知评测"><a href="#一、方法：原则、环境与成本感知评测" class="headerlink" title="一、方法：原则、环境与成本感知评测"></a>一、方法：原则、环境与成本感知评测</h2><p>AstaBench 的方法由三层构成。第一层是评测原则：任务需覆盖完整科研流程、环境需可控可复现、评分需控制成本与工具等混淆变量、接口需对通用智能体友好、基线需足够全面。第二层是 Asta Environment，它提供生产级文献检索工具，让所有智能体在相同语料上检索，从而隔离“信息访问差异”与“规划、工具调用”等核心能力。第三层是 agent-eval 工具包与排行榜：基于 Inspect 记录模型用量，用 litellm 成本表的冻结快照计算归一化美元成本，并支持缓存折扣但不计延迟相关折扣，保证跨时间比较公平。</p>
-<p>在任务组织上，11 个基准被归入四个类别。文献理解包括 PaperFindingBench、LitQA2-FullText-Search、ScholarQA-CS2、ArxivDIGESTables-Clean 等；编码与执行包括 SUPER-Expert、CORE-Bench-Hard、DS-1000；数据分析以 DiscoveryBench 为代表；端到端发现包括 E2E-Bench 与 E2E-Bench-Hard。智能体套件包含九类 Asta 专用智能体与多种通用基线，最终实验覆盖 22 个智能体类别、57 个具体智能体。</p>
-<p><img src="/images/20fe201b9df2ae8e2eb1f3bf47356ea1.png" alt="文献理解问答基准的分数—成本分析"></p>
-<p>这张图应沿横轴从低成本向高成本阅读，纵轴是基准得分，误差棒为 95% 置信区间，虚线连接帕累托前沿上的点。它支撑的核心主张是：在文献理解问答上，专用智能体与通用 ReAct 的差距并非单纯由成本决定；Asta Scholar QA 在 ScholarQA-CS2 上以约 0.126 美元的成本取得 87.7 分，而 ReAct 搭配 gpt-5 以约 0.373 美元取得 79.8 分，说明任务优化能带来成本与质量的双重优势，但这一优势在 LitQA2-FullText 上并不一致。</p>
-<h2 id="二、实验：57-个智能体的成绩与代价"><a href="#二、实验：57-个智能体的成绩与代价" class="headerlink" title="二、实验：57 个智能体的成绩与代价"></a>二、实验：57 个智能体的成绩与代价</h2><p>实验覆盖数月，报告准确率、成本与标准差。下表汇总数据集、模型、划分、基线与指标等设置信息。</p>
-<p>主结果如下表所示，数值取自论文表 4 与表 11。</p>
-<p>最强相关基线是 ReAct 搭配 gpt-5，综合 44.0 分；类别层面呈现明显不一致：编码与执行上 ReAct 搭配 gpt-5 的 55.0 分高于 Asta v0 的 47.6 分；端到端发现上 Asta v0 的 68.8 分远高于 ReAct 搭配 gpt-5 的 36.1 分。这说明专用优化并非全面领先，而是以更高工程与推理成本换取特定类别优势。</p>
-<p><img src="/images/46f045f0988886db031814416c3cd02b.png" alt="端到端发现基准的分数—成本分析"></p>
-<p>这张图聚焦端到端发现，横轴为对数成本，纵轴为得分，虚线标出帕累托前沿。阅读时应关注高成本区间的 Asta Panda 与 Asta v0：Asta Panda 搭配 claude-sonnet-4 在 E2E-Bench 上得 70.5 分、成本约 10.643 美元，在 E2E-Bench-Hard 上得 68.2 分、成本约 14.487 美元；而 Smolagents Coder 搭配 gpt-5 仅用约 0.205 美元就在 E2E-Bench 上得 62.8 分，但在 E2E-Bench-Hard 上跌至 30.3 分。这支撑了“端到端发现的高分伴随极高成本，且难度提升后性能骤降”的判断。</p>
-<p>分基准看，文献理解问答中 Asta Scholar QA 搭配 gemini-2.5-flash 在 ScholarQA-CS2 上得 87.7 分、成本约 0.126 美元，Elicit 得 85.5 分，SciSpace Deep Review 得 84.6 分；但 LitQA2-FullText 上 ReAct 搭配 gpt-5 得 82.7 分，Asta v0 仅 70.7 分。编码任务中 SUPER-Expert 最高为 ReAct 搭配 gpt-5 的 41.1 分，CORE-Bench-Hard 最高为 ReAct 搭配 o3 的 56.8 分，DS-1000 最高为 ReAct 搭配 gpt-5 的 78.0 分。数据分析 DiscoveryBench 最高为 ReAct 搭配 o3 的 33.7 分。端到端发现的平均步骤完成率可达约 70%，但完整实验成功率最高仅 5%，论文以 0.7^10≈3% 说明多步串联的衰减。</p>
-<p>论文未报告独立的消融实验，因此这里不设消融表；其替代性证据是同一智能体类别下更换底层模型的对比，例如 ReAct 搭配 gpt-5 相比 o3 在多数基准提升 0%–5%，但在 ScholarQA-CS2 提升 13.4 个百分点、SUPER-Expert 提升 24.8 个百分点、LitQA2-FullText-Search 提升 25.3 个百分点、E2E-Bench-Hard 提升 21.1 个百分点。另一个值得注意的例外是 gpt-5 反而降低了部分专用智能体的表现，论文推测 gpt-5 可能更适配常见的 ReAct 式工作流。</p>
-<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>AstaBench 的机制贡献在于把“可控环境、标准化接口、成本核算、开放性与工具标注”整合为可复用的评测基础设施，并用 57 个智能体、22 个类别的实验给出当前科研智能体的全景快照。证据表明：文献理解相对成熟，最佳专用智能体在 ScholarQA-CS2 上接近 88 分；但编码、数据分析与端到端发现仍是瓶颈，SUPER-Expert 最高 41.1 分，DiscoveryBench 最高 33.7 分，完整实验成功率最高 5%。</p>
-<p>限制与边界同样明显：成本依赖冻结价格快照与社区维护的成本表，未计延迟折扣；类别聚合假设任务独立，可能略微低估不确定性；部分商业智能体无法在全部基准上评测；端到端发现的成功率对步骤数敏感。设计启示是，任何智能体排行榜都应同时报告成本、工具访问与开放程度，并用帕累托前沿而非单一分数来呈现性能—成本权衡，否则“领先”可能只是资源堆叠的结果。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>AstaBench: Rigorous Benchmarking of AI Agents with a Scientific Research Suite. <a href="https://arxiv.org/abs/2510.21652">arXiv 2510.21652</a></p>
-</li>
-<li><p>Inspect 评测框架：<a href="https://github.com/UKGovernmentBEIS/inspect">GitHub</a></p>
-</li>
-<li><p>Terminal-Bench：<a href="https://github.com/laude-institute/terminal-bench">GitHub</a></p>
-</li>
-<li><p>HAL 评测工具：<a href="https://github.com/princeton-pli/hal-harness">GitHub</a></p>
-</li>
-<li><p>Evalchemy：<a href="https://github.com/mlfoundations/evalchemy">GitHub</a></p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>论文速递</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>BPE 子词级嵌入初始化：用冻结 LLM 破解冷启动推荐</title>
     <url>/article/paper-2509.13179/</url>
     <content><![CDATA[<blockquote>
@@ -3421,6 +3377,50 @@
       </tags>
   </entry>
   <entry>
+    <title>AstaBench：用可控文献环境与成本感知排行榜严格评测科研智能体</title>
+    <url>/article/paper-2510.21652/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://arxiv.org/abs/2510.21652">arXiv 2510.21652</a> · 代码：<a href="https://github.com/UKGovernmentBEIS/inspect">GitHub</a> · 代码：<a href="https://github.com/laude-institute/terminal-bench">GitHub</a> · 代码：<a href="https://github.com/mlfoundations/evalchemy">GitHub</a> · 代码：<a href="https://github.com/princeton-pli/hal-harness">GitHub</a> · 代码：<a href="https://github.com/soheeyang/unified-prompt-selection">GitHub</a> · PDF：<a href="https://app.notion.com/papers/2510.21652.pdf">本地阅读</a></p>
+</blockquote>
+<p>AI 智能体被寄望于自动完成文献综述、复现实验、分析数据乃至提出新研究方向，但“哪个智能体真正更强”却难以回答。现有基准往往缺少可复现的工具环境，不控制推理成本与工具访问等混淆变量，任务接口也不统一，导致排行榜上的领先可能来自更贵模型或更全工具，而非核心智能体能力。</p>
+<p>AstaBench 的定位正是回应这些缺陷：它不是一个新智能体，而是一套评测方法论、环境、工具链与排行榜的组合。论文首先形式化严格评测智能体的原则，再据此构建覆盖文献理解、编码与执行、数据分析、端到端发现四大类别的 11 个基准，共 2400 多个问题，其中不少来自已部署 Asta 智能体的真实用户请求。</p>
+<p>核心矛盾在于：科研任务既需要通用推理，又依赖领域工具与信息检索。若不同智能体访问的文献语料不同，比较就失去意义；若不计成本，重复采样或多数投票就能刷高分数。AstaBench 用生产级文献检索环境固定语料与工具集，用 Inspect 记录模型用量并折算为冻结价格快照下的美元成本，从而把“能力”与“资源”分开。</p>
+<p>部署条件方面，AstaBench 提供标准化任务接口，新智能体可较快接入；排行榜同时标注智能体开放程度（开源开放权重、开源闭源权重、闭源 API、仅界面）与工具使用方式（标准、自定义接口、完全自定义），使读者能判断分数背后的控制程度。</p>
+<h2 id="一、方法：原则、环境与成本感知评测"><a href="#一、方法：原则、环境与成本感知评测" class="headerlink" title="一、方法：原则、环境与成本感知评测"></a>一、方法：原则、环境与成本感知评测</h2><p>AstaBench 的方法由三层构成。第一层是评测原则：任务需覆盖完整科研流程、环境需可控可复现、评分需控制成本与工具等混淆变量、接口需对通用智能体友好、基线需足够全面。第二层是 Asta Environment，它提供生产级文献检索工具，让所有智能体在相同语料上检索，从而隔离“信息访问差异”与“规划、工具调用”等核心能力。第三层是 agent-eval 工具包与排行榜：基于 Inspect 记录模型用量，用 litellm 成本表的冻结快照计算归一化美元成本，并支持缓存折扣但不计延迟相关折扣，保证跨时间比较公平。</p>
+<p>在任务组织上，11 个基准被归入四个类别。文献理解包括 PaperFindingBench、LitQA2-FullText-Search、ScholarQA-CS2、ArxivDIGESTables-Clean 等；编码与执行包括 SUPER-Expert、CORE-Bench-Hard、DS-1000；数据分析以 DiscoveryBench 为代表；端到端发现包括 E2E-Bench 与 E2E-Bench-Hard。智能体套件包含九类 Asta 专用智能体与多种通用基线，最终实验覆盖 22 个智能体类别、57 个具体智能体。</p>
+<p><img src="/images/20fe201b9df2ae8e2eb1f3bf47356ea1.png" alt="文献理解问答基准的分数—成本分析"></p>
+<p>这张图应沿横轴从低成本向高成本阅读，纵轴是基准得分，误差棒为 95% 置信区间，虚线连接帕累托前沿上的点。它支撑的核心主张是：在文献理解问答上，专用智能体与通用 ReAct 的差距并非单纯由成本决定；Asta Scholar QA 在 ScholarQA-CS2 上以约 0.126 美元的成本取得 87.7 分，而 ReAct 搭配 gpt-5 以约 0.373 美元取得 79.8 分，说明任务优化能带来成本与质量的双重优势，但这一优势在 LitQA2-FullText 上并不一致。</p>
+<h2 id="二、实验：57-个智能体的成绩与代价"><a href="#二、实验：57-个智能体的成绩与代价" class="headerlink" title="二、实验：57 个智能体的成绩与代价"></a>二、实验：57 个智能体的成绩与代价</h2><p>实验覆盖数月，报告准确率、成本与标准差。下表汇总数据集、模型、划分、基线与指标等设置信息。</p>
+<p>主结果如下表所示，数值取自论文表 4 与表 11。</p>
+<p>最强相关基线是 ReAct 搭配 gpt-5，综合 44.0 分；类别层面呈现明显不一致：编码与执行上 ReAct 搭配 gpt-5 的 55.0 分高于 Asta v0 的 47.6 分；端到端发现上 Asta v0 的 68.8 分远高于 ReAct 搭配 gpt-5 的 36.1 分。这说明专用优化并非全面领先，而是以更高工程与推理成本换取特定类别优势。</p>
+<p><img src="/images/46f045f0988886db031814416c3cd02b.png" alt="端到端发现基准的分数—成本分析"></p>
+<p>这张图聚焦端到端发现，横轴为对数成本，纵轴为得分，虚线标出帕累托前沿。阅读时应关注高成本区间的 Asta Panda 与 Asta v0：Asta Panda 搭配 claude-sonnet-4 在 E2E-Bench 上得 70.5 分、成本约 10.643 美元，在 E2E-Bench-Hard 上得 68.2 分、成本约 14.487 美元；而 Smolagents Coder 搭配 gpt-5 仅用约 0.205 美元就在 E2E-Bench 上得 62.8 分，但在 E2E-Bench-Hard 上跌至 30.3 分。这支撑了“端到端发现的高分伴随极高成本，且难度提升后性能骤降”的判断。</p>
+<p>分基准看，文献理解问答中 Asta Scholar QA 搭配 gemini-2.5-flash 在 ScholarQA-CS2 上得 87.7 分、成本约 0.126 美元，Elicit 得 85.5 分，SciSpace Deep Review 得 84.6 分；但 LitQA2-FullText 上 ReAct 搭配 gpt-5 得 82.7 分，Asta v0 仅 70.7 分。编码任务中 SUPER-Expert 最高为 ReAct 搭配 gpt-5 的 41.1 分，CORE-Bench-Hard 最高为 ReAct 搭配 o3 的 56.8 分，DS-1000 最高为 ReAct 搭配 gpt-5 的 78.0 分。数据分析 DiscoveryBench 最高为 ReAct 搭配 o3 的 33.7 分。端到端发现的平均步骤完成率可达约 70%，但完整实验成功率最高仅 5%，论文以 0.7^10≈3% 说明多步串联的衰减。</p>
+<p>论文未报告独立的消融实验，因此这里不设消融表；其替代性证据是同一智能体类别下更换底层模型的对比，例如 ReAct 搭配 gpt-5 相比 o3 在多数基准提升 0%–5%，但在 ScholarQA-CS2 提升 13.4 个百分点、SUPER-Expert 提升 24.8 个百分点、LitQA2-FullText-Search 提升 25.3 个百分点、E2E-Bench-Hard 提升 21.1 个百分点。另一个值得注意的例外是 gpt-5 反而降低了部分专用智能体的表现，论文推测 gpt-5 可能更适配常见的 ReAct 式工作流。</p>
+<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>AstaBench 的机制贡献在于把“可控环境、标准化接口、成本核算、开放性与工具标注”整合为可复用的评测基础设施，并用 57 个智能体、22 个类别的实验给出当前科研智能体的全景快照。证据表明：文献理解相对成熟，最佳专用智能体在 ScholarQA-CS2 上接近 88 分；但编码、数据分析与端到端发现仍是瓶颈，SUPER-Expert 最高 41.1 分，DiscoveryBench 最高 33.7 分，完整实验成功率最高 5%。</p>
+<p>限制与边界同样明显：成本依赖冻结价格快照与社区维护的成本表，未计延迟折扣；类别聚合假设任务独立，可能略微低估不确定性；部分商业智能体无法在全部基准上评测；端到端发现的成功率对步骤数敏感。设计启示是，任何智能体排行榜都应同时报告成本、工具访问与开放程度，并用帕累托前沿而非单一分数来呈现性能—成本权衡，否则“领先”可能只是资源堆叠的结果。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>AstaBench: Rigorous Benchmarking of AI Agents with a Scientific Research Suite. <a href="https://arxiv.org/abs/2510.21652">arXiv 2510.21652</a></p>
+</li>
+<li><p>Inspect 评测框架：<a href="https://github.com/UKGovernmentBEIS/inspect">GitHub</a></p>
+</li>
+<li><p>Terminal-Bench：<a href="https://github.com/laude-institute/terminal-bench">GitHub</a></p>
+</li>
+<li><p>HAL 评测工具：<a href="https://github.com/princeton-pli/hal-harness">GitHub</a></p>
+</li>
+<li><p>Evalchemy：<a href="https://github.com/mlfoundations/evalchemy">GitHub</a></p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>论文速递</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>Interact-RAG：把检索黑盒拆成可操纵的交互原语</title>
     <url>/article/paper-2510.27566/</url>
     <content><![CDATA[<blockquote>
@@ -3475,51 +3475,6 @@
       </tags>
   </entry>
   <entry>
-    <title>S-LLMR：用可学习门控决定何时信任 LLM 的推荐正则化</title>
-    <url>/article/paper-2512.21526/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2512.21526">arXiv 2512.21526</a> · PDF：<a href="https://app.notion.com/papers/2512.21526.pdf">本地阅读</a></p>
-</blockquote>
-<p>推荐系统在用户交互密集时表现稳定，但一旦进入冷启动用户、长尾物品或偏好表达微弱的稀疏区域，协同过滤类模型的信号就会迅速变薄。大语言模型恰好能提供语义先验和推理能力，从极少的交互历史中推断偏好，因此被广泛视为稀疏场景的补充知识源。问题在于，LLM 的推荐判断并非在所有用户—物品对上同样可靠：它可能受候选位置偏置影响，也可能产生幻觉，直接当推荐器用成本高且不稳定。</p>
-<p>现有两条主流路线各有明显代价。一条是把 LLM 直接部署为推荐器，推理开销大，且在大范围用户—物品空间上可靠性参差；另一条是全局知识蒸馏，让下游推荐模型在整个空间上模仿 LLM 输出，即使 LLM 在该实例上并不可靠。近期评估还指出，LLM 的优势是局部性的，尤其在短历史和重排序场景中更明显，而不是均匀分布在整个推荐空间。</p>
-<p>S-LLMR 的出发点正是这一经验事实：LLM 信号应当被当作条件性可靠的辅助信号，而不是无条件的地面真值。论文提出一个模型无关的训练框架，把 LLM 生成的软排序转化为成对排序正则项，并用一个可学习的门控网络决定该正则项在哪些用户—物品对上生效。门控的输入只有三个信号：用户是否冷启动、物品是否长尾、基础模型在该对上的预测不确定性。</p>
-<p>这一设计带来两个前置条件。第一，所有 LLM 打分都在离线阶段完成，训练时只查表，因此不增加在线推理成本；第二，门控参数与推荐骨干联合优化，不需要人工设定“何时信任 LLM”的阈值。论文在三个 Amazon 域和六个推荐骨干上验证了该框架，并特别报告了冷启动与长尾子集上的分层结果。</p>
-<h2 id="一、方法：离线软排序与可学习门控正则化"><a href="#一、方法：离线软排序与可学习门控正则化" class="headerlink" title="一、方法：离线软排序与可学习门控正则化"></a>一、方法：离线软排序与可学习门控正则化</h2><p>S-LLMR 的数据流可以分成离线打分和在线训练两段。离线阶段，对每个用户取最近 10 条交互作为历史摘要，从热门池中采样候选物品，拼成自然语言提示交给 GPT-4o-mini，返回每个候选物品的软相关性分数，归一化后存入查找表。为了覆盖协同过滤最弱的区域，论文额外构造了两类合成候选集：历史长度不超过 3 的冷启动用户与多样采样物品配对，以及流行度处于最低 10% 的长尾物品与采样用户配对。这些配对扩展了离线监督表的覆盖范围，使 LLM 能对训练数据中不存在的用户—物品组合给出判断。</p>
-<p><img src="/images/c6e9b5e4c22f3dbbf11d0e75ff2e74c8.png" alt="图 1：S-LLMR 的离线打分与在线门控正则化流程"></p>
-<p>读图时先看左侧离线阶段：用户历史被压缩成简短提示，LLM 输出软相关性分数并落成查找表。再看右侧训练阶段：基础推荐器照常产生预测分数，LLM 信号不进入主损失，而是通过成对排序正则项注入，该正则项的权重由门控函数逐对控制。这张图支撑的核心主张是“选择性”：LLM 知识只在训练期以条件正则的方式出现，推理路径与原始骨干完全一致。</p>
-<p>在线训练阶段，对每个用户从查找表中取出有 LLM 分数的物品，按 LLM 分数排序构造用户内有序对，只保留 LLM 分数差最大的若干对，避免过度正则化。若 LLM 认为物品 i 优于物品 j，则要求推荐模型也满足带间隔的排序关系，形成成对排序损失。门控权重取两个物品门控值的平均，乘在该损失项上。</p>
-<p>门控本身是一个单层网络：输入为冷启动指示、长尾指示和基础模型的不确定性分数，输出经 sigmoid 压缩到 0 到 1。不确定性可以采用置信度补数、预测熵或 dropout&#x2F;集成方差，论文在验证集上选择具体形式。门控参数与骨干通过完整目标联合反向传播：当 LLM 引导的对降低 hinge 损失时，梯度会把门控推高；当 LLM 信号无帮助时，门控被压低。最终训练目标是推荐主损失加上权重为 λ 的 LLM 正则项，论文取 λ&#x3D;0.1。</p>
-<p>这一机制把“是否信任 LLM”从人工规则变成了可学习参数，同时保持模型无关：任何能输出用户—物品分数的骨干都可以接入，门控只读取三个标量信号，不改变骨干结构。</p>
-<h2 id="二、实验：六个骨干、三个域与分层评估"><a href="#二、实验：六个骨干、三个域与分层评估" class="headerlink" title="二、实验：六个骨干、三个域与分层评估"></a>二、实验：六个骨干、三个域与分层评估</h2><p>论文在 Amazon Review 的三个子集上评估，数据稀疏性明显：冷启动交互占比接近一半，长尾物品约占两成。评估采用全排序设置，指标为 AUC，并额外报告冷启动用户（历史少于 3 条）和长尾物品（训练集流行度最低 20%）两个子集。</p>
-<p>主结果如下表，每个骨干组内最高 AUC 加粗。S-LLMR 在全部六个骨干和三个域上都取得最高 AUC，且最强相关基线是 LLM-CF。</p>
-<p>从绝对变化看，S-LLMR 相对无 LLM 骨干的提升在 DeepFM 上最直观：Sports 从 0.7990 到 0.8176，Beauty 从 0.7853 到 0.8101，Toys 从 0.7681 到 0.7961。相对最强相关基线 LLM-CF，提升幅度因骨干和域而异，例如 AutoInt 在 Sports 上从 0.8088 到 0.8161，DCNv1 在 Toys 上从 0.7702 到 0.7960。一致性方面，六个骨干乘三个域共 18 个组合全部由 S-LLMR 取得最高值，没有出现某个骨干上被 LLM-CF 反超的例外。代价方面，论文没有报告训练时间或离线 LLM 查询成本的数值，只说明离线打分不增加推理开销。</p>
-<p><img src="/images/c113d3c92cf0823393ec0344d796f769.png" alt="图 2：冷启动与长尾子集上的 AUC 提升"></p>
-<p>这张图按骨干分组展示冷启动用户和长尾物品两个子集上的 AUC 提升。横轴对应不同骨干，纵轴是相对提升幅度，两组柱分别对应冷启动和长尾。阅读重点是：两类稀疏子集的提升普遍高于整体提升，说明门控确实把 LLM 监督集中到了协同过滤信号最弱的区域，而不是均匀地抬高全局分数。</p>
-<p>消融实验在 DCNv2 上进行，分别比较全局与门控正则化、逐点与成对监督。</p>
-<p>消融给出两个清晰结论。第一，全局 LLM 正则并不稳定：在 Beauty 上整体 AUC 从 0.8028 降到 0.7911，长尾从 0.7702 降到 0.7330，说明无条件模仿 LLM 会伤害稀疏区域；门控版本则在三个域的整体、冷启动和长尾九个格子上全部不低于骨干。第二，逐点 MSE 监督普遍低于骨干，例如 Sports 整体从 0.811 降到 0.8069，Toys 从 0.7774 降到 0.7705；而成对排序版本在相同设置下取得最高值。论文据此认为，排序式监督比逐点回归更适合迁移 LLM 的语义知识，因为 LLM 的优势在相对排序而非绝对分数。</p>
-<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>S-LLMR 的机制可以概括为“离线打分、在线门控、成对正则”：LLM 只在训练期以条件正则项的形式出现，门控读取冷启动、长尾和不确定性三个信号，逐对决定正则强度，推理路径与原始骨干完全一致。实验证据覆盖六个架构差异明显的骨干和三个 Amazon 域，18 个骨干—域组合全部取得最高 AUC；消融进一步显示全局正则和逐点监督都可能低于骨干，而门控成对正则持续为正，冷启动与长尾子集的增益大于整体增益。</p>
-<p>边界同样需要说明。论文只报告了 AUC 一个指标，没有覆盖排序质量以外的业务指标；离线 LLM 打分依赖 GPT-4o-mini 和固定的历史长度与候选采样策略，查询成本与覆盖率的权衡没有给出数值；门控的可解释性停留在三个输入信号上，未分析学到的权重在不同域之间是否稳定。此外，所有实验都在 Amazon 评论数据上完成，跨域迁移和更大规模工业场景仍待验证。</p>
-<p>可迁移的设计启示是：当外部知识源（LLM、规则系统或其他模型）只在局部可靠时，与其全局蒸馏，不如把它的输出降级为带门控的正则项，让下游模型自己学习何时采纳。这一思路不限于推荐，也适用于任何需要融合不可靠外部信号的训练框架。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>Shanglin Yang, Zhan Shi. Selective LLM-Guided Regularization for Enhancing Recommendation Models. arXiv:2512.21526. <a href="https://arxiv.org/abs/2512.21526">https://arxiv.org/abs/2512.21526</a></p>
-</li>
-<li><p>Zhongxiang Sun et al. Large Language Models Enhanced Collaborative Filtering. CIKM 2024. arXiv:2403.17688</p>
-</li>
-<li><p>Xi Lin et al. Towards Open-World Recommendation with Knowledge Augmentation from Large Language Models. arXiv:2306.10933</p>
-</li>
-<li><p>Chumeng Jiang et al. Beyond Utility: Evaluating LLM as Recommender. WWW 2025. arXiv:2411.00331</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>论文速递</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>ItemRAG：把 RAG 的检索粒度从用户降到物品，让 LLM 推荐在冷启动下也稳</title>
     <url>/article/paper-2511.15141/</url>
     <content><![CDATA[<blockquote>
@@ -3554,6 +3509,51 @@
 <li><p>Lei Wang, Ee-Peng Lim. The Whole is Better than the Sum: Using Aggregated Demonstrations in In-Context Learning for Sequential Recommendation. NAACL 2024.</p>
 </li>
 <li><p>Zheng Hu, Yongsen Pan, Zetao Li, Jiaming Huang, Satoshi Nakagawa, Jiawen Deng, Shimin Cai, Fuji Ren. Retrieval-enhanced, Adaptively Collaborative, and Temporal-aware User Behavior Comprehension for LLM-based Sequential Recommendation. Information Processing &amp; Management, 2026.</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>论文速递</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>S-LLMR：用可学习门控决定何时信任 LLM 的推荐正则化</title>
+    <url>/article/paper-2512.21526/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://arxiv.org/abs/2512.21526">arXiv 2512.21526</a> · PDF：<a href="https://app.notion.com/papers/2512.21526.pdf">本地阅读</a></p>
+</blockquote>
+<p>推荐系统在用户交互密集时表现稳定，但一旦进入冷启动用户、长尾物品或偏好表达微弱的稀疏区域，协同过滤类模型的信号就会迅速变薄。大语言模型恰好能提供语义先验和推理能力，从极少的交互历史中推断偏好，因此被广泛视为稀疏场景的补充知识源。问题在于，LLM 的推荐判断并非在所有用户—物品对上同样可靠：它可能受候选位置偏置影响，也可能产生幻觉，直接当推荐器用成本高且不稳定。</p>
+<p>现有两条主流路线各有明显代价。一条是把 LLM 直接部署为推荐器，推理开销大，且在大范围用户—物品空间上可靠性参差；另一条是全局知识蒸馏，让下游推荐模型在整个空间上模仿 LLM 输出，即使 LLM 在该实例上并不可靠。近期评估还指出，LLM 的优势是局部性的，尤其在短历史和重排序场景中更明显，而不是均匀分布在整个推荐空间。</p>
+<p>S-LLMR 的出发点正是这一经验事实：LLM 信号应当被当作条件性可靠的辅助信号，而不是无条件的地面真值。论文提出一个模型无关的训练框架，把 LLM 生成的软排序转化为成对排序正则项，并用一个可学习的门控网络决定该正则项在哪些用户—物品对上生效。门控的输入只有三个信号：用户是否冷启动、物品是否长尾、基础模型在该对上的预测不确定性。</p>
+<p>这一设计带来两个前置条件。第一，所有 LLM 打分都在离线阶段完成，训练时只查表，因此不增加在线推理成本；第二，门控参数与推荐骨干联合优化，不需要人工设定“何时信任 LLM”的阈值。论文在三个 Amazon 域和六个推荐骨干上验证了该框架，并特别报告了冷启动与长尾子集上的分层结果。</p>
+<h2 id="一、方法：离线软排序与可学习门控正则化"><a href="#一、方法：离线软排序与可学习门控正则化" class="headerlink" title="一、方法：离线软排序与可学习门控正则化"></a>一、方法：离线软排序与可学习门控正则化</h2><p>S-LLMR 的数据流可以分成离线打分和在线训练两段。离线阶段，对每个用户取最近 10 条交互作为历史摘要，从热门池中采样候选物品，拼成自然语言提示交给 GPT-4o-mini，返回每个候选物品的软相关性分数，归一化后存入查找表。为了覆盖协同过滤最弱的区域，论文额外构造了两类合成候选集：历史长度不超过 3 的冷启动用户与多样采样物品配对，以及流行度处于最低 10% 的长尾物品与采样用户配对。这些配对扩展了离线监督表的覆盖范围，使 LLM 能对训练数据中不存在的用户—物品组合给出判断。</p>
+<p><img src="/images/c6e9b5e4c22f3dbbf11d0e75ff2e74c8.png" alt="图 1：S-LLMR 的离线打分与在线门控正则化流程"></p>
+<p>读图时先看左侧离线阶段：用户历史被压缩成简短提示，LLM 输出软相关性分数并落成查找表。再看右侧训练阶段：基础推荐器照常产生预测分数，LLM 信号不进入主损失，而是通过成对排序正则项注入，该正则项的权重由门控函数逐对控制。这张图支撑的核心主张是“选择性”：LLM 知识只在训练期以条件正则的方式出现，推理路径与原始骨干完全一致。</p>
+<p>在线训练阶段，对每个用户从查找表中取出有 LLM 分数的物品，按 LLM 分数排序构造用户内有序对，只保留 LLM 分数差最大的若干对，避免过度正则化。若 LLM 认为物品 i 优于物品 j，则要求推荐模型也满足带间隔的排序关系，形成成对排序损失。门控权重取两个物品门控值的平均，乘在该损失项上。</p>
+<p>门控本身是一个单层网络：输入为冷启动指示、长尾指示和基础模型的不确定性分数，输出经 sigmoid 压缩到 0 到 1。不确定性可以采用置信度补数、预测熵或 dropout&#x2F;集成方差，论文在验证集上选择具体形式。门控参数与骨干通过完整目标联合反向传播：当 LLM 引导的对降低 hinge 损失时，梯度会把门控推高；当 LLM 信号无帮助时，门控被压低。最终训练目标是推荐主损失加上权重为 λ 的 LLM 正则项，论文取 λ&#x3D;0.1。</p>
+<p>这一机制把“是否信任 LLM”从人工规则变成了可学习参数，同时保持模型无关：任何能输出用户—物品分数的骨干都可以接入，门控只读取三个标量信号，不改变骨干结构。</p>
+<h2 id="二、实验：六个骨干、三个域与分层评估"><a href="#二、实验：六个骨干、三个域与分层评估" class="headerlink" title="二、实验：六个骨干、三个域与分层评估"></a>二、实验：六个骨干、三个域与分层评估</h2><p>论文在 Amazon Review 的三个子集上评估，数据稀疏性明显：冷启动交互占比接近一半，长尾物品约占两成。评估采用全排序设置，指标为 AUC，并额外报告冷启动用户（历史少于 3 条）和长尾物品（训练集流行度最低 20%）两个子集。</p>
+<p>主结果如下表，每个骨干组内最高 AUC 加粗。S-LLMR 在全部六个骨干和三个域上都取得最高 AUC，且最强相关基线是 LLM-CF。</p>
+<p>从绝对变化看，S-LLMR 相对无 LLM 骨干的提升在 DeepFM 上最直观：Sports 从 0.7990 到 0.8176，Beauty 从 0.7853 到 0.8101，Toys 从 0.7681 到 0.7961。相对最强相关基线 LLM-CF，提升幅度因骨干和域而异，例如 AutoInt 在 Sports 上从 0.8088 到 0.8161，DCNv1 在 Toys 上从 0.7702 到 0.7960。一致性方面，六个骨干乘三个域共 18 个组合全部由 S-LLMR 取得最高值，没有出现某个骨干上被 LLM-CF 反超的例外。代价方面，论文没有报告训练时间或离线 LLM 查询成本的数值，只说明离线打分不增加推理开销。</p>
+<p><img src="/images/c113d3c92cf0823393ec0344d796f769.png" alt="图 2：冷启动与长尾子集上的 AUC 提升"></p>
+<p>这张图按骨干分组展示冷启动用户和长尾物品两个子集上的 AUC 提升。横轴对应不同骨干，纵轴是相对提升幅度，两组柱分别对应冷启动和长尾。阅读重点是：两类稀疏子集的提升普遍高于整体提升，说明门控确实把 LLM 监督集中到了协同过滤信号最弱的区域，而不是均匀地抬高全局分数。</p>
+<p>消融实验在 DCNv2 上进行，分别比较全局与门控正则化、逐点与成对监督。</p>
+<p>消融给出两个清晰结论。第一，全局 LLM 正则并不稳定：在 Beauty 上整体 AUC 从 0.8028 降到 0.7911，长尾从 0.7702 降到 0.7330，说明无条件模仿 LLM 会伤害稀疏区域；门控版本则在三个域的整体、冷启动和长尾九个格子上全部不低于骨干。第二，逐点 MSE 监督普遍低于骨干，例如 Sports 整体从 0.811 降到 0.8069，Toys 从 0.7774 降到 0.7705；而成对排序版本在相同设置下取得最高值。论文据此认为，排序式监督比逐点回归更适合迁移 LLM 的语义知识，因为 LLM 的优势在相对排序而非绝对分数。</p>
+<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>S-LLMR 的机制可以概括为“离线打分、在线门控、成对正则”：LLM 只在训练期以条件正则项的形式出现，门控读取冷启动、长尾和不确定性三个信号，逐对决定正则强度，推理路径与原始骨干完全一致。实验证据覆盖六个架构差异明显的骨干和三个 Amazon 域，18 个骨干—域组合全部取得最高 AUC；消融进一步显示全局正则和逐点监督都可能低于骨干，而门控成对正则持续为正，冷启动与长尾子集的增益大于整体增益。</p>
+<p>边界同样需要说明。论文只报告了 AUC 一个指标，没有覆盖排序质量以外的业务指标；离线 LLM 打分依赖 GPT-4o-mini 和固定的历史长度与候选采样策略，查询成本与覆盖率的权衡没有给出数值；门控的可解释性停留在三个输入信号上，未分析学到的权重在不同域之间是否稳定。此外，所有实验都在 Amazon 评论数据上完成，跨域迁移和更大规模工业场景仍待验证。</p>
+<p>可迁移的设计启示是：当外部知识源（LLM、规则系统或其他模型）只在局部可靠时，与其全局蒸馏，不如把它的输出降级为带门控的正则项，让下游模型自己学习何时采纳。这一思路不限于推荐，也适用于任何需要融合不可靠外部信号的训练框架。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>Shanglin Yang, Zhan Shi. Selective LLM-Guided Regularization for Enhancing Recommendation Models. arXiv:2512.21526. <a href="https://arxiv.org/abs/2512.21526">https://arxiv.org/abs/2512.21526</a></p>
+</li>
+<li><p>Zhongxiang Sun et al. Large Language Models Enhanced Collaborative Filtering. CIKM 2024. arXiv:2403.17688</p>
+</li>
+<li><p>Xi Lin et al. Towards Open-World Recommendation with Knowledge Augmentation from Large Language Models. arXiv:2306.10933</p>
+</li>
+<li><p>Chumeng Jiang et al. Beyond Utility: Evaluating LLM as Recommender. WWW 2025. arXiv:2411.00331</p>
 </li>
 </ul>
 ]]></content>
@@ -4002,127 +4002,6 @@
       </tags>
   </entry>
   <entry>
-    <title>HILL：为Meta基础检索模型MoNN学习分层索引，兼顾效率与精度</title>
-    <url>/article/paper-2604.12965/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2604.12965">arXiv 2604.12965</a> · PDF：<a href="https://app.notion.com/papers/2604.12965.pdf">本地阅读</a></p>
-</blockquote>
-<p>大规模基础检索模型在推荐系统中的应用日益广泛，从Wukong、HSTU到InterFormer，工业界不断将模型规模推向新的量级。然而，训练阶段的扩展并不自动转化为部署阶段的收益：当模型参数和特征维度膨胀到需要为海量用户-物品对逐一打分时，推理成本成为一道难以绕开的墙。常见的快速应对手段——离线预计算用户字典并缓存结果，或将大模型蒸馏为小模型——虽然降低了服务成本，却都没有充分释放基础模型本身的表示与推理能力。</p>
-<p>本文来自Meta广告平台的一线部署经验，其真实地位不在于提出又一个学术基准上的刷分方法，而在于系统性地回答了一个工业界迫切但此前鲜有公开讨论的问题：能否在基础检索模型的记忆之上学习一种分层组织结构，使得检索时只需沿树搜索少量路径，就能在保持精确性的前提下大幅削减计算量？作者给出的答案是HILL（Hierarchical Index Learning），并首次公开了Meta在用的基础检索模型MoNN的架构细节。</p>
-<p>研究矛盾集中在两个层面。其一，传统基于物品嵌入构建的索引树（如推荐森林）往往只利用物品侧信息，丢失了用户-物品交互中的丰富信号，难以适配今天深度复杂的基础模型。其二，即便索引能加速检索，如何在不引入额外标注的前提下持续提升模型性能，仍是一个开放问题。HILL的切入点是将索引学习与基础模型联合训练，并意外发现索引树的中间节点构成了一小批高质量数据，可用于测试时训练。</p>
-<p>前置条件方面，HILL依赖MoNN提供的用户与物品嵌入作为输入，索引学习与模型训练共享同一优化过程；在计算资源紧张时，论文也给出了基于EM算法和FAISS的近似版本。部署层面，MoNN已在Meta广告检索中服务Facebook和Instagram的数十亿用户，这为HILL的线上验证提供了真实场景。</p>
-<h2 id="一、方法：联合学习分层索引与测试时数据提取"><a href="#一、方法：联合学习分层索引与测试时数据提取" class="headerlink" title="一、方法：联合学习分层索引与测试时数据提取"></a>一、方法：联合学习分层索引与测试时数据提取</h2><p>HILL的整体数据流如图1所示。MoNN基础检索模型为每个用户和物品生成嵌入，HILL在这些嵌入之上逐层构建索引树，检索时从根节点出发做束搜索，快速定位相关物品；同时，从搜索路径回溯可提取中间层索引节点，与用户组成新的训练对，用于微调模型。</p>
-<p><img src="/images/0860c622d9f65fde1db0cb28c6c47f2a.png" alt="图1：MoNN基础检索模型与HILL索引的整体流程"></p>
-<p>阅读这张图时，可以先看左侧的MoNN模块：用户塔、物品塔和交互塔分别产出嵌入，OverArch聚合后给出偏好分数。右侧的HILL部分则展示了索引树的层级结构，以及从叶子到根的搜索路径如何被复用为测试时训练的数据来源。图中最值得关注的是索引学习与模型训练之间的双向箭头——索引不是训练完成后附加的后处理，而是在联合优化中与模型共同演化。</p>
-<p>MoNN本身的模块化设计如图2所示。用户塔和物品塔分别处理稠密与稀疏特征，交互塔则针对每个用户-物品对运行，计算代价最高，论文为此引入基于倒排索引的交互特征（I2IF）来降低交叉计算成本。这种“用户塔只算一次、交互塔按对计算”的分工，是理解后续分层索引为何能节省成本的基础：索引节点充当虚拟物品，使得高复杂度模型可以在粗粒度上运行，而不必对每个真实物品逐一计算。</p>
-<p><img src="/images/a29c2a38eac9debdb1fc6a6939dcdcd2.png" alt="图2：MoNN的基本模块结构"></p>
-<p>HILL的单层学习采用注意力机制：以物品嵌入为查询，以可学习的索引节点嵌入为键和值，计算物品到各索引节点的软分配权重，再以伪物品嵌入的形式参与MoNN的优化。跨层堆叠则借鉴残差量化思想，将当前层物品嵌入与伪物品嵌入之间的残差传递给下一层，使高层索引捕捉更泛化的概念，低层索引保留更细粒度的信息。训练稳定性由三个技巧保障：温度调度器从软分配逐步过渡到硬分配，FLOPs正则化器惩罚索引分布失衡，线性预热策略缓解初期物品在索引节点间的震荡。</p>
-<p>图3给出了一个学到的三层索引示例。8个物品分布在叶子层，用户u从根节点a出发，以宽度为2的束搜索定位到物品1。更有意思的是回溯路径1→d→b→a：节点b和d是训练数据中不存在的虚拟节点，却记录了用户u可能感兴趣的中间层语义。论文据此提出用深度参数φ_DEP和兴趣率φ_IR来筛选高质量的用户-索引节点对，只有用户兴趣在某个索引节点的子节点上足够集中时，该节点才被纳入微调数据。</p>
-<p><img src="/images/9897d61cbaf91c62d20fa4d5faff4939.png" alt="图3：HILL学到的分层索引示例"></p>
-<p>这张图同时支撑了两个主张：一是分层索引确实能将检索空间从全部物品收缩到少数路径；二是中间节点并非无意义的聚类中心，而是可以被解释为机器可读的类别节点，从而成为新的训练信号来源。</p>
-<h2 id="二、实验：公开基准、内部数据与线上A-B测试"><a href="#二、实验：公开基准、内部数据与线上A-B测试" class="headerlink" title="二、实验：公开基准、内部数据与线上A&#x2F;B测试"></a>二、实验：公开基准、内部数据与线上A&#x2F;B测试</h2><p>实验覆盖三个公开数据集和Meta内部广告推荐数据，任务为Top-20检索，评价指标包括Recall@20、NDCG@20和NE。公开数据集的统计与划分如下表所示。</p>
-<p>内部数据上的结果更能说明问题。下表比较了不同模型架构在NE、Recall和推理成本上的表现，成本以TTSN为1倍基准。</p>
-<table>
-<thead>
-<tr>
-<th>模型架构</th>
-<th>NE变化（↓）</th>
-<th>Recall变化（↑）</th>
-<th>推理成本</th>
-<th>理论成本</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>TTSN</td>
-<td>基线</td>
-<td>0%</td>
-<td>1x</td>
-<td>M_XS × V</td>
-</tr>
-<tr>
-<td>EBR</td>
-<td>+0.03%</td>
-<td>-0.1%</td>
-<td>0.5x</td>
-<td>M_XS × I_1</td>
-</tr>
-<tr>
-<td>MoNN Small</td>
-<td>-0.29%</td>
-<td>+2.4%</td>
-<td>2.5x</td>
-<td>M_S × V</td>
-</tr>
-<tr>
-<td>MoNN Medium</td>
-<td>-0.70%</td>
-<td>+4.2%</td>
-<td>17.3x</td>
-<td>M_M × V</td>
-</tr>
-<tr>
-<td>MoNN Large</td>
-<td>-1.70%</td>
-<td>+9.4%</td>
-<td>24.6x</td>
-<td>M_L × V</td>
-</tr>
-<tr>
-<td>2层MoNN（L1: Small, L2: TTSN）</td>
-<td>-0.23%</td>
-<td>+2.2%</td>
-<td>1.7x</td>
-<td>M_S × I_1 + M_XS × V</td>
-</tr>
-<tr>
-<td>2层MoNN（L1: Medium, L2: Small）</td>
-<td>-0.47%</td>
-<td>+3.6%</td>
-<td>3.3x</td>
-<td>M_M × I_1 + M_S × V</td>
-</tr>
-<tr>
-<td>2层MoNN（L1: Large, L2: Small）</td>
-<td>-0.97%</td>
-<td>+6.0%</td>
-<td>3.9x</td>
-<td>M_L × I_1 + M_S × V</td>
-</tr>
-</tbody></table>
-<p>基线覆盖经典协同过滤、神经协同过滤、生成式协同过滤、工业检索模型、通用图神经网络以及图神经网络启发的检索模型。公开数据集上以NESCL为检索模型，先用HILL的EM近似版本学习索引，再提取用户-索引节点对微调模型。</p>
-<p>主结果如下表所示，表中同时列出最强相关基线NESCL和HILL。</p>
-<p>HILL在三个数据集上均优于所有基线，但优势幅度并不大：Gowalla上Recall@20比NESCL高0.0016，NDCG@20高0.0014；Yelp2018和Amazon-Book上的提升更小。这一结果需要放在论文的定位下理解——公开数据集上的实验主要验证EM近似版本的有效性，而HILL的核心价值在于内部大规模场景下的效率-效果权衡。</p>
-<p>内部数据上的结果更能说明问题。下表比较了不同模型架构在NE、Recall和推理成本上的表现，成本以TTSN为1倍基准。</p>
-<p>单层MoNN Large效果最好，NE降低1.70%、Recall提升9.4%，但推理成本达到基线的24.6倍。2层堆叠方案用粗粒度层承担大部分计算、细粒度层只处理少量候选，在成本与效果之间取得折中：L1用Large、L2用Small时，NE降低0.97%、Recall提升6.0%，成本仅为3.9倍。这说明分层索引的收益并非来自更大的模型，而是来自让不同复杂度的模型处理不同粒度的特征。</p>
-<p>消融实验在Gowalla上以MoNN Small为骨干，结果如下表。</p>
-<p>三个技巧各自移除都会造成NE上升，且互不冲突，其中温度调度器的影响最大。这与方法设计一致：软到硬的过渡直接决定了训练时的软分配与 serving 时的硬分配之间的匹配程度。</p>
-<p>EM近似版本的对比在2层MoNN骨干上进行：完整HILL的NE为-0.15%，EM版本为-0.11%，差距在可接受范围内，说明在计算资源受限时EM近似是可行的替代方案。</p>
-<p>参数分析考察了测试时数据的数量与质量。φ_DEP取2时效果最好（Recall@20为0.1924，NDCG@20为0.1628），取1或3时略降，取4时进一步降至0.1916和0.1623，说明回溯过深会引入过于泛化的节点。φ_IR在0.4附近取得较好的Recall@20（0.1924），但不同阈值间的波动很小，最高0.1925、最低0.1914，表明该方法对兴趣率阈值并不敏感，少量而精确的数据已足够。</p>
-<p>线上A&#x2F;B测试是论文最有分量的证据。在Meta广告生产中，以MoNN Small为基线，2层MoNN（L1: Medium, L2: Small）带来+1.22%的线上指标提升，2层MoNN（L1: Large, L2: Small）带来+2.57%的提升，而TTSN相对基线为-0.21%。这组数字表明分层索引在真实高负载场景中确实可部署、可收益。</p>
-<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>HILL的机制可以概括为：在基础检索模型的嵌入空间上，用交叉注意力学习物品到索引节点的软映射，用残差量化逐层堆叠出层次结构，并通过温度调度、分布正则和预热保证训练稳定；检索时从根节点束搜索，避免对全部物品逐一打分；搜索路径回溯出的中间节点则被筛选为高质量用户-索引节点对，用于测试时微调。</p>
-<p>实验证据呈现出一条清晰的权衡曲线：单层大模型效果最好但成本高昂，2层堆叠以3.9倍成本换得NE降低0.97%和Recall提升6.0%，线上A&#x2F;B测试进一步给出+2.57%的指标增益；公开数据集上HILL相对NESCL的提升幅度较小，说明其优势更多体现在大规模工业场景而非小规模基准。</p>
-<p>限制与边界同样明显。公开数据集上的增益有限，EM近似版本与完整版本之间仍有差距；测试时训练目前只利用了正强信号，论文明确将弱信号、负信号和对比学习损失留作未来方向；索引节点的语义含义并未被显式学习，φ_IR的筛选依赖兴趣集中度的启发式定义。</p>
-<p>一个可迁移的设计启示是：当模型规模超出服务预算时，与其蒸馏或缓存，不如在模型自身的表示空间里学习一种可搜索的组织结构，并让这个结构反过来成为新的训练数据来源——索引既是加速器，也是数据生成器。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>Dongqi Fu, Yunchen Pu, Yiqun Liu, et al. Efficient Retrieval Scaling with Hierarchical Indexing for Large-Scale Recommendation. arXiv:2604.12965. <a href="https://arxiv.org/abs/2604.12965">https://arxiv.org/abs/2604.12965</a></p>
-</li>
-<li><p>Feng et al. Recommender Forest for Efficient Retrieval. NeurIPS 2022.</p>
-</li>
-<li><p>Gao et al. Deep Retrieval: Learning A Retrievable Structure for Large-Scale Recommendations. 2020.</p>
-</li>
-<li><p>Douze et al. The Faiss Library. arXiv:2401.08281, 2024.</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>论文速递</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>面向大语言模型生成式推荐的从个体兴趣到群体兴趣的迭代语义推理</title>
     <url>/article/paper-2603.13934/</url>
     <content><![CDATA[<p><a href="https://arxiv.org/pdf/2603.13934.pdf">论文链接</a> · <a href="https://github.com/htired/ISRF">代码链接</a></p>
@@ -4284,6 +4163,127 @@
       </tags>
   </entry>
   <entry>
+    <title>HILL：为Meta基础检索模型MoNN学习分层索引，兼顾效率与精度</title>
+    <url>/article/paper-2604.12965/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://arxiv.org/abs/2604.12965">arXiv 2604.12965</a> · PDF：<a href="https://app.notion.com/papers/2604.12965.pdf">本地阅读</a></p>
+</blockquote>
+<p>大规模基础检索模型在推荐系统中的应用日益广泛，从Wukong、HSTU到InterFormer，工业界不断将模型规模推向新的量级。然而，训练阶段的扩展并不自动转化为部署阶段的收益：当模型参数和特征维度膨胀到需要为海量用户-物品对逐一打分时，推理成本成为一道难以绕开的墙。常见的快速应对手段——离线预计算用户字典并缓存结果，或将大模型蒸馏为小模型——虽然降低了服务成本，却都没有充分释放基础模型本身的表示与推理能力。</p>
+<p>本文来自Meta广告平台的一线部署经验，其真实地位不在于提出又一个学术基准上的刷分方法，而在于系统性地回答了一个工业界迫切但此前鲜有公开讨论的问题：能否在基础检索模型的记忆之上学习一种分层组织结构，使得检索时只需沿树搜索少量路径，就能在保持精确性的前提下大幅削减计算量？作者给出的答案是HILL（Hierarchical Index Learning），并首次公开了Meta在用的基础检索模型MoNN的架构细节。</p>
+<p>研究矛盾集中在两个层面。其一，传统基于物品嵌入构建的索引树（如推荐森林）往往只利用物品侧信息，丢失了用户-物品交互中的丰富信号，难以适配今天深度复杂的基础模型。其二，即便索引能加速检索，如何在不引入额外标注的前提下持续提升模型性能，仍是一个开放问题。HILL的切入点是将索引学习与基础模型联合训练，并意外发现索引树的中间节点构成了一小批高质量数据，可用于测试时训练。</p>
+<p>前置条件方面，HILL依赖MoNN提供的用户与物品嵌入作为输入，索引学习与模型训练共享同一优化过程；在计算资源紧张时，论文也给出了基于EM算法和FAISS的近似版本。部署层面，MoNN已在Meta广告检索中服务Facebook和Instagram的数十亿用户，这为HILL的线上验证提供了真实场景。</p>
+<h2 id="一、方法：联合学习分层索引与测试时数据提取"><a href="#一、方法：联合学习分层索引与测试时数据提取" class="headerlink" title="一、方法：联合学习分层索引与测试时数据提取"></a>一、方法：联合学习分层索引与测试时数据提取</h2><p>HILL的整体数据流如图1所示。MoNN基础检索模型为每个用户和物品生成嵌入，HILL在这些嵌入之上逐层构建索引树，检索时从根节点出发做束搜索，快速定位相关物品；同时，从搜索路径回溯可提取中间层索引节点，与用户组成新的训练对，用于微调模型。</p>
+<p><img src="/images/0860c622d9f65fde1db0cb28c6c47f2a.png" alt="图1：MoNN基础检索模型与HILL索引的整体流程"></p>
+<p>阅读这张图时，可以先看左侧的MoNN模块：用户塔、物品塔和交互塔分别产出嵌入，OverArch聚合后给出偏好分数。右侧的HILL部分则展示了索引树的层级结构，以及从叶子到根的搜索路径如何被复用为测试时训练的数据来源。图中最值得关注的是索引学习与模型训练之间的双向箭头——索引不是训练完成后附加的后处理，而是在联合优化中与模型共同演化。</p>
+<p>MoNN本身的模块化设计如图2所示。用户塔和物品塔分别处理稠密与稀疏特征，交互塔则针对每个用户-物品对运行，计算代价最高，论文为此引入基于倒排索引的交互特征（I2IF）来降低交叉计算成本。这种“用户塔只算一次、交互塔按对计算”的分工，是理解后续分层索引为何能节省成本的基础：索引节点充当虚拟物品，使得高复杂度模型可以在粗粒度上运行，而不必对每个真实物品逐一计算。</p>
+<p><img src="/images/a29c2a38eac9debdb1fc6a6939dcdcd2.png" alt="图2：MoNN的基本模块结构"></p>
+<p>HILL的单层学习采用注意力机制：以物品嵌入为查询，以可学习的索引节点嵌入为键和值，计算物品到各索引节点的软分配权重，再以伪物品嵌入的形式参与MoNN的优化。跨层堆叠则借鉴残差量化思想，将当前层物品嵌入与伪物品嵌入之间的残差传递给下一层，使高层索引捕捉更泛化的概念，低层索引保留更细粒度的信息。训练稳定性由三个技巧保障：温度调度器从软分配逐步过渡到硬分配，FLOPs正则化器惩罚索引分布失衡，线性预热策略缓解初期物品在索引节点间的震荡。</p>
+<p>图3给出了一个学到的三层索引示例。8个物品分布在叶子层，用户u从根节点a出发，以宽度为2的束搜索定位到物品1。更有意思的是回溯路径1→d→b→a：节点b和d是训练数据中不存在的虚拟节点，却记录了用户u可能感兴趣的中间层语义。论文据此提出用深度参数φ_DEP和兴趣率φ_IR来筛选高质量的用户-索引节点对，只有用户兴趣在某个索引节点的子节点上足够集中时，该节点才被纳入微调数据。</p>
+<p><img src="/images/9897d61cbaf91c62d20fa4d5faff4939.png" alt="图3：HILL学到的分层索引示例"></p>
+<p>这张图同时支撑了两个主张：一是分层索引确实能将检索空间从全部物品收缩到少数路径；二是中间节点并非无意义的聚类中心，而是可以被解释为机器可读的类别节点，从而成为新的训练信号来源。</p>
+<h2 id="二、实验：公开基准、内部数据与线上A-B测试"><a href="#二、实验：公开基准、内部数据与线上A-B测试" class="headerlink" title="二、实验：公开基准、内部数据与线上A&#x2F;B测试"></a>二、实验：公开基准、内部数据与线上A&#x2F;B测试</h2><p>实验覆盖三个公开数据集和Meta内部广告推荐数据，任务为Top-20检索，评价指标包括Recall@20、NDCG@20和NE。公开数据集的统计与划分如下表所示。</p>
+<p>内部数据上的结果更能说明问题。下表比较了不同模型架构在NE、Recall和推理成本上的表现，成本以TTSN为1倍基准。</p>
+<table>
+<thead>
+<tr>
+<th>模型架构</th>
+<th>NE变化（↓）</th>
+<th>Recall变化（↑）</th>
+<th>推理成本</th>
+<th>理论成本</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>TTSN</td>
+<td>基线</td>
+<td>0%</td>
+<td>1x</td>
+<td>M_XS × V</td>
+</tr>
+<tr>
+<td>EBR</td>
+<td>+0.03%</td>
+<td>-0.1%</td>
+<td>0.5x</td>
+<td>M_XS × I_1</td>
+</tr>
+<tr>
+<td>MoNN Small</td>
+<td>-0.29%</td>
+<td>+2.4%</td>
+<td>2.5x</td>
+<td>M_S × V</td>
+</tr>
+<tr>
+<td>MoNN Medium</td>
+<td>-0.70%</td>
+<td>+4.2%</td>
+<td>17.3x</td>
+<td>M_M × V</td>
+</tr>
+<tr>
+<td>MoNN Large</td>
+<td>-1.70%</td>
+<td>+9.4%</td>
+<td>24.6x</td>
+<td>M_L × V</td>
+</tr>
+<tr>
+<td>2层MoNN（L1: Small, L2: TTSN）</td>
+<td>-0.23%</td>
+<td>+2.2%</td>
+<td>1.7x</td>
+<td>M_S × I_1 + M_XS × V</td>
+</tr>
+<tr>
+<td>2层MoNN（L1: Medium, L2: Small）</td>
+<td>-0.47%</td>
+<td>+3.6%</td>
+<td>3.3x</td>
+<td>M_M × I_1 + M_S × V</td>
+</tr>
+<tr>
+<td>2层MoNN（L1: Large, L2: Small）</td>
+<td>-0.97%</td>
+<td>+6.0%</td>
+<td>3.9x</td>
+<td>M_L × I_1 + M_S × V</td>
+</tr>
+</tbody></table>
+<p>基线覆盖经典协同过滤、神经协同过滤、生成式协同过滤、工业检索模型、通用图神经网络以及图神经网络启发的检索模型。公开数据集上以NESCL为检索模型，先用HILL的EM近似版本学习索引，再提取用户-索引节点对微调模型。</p>
+<p>主结果如下表所示，表中同时列出最强相关基线NESCL和HILL。</p>
+<p>HILL在三个数据集上均优于所有基线，但优势幅度并不大：Gowalla上Recall@20比NESCL高0.0016，NDCG@20高0.0014；Yelp2018和Amazon-Book上的提升更小。这一结果需要放在论文的定位下理解——公开数据集上的实验主要验证EM近似版本的有效性，而HILL的核心价值在于内部大规模场景下的效率-效果权衡。</p>
+<p>内部数据上的结果更能说明问题。下表比较了不同模型架构在NE、Recall和推理成本上的表现，成本以TTSN为1倍基准。</p>
+<p>单层MoNN Large效果最好，NE降低1.70%、Recall提升9.4%，但推理成本达到基线的24.6倍。2层堆叠方案用粗粒度层承担大部分计算、细粒度层只处理少量候选，在成本与效果之间取得折中：L1用Large、L2用Small时，NE降低0.97%、Recall提升6.0%，成本仅为3.9倍。这说明分层索引的收益并非来自更大的模型，而是来自让不同复杂度的模型处理不同粒度的特征。</p>
+<p>消融实验在Gowalla上以MoNN Small为骨干，结果如下表。</p>
+<p>三个技巧各自移除都会造成NE上升，且互不冲突，其中温度调度器的影响最大。这与方法设计一致：软到硬的过渡直接决定了训练时的软分配与 serving 时的硬分配之间的匹配程度。</p>
+<p>EM近似版本的对比在2层MoNN骨干上进行：完整HILL的NE为-0.15%，EM版本为-0.11%，差距在可接受范围内，说明在计算资源受限时EM近似是可行的替代方案。</p>
+<p>参数分析考察了测试时数据的数量与质量。φ_DEP取2时效果最好（Recall@20为0.1924，NDCG@20为0.1628），取1或3时略降，取4时进一步降至0.1916和0.1623，说明回溯过深会引入过于泛化的节点。φ_IR在0.4附近取得较好的Recall@20（0.1924），但不同阈值间的波动很小，最高0.1925、最低0.1914，表明该方法对兴趣率阈值并不敏感，少量而精确的数据已足够。</p>
+<p>线上A&#x2F;B测试是论文最有分量的证据。在Meta广告生产中，以MoNN Small为基线，2层MoNN（L1: Medium, L2: Small）带来+1.22%的线上指标提升，2层MoNN（L1: Large, L2: Small）带来+2.57%的提升，而TTSN相对基线为-0.21%。这组数字表明分层索引在真实高负载场景中确实可部署、可收益。</p>
+<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>HILL的机制可以概括为：在基础检索模型的嵌入空间上，用交叉注意力学习物品到索引节点的软映射，用残差量化逐层堆叠出层次结构，并通过温度调度、分布正则和预热保证训练稳定；检索时从根节点束搜索，避免对全部物品逐一打分；搜索路径回溯出的中间节点则被筛选为高质量用户-索引节点对，用于测试时微调。</p>
+<p>实验证据呈现出一条清晰的权衡曲线：单层大模型效果最好但成本高昂，2层堆叠以3.9倍成本换得NE降低0.97%和Recall提升6.0%，线上A&#x2F;B测试进一步给出+2.57%的指标增益；公开数据集上HILL相对NESCL的提升幅度较小，说明其优势更多体现在大规模工业场景而非小规模基准。</p>
+<p>限制与边界同样明显。公开数据集上的增益有限，EM近似版本与完整版本之间仍有差距；测试时训练目前只利用了正强信号，论文明确将弱信号、负信号和对比学习损失留作未来方向；索引节点的语义含义并未被显式学习，φ_IR的筛选依赖兴趣集中度的启发式定义。</p>
+<p>一个可迁移的设计启示是：当模型规模超出服务预算时，与其蒸馏或缓存，不如在模型自身的表示空间里学习一种可搜索的组织结构，并让这个结构反过来成为新的训练数据来源——索引既是加速器，也是数据生成器。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>Dongqi Fu, Yunchen Pu, Yiqun Liu, et al. Efficient Retrieval Scaling with Hierarchical Indexing for Large-Scale Recommendation. arXiv:2604.12965. <a href="https://arxiv.org/abs/2604.12965">https://arxiv.org/abs/2604.12965</a></p>
+</li>
+<li><p>Feng et al. Recommender Forest for Efficient Retrieval. NeurIPS 2022.</p>
+</li>
+<li><p>Gao et al. Deep Retrieval: Learning A Retrievable Structure for Large-Scale Recommendations. 2020.</p>
+</li>
+<li><p>Douze et al. The Faiss Library. arXiv:2401.08281, 2024.</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>论文速递</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>PaSaMaster：用递归自进化检索把文献发现的幻觉率压到零</title>
     <url>/article/paper-2605.14306/</url>
     <content><![CDATA[<blockquote>
@@ -4328,6 +4328,166 @@
       </categories>
       <tags>
         <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Meta-Modal Agent：把缺失模态当作路由信号，重排冷启动候选池</title>
+    <url>/article/paper-2605.25007/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://arxiv.org/abs/2605.25007">arXiv 2605.25007</a> · PDF：<a href="https://app.notion.com/papers/2605.25007.pdf">本地阅读</a></p>
+</blockquote>
+<p>多模态推荐系统依赖文本、图像和交互图三类证据，但在冷启动场景中，这些证据恰恰最不完整：新用户没有行为历史，新商品可能只有图片没有描述，隐私约束下用户属性还可能被主动屏蔽。已有方法大多把缺失模态当作“待恢复的信号”，通过插补、特征传播或生成式重建来补全表示。当存活模态本身信息很弱时，这种重建可能注入没有依据的证据，反而污染排序。</p>
+<p>Meta-Modal Agent（MMA）换了一个角度：不恢复缺失模态，而是让一个基于 LLM 的候选池重排序器在推理过程中决定“下一步查哪类证据”，并把工具返回 Null 当作一次有效观测，据此调整后续动作。论文把这一过程形式化为部分可观测马尔可夫决策过程（POMDP），用平衡缺失任务强化学习在掩码模态片段上训练策略。</p>
+<p>论文的真实定位需要说清楚：MMA 不是检索器，它只在第一阶段检索器给出的固定候选池上打分，再与第一阶段检索分数融合。因此它报告的是重排序增益，而不是端到端召回增益。作者也明确区分了两个变体：MMA-Auto 只使用自动化文本、图像、图工具，是部署主张；MMA-Interactive 额外允许向用户提问，仅作为上界诊断。</p>
+<p>研究矛盾在于：静态补全方法在存活证据较强时有效，但在极端缺失下可能生成看似合理却无支撑的特征；而朴素的 ReAct 式智能体又假设工具总会返回有效结果，一旦遇到 Null 容易重复失败路径或幻觉证据。MMA 要验证的是，学习到的顺序路由能否在相同工具和融合规则下，稳定优于确定性路由和强静态补全基线。</p>
+<p>前置条件与部署边界同样明确：方法依赖第一阶段检索器先召回目标商品，MMA 无法找回第一阶段漏掉的候选；训练和推理都基于 Llama-3-8B-Instruct 8-bit 量化加 LoRA，推理成本显著高于静态模型。这些约束决定了结果应被读作“固定池重排序的稳健改进”，而非冷启动推荐的全面解决方案。</p>
+<h2 id="一、方法：把-Null-返回变成路由观测"><a href="#一、方法：把-Null-返回变成路由观测" class="headerlink" title="一、方法：把 Null 返回变成路由观测"></a>一、方法：把 Null 返回变成路由观测</h2><p>MMA 的整体数据流可以概括为四步：接收共享候选池、调用证据工具、把 Null 写入交互历史、输出候选分数并与第一阶段分数融合。图 1 给出了这一流程的全局视图。</p>
+<p><img src="/images/e6519db3f82631e6c9e5e2a80723d5ed.png" alt="图 1：MMA 总览"></p>
+<p>阅读这张图时，可以先看左侧的候选池入口：每个 episode 固定一个大小为 B 的候选集，目标商品被插入其中，其余位置由存活模态对应的硬负样本填充——文本可用时用 BM25，仅图像时用 CLIP 最近邻，仅行为时用 ANN 图检索。中间是证据路由层，智能体在文本、图像、图三类工具之间选择，工具返回 Null 时该结果进入交互历史而非被静默丢弃。右侧是终端评分动作，输出候选 ID 到分数的映射，再与第一阶段检索分数按验证集选定的权重融合。这张图支撑的核心主张是：缺失模态不是特征层面的噪声，而是动作层面的观测，路由策略本身构成重排序能力的一部分。</p>
+<h3 id="1-1-Episode-接口与候选池"><a href="#1-1-Episode-接口与候选池" class="headerlink" title="1.1 Episode 接口与候选池"></a>1.1 Episode 接口与候选池</h3><p>每个 episode 的候选池 C_e 大小固定为 B，智能体看到的是匿名化商品 ID、第一阶段排名，以及仅从当前可观测来源派生的摘要。文本可用时暴露标题、类目和描述片段；仅图像时暴露冻结 CLIP 标签摘要；仅行为时暴露图邻居摘要。隐藏目标商品 i^* 只用于评估器计算奖励和指标，从不展示给智能体。模态可用性用二值掩码 m \in {0,1}^{|\mathcal{M}|} 表示，覆盖文本、图像、行为三个维度，掩码在一个 episode 内固定、跨 episode 变化，且不直接告知智能体——智能体只能通过调用工具并观察是否返回 Null 来发现缺失。</p>
+<h3 id="1-2-证据路由智能体"><a href="#1-2-证据路由智能体" class="headerlink" title="1.2 证据路由智能体"></a>1.2 证据路由智能体</h3><p>episode 被建模为 POMDP \langle S, \mathcal{A}, \mathcal{P}, \Omega, O, \mathcal{R}, \gamma \rangle。潜在状态包含用户偏好分布和固定掩码，环境在 episode 内静态，因此所有适应都来自交互历史 H_t &#x3D; (z_1,a_1,o_1,\ldots,z_t,a_t,o_t) 的更新，其中 z_t 是推理轨迹，a_t 是结构化工具动作，o_t 是返回观测。策略先产生推理轨迹，再产生单行 JSON 动作；动作空间是工具名与 JSON 参数串的笛卡尔积，非法 JSON 或未知工具名会触发无效动作惩罚。</p>
+<p>三个自动化工具分别是：<code>Analyze_Text</code> 返回规范化标题、类目和截断描述，文本缺失时返回 Null；<code>Analyze_Image</code> 运行冻结 CLIP-ViT-L&#x2F;14 编码器返回 top-5 零样本语义标签，图像缺失时返回 Null；<code>Retrieve_Graph</code> 在预计算的商品-商品协同图上做 ANN 搜索返回共同购买邻居标题，行为缺失时返回 Null。第四个工具 <code>Ask_User</code> 仅用于 MMA-Interactive，它把存活模态证据转成自然语言澄清，属于理想化上界而非部署主张。</p>
+<h3 id="1-3-候选评分与融合"><a href="#1-3-候选评分与融合" class="headerlink" title="1.3 候选评分与融合"></a>1.3 候选评分与融合</h3><p>终端动作 <code>Score_Candidates</code> 输出候选 ID 到相关性分数的 JSON 映射，而不是单商品推荐或检索动作。MMA 分数在候选池内做 min–max 归一化后与归一化的第一阶段分数融合：\hat{s}_i &#x3D; \alpha s_i^{(0)} + (1-\alpha) s_i^{\mathrm{MMA}}，融合权重 \alpha 由验证集网格搜索选定后固定用于测试。终端 JSON 中遗漏的候选保留第一阶段分数和相对顺序；JSON 格式错误则触发无效动作惩罚，该 episode 回退到第一阶段排序。</p>
+<h3 id="1-4-平衡缺失任务训练"><a href="#1-4-平衡缺失任务训练" class="headerlink" title="1.4 平衡缺失任务训练"></a>1.4 平衡缺失任务训练</h3><p>训练按缺失模式划分为 7 个任务族：全模态、缺文本、缺图像、冷用户（缺行为）、仅文本、仅图像、仅行为。每个任务族按固定掩码分布采样，rollout 时任务族均匀采样，使严重的 OOMA 情形与容易的全观测情形获得相同训练曝光。策略优化使用 PPO 加广义优势估计，训练时更新 LoRA 适配器和价值头，测试时只通过上下文适应，不做梯度更新。</p>
+<h2 id="二、实验：固定池重排序的四项证据检查"><a href="#二、实验：固定池重排序的四项证据检查" class="headerlink" title="二、实验：固定池重排序的四项证据检查"></a>二、实验：固定池重排序的四项证据检查</h2><p>实验围绕四个问题组织：无 oracle 的 OOMA 稳健性、逐模态 OOMA 分解、固定池全目录重排序、以及确定性路由机制对照。数据集为 Amazon-Baby、Amazon-Sports 和 Yelp 2022 版，按时间划分：最早 80% 交互训练，接下来 10% 验证，最近 10% 测试。</p>
+<p>终端动作 <code>Score_Candidates</code> 输出候选 ID 到相关性分数的 JSON 映射，而不是单商品推荐或检索动作。MMA 分数在候选池内做 min–max 归一化后与归一化的第一阶段分数融合：<span class="math-inline">$\hat{s}&#95;i &#x3D; \alpha s&#95;i^{(0)} + (1-\alpha) s&#95;i^{\mathrm{MMA}}$</span>，融合权重 <span class="math-inline">$\alpha$</span> 由验证集网格搜索选定后固定用于测试。终端 JSON 中遗漏的候选保留第一阶段分数和相对顺序；JSON 格式错误则触发无效动作惩罚，该 episode 回退到第一阶段排序。</p>
+<h3 id="1-4-平衡缺失任务训练-1"><a href="#1-4-平衡缺失任务训练-1" class="headerlink" title="1.4 平衡缺失任务训练"></a>1.4 平衡缺失任务训练</h3><h3 id="2-1-无-oracle-的-OOMA-主结果"><a href="#2-1-无-oracle-的-OOMA-主结果" class="headerlink" title="2.1 无 oracle 的 OOMA 主结果"></a>2.1 无 oracle 的 OOMA 主结果</h3><p>主结果比较 MMA-Auto 与强静态补全基线。MMA-Auto 禁用 <code>Ask_User</code>，因此增益只能来自自动化路由、候选评分和与第一阶段分数的融合。</p>
+<p>DGMRec 在三个数据集上都是更强的静态基线，MMA-Auto 相对它的平均 NDCG@10 提升为 4.0%。绝对增益不大，但方向一致：Baby、Sports、Yelp 分别提升 0.0064、0.0066、0.0068。三个数据集证据结构不同——Amazon 有结构化文本和商品图，Yelp 更依赖评论文本和场所照片——这种跨域一致性支持“学习到的证据路由带来稳健重排序增益”这一较窄的部署主张。需要强调的是，目标正样本池中的负样本来自存活模态的硬检索，任务不是找出明显相关商品，而是在缺失条件下重排看似合理的候选，因此增益应被读作对存活证据的更好利用，而非全目录检索能力的证明。</p>
+<h3 id="2-2-逐模态-OOMA-分解"><a href="#2-2-逐模态-OOMA-分解" class="headerlink" title="2.2 逐模态 OOMA 分解"></a>2.2 逐模态 OOMA 分解</h3><p>MMA-Auto 在全部 9 个数据集-模态组合上都优于 DGMRec 和 GRE-MC 中较强的一个。仅文本 episode 的绝对 NDCG 最高，因为标题、类目和描述直接暴露语义相关性；仅行为 episode 的绝对分数接近仅文本，尤其在 Amazon 上，因为图邻居摘要常携带强协同信号，但相对增益小于图像场景。9 个组合全部提升，比任何单一组合的幅度更能说明路由机制在变化的缺失模式下都有效。</p>
+<h3 id="2-3-固定池全目录重排序"><a href="#2-3-固定池全目录重排序" class="headerlink" title="2.3 固定池全目录重排序"></a>2.3 固定池全目录重排序</h3><p>目标正样本协议通过构造插入目标商品，可能高估重排序难度控制。固定池全目录重排序用真实第一阶段检索器产生候选池，再让 MMA-Auto 重排同一池子。</p>
+<p>Recall@100 按构造完全相同，因此表格隔离的是固定检索池内部的排序质量。平均 NDCG@10 从 0.0178 升到 0.0201，平均 HR@10 从 0.0385 升到 0.0427，平均每数据集相对 NDCG@10 增益为 12.7%。绝对 NDCG 远低于目标正样本设置，因为第一阶段检索器必须先在全目录中召回目标商品，MMA 才能重排它——这正是第三阶段打分器的预期行为：它能改善已有候选的顺序，但无法找回第一阶段漏掉的商品。这一检查把主张限制在固定池重排序范围内，而不是端到端检索提升。</p>
+<h3 id="2-4-交互上界与机制对照"><a href="#2-4-交互上界与机制对照" class="headerlink" title="2.4 交互上界与机制对照"></a>2.4 交互上界与机制对照</h3><p>由于澄清响应是从存活证据合成的理想化反馈，这一结果只作为上界诊断，不进入部署主张。</p>
+<p>机制对照使用 RuleRouter-Fuse：它拥有与 MMA-Auto 相同的候选池、自动化工具、轮次预算和验证集选定的融合规则，但用固定路由顺序和确定性证据打分器替代 LLM 推理与策略学习。</p>
+<p>MMA-Auto 在三个数据集上都优于 RuleRouter-Fuse，平均 NDCG@10 从 0.1578 升到 0.1711，相对增益 8.4%；RuleRouter-Fuse 在每个数据集上都低于 DGMRec，说明固定路由在 OOMA 下较脆弱。诊断指标解释了原因：确定性路由失败调用率更高（65.8% 对 47.0%），每 episode 需要更多轮次（3.8 对 2.5）。固定顺序在存活模态偏离其偏好路径时会浪费调用，遇到 Null 后也缺乏判断“是否还值得再查候选级证据”的能力；MMA-Auto 则根据累积历史条件化后续动作，把失败调用变成切换工具或提前终止的证据。</p>
+<p>配对显著性检验显示，MMA-Auto 相对 DGMRec 在 Baby、Sports、Yelp 上的平均差值分别为 +0.0064、+0.0066、+0.0068，Wilcoxon p 分别为 0.021、0.034、0.018，Cliff’s δ 分别为 0.18、0.15、0.19。</p>
+<p>消融方面，零样本 ReAct 锚点表现最差，说明仅有提示和工具访问在结构性缺失下不够；</p>
+<h3 id="2-5-代价与边界"><a href="#2-5-代价与边界" class="headerlink" title="2.5 代价与边界"></a>2.5 代价与边界</h3><p>附录报告了推理成本：DGMRec 为 0.012 秒、2.1 GB、1.2e9 FLOPs，GRE-MC 为 0.015 秒、2.8 GB、1.8e9 FLOPs，MMA-Interactive 为 1.250 秒、8.6 GB、8.2e11 FLOPs，平均 3.9 次前向。智能体推理显著慢于静态基线，因此增益应被读作精度-延迟权衡。附录还按 OOMA 子条件报告了恢复率、失败调用率、成功所需轮次和首动作路由率，这些轨迹支持机制分析，但不足以证明训练环境之外的通用推理能力。</p>
+<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>MMA 的机制核心是把缺失模态从表示学习问题改写为顺序证据路由问题：智能体在固定候选池上调用文本、图像、图工具，把 Null 返回写入交互历史并据此切换证据源，终端输出候选分数与第一阶段检索分数融合。平衡缺失任务训练让 7 种掩码模式获得均匀曝光，PPO 奖励同时考虑排序质量和调用成本。</p>
+<p>实验证据支持一个范围明确的主张：在无 oracle、无用户澄清的 OOMA 设置下，MMA-Auto 在 9 个数据集-模态组合上全部优于最强静态基线，平均 NDCG@10 提升 4.0%；固定池全目录重排序平均相对提升 12.7%，且 Recall@100 不变；相对同工具同融合规则的确定性路由，平均 NDCG@10 从 0.1578 升到 0.1711，同时失败调用率和轮次更低。</p>
+<p>限制同样清楚：MMA 是固定池重排序器，无法找回第一阶段漏掉的商品；交互变体只是理想化上界；推理成本比静态模型高两个数量级以上；效应量 modest，且任务索引相对池化训练没有带来明显平均增益。</p>
+<p>可迁移的设计启示是：在工具可能失败的智能体系统里，把失败返回当作一等观测而非静默异常，并用缺失模式分层采样保证罕见但关键的状态获得训练覆盖，比单纯增加工具或提示更能带来稳健的决策改进。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>Jinze Wang, Yangchen Zeng, Tiehua Zhang, Lu Zhang, Yuze Liu, Zhishu Shen, Jiong Jin, Zhu Sun. Meta-Modal Agent: Sequential Evidence Routing for Missing-Modality Candidate Reranking. arXiv:2605.25007. <a href="https://arxiv.org/abs/2605.25007">https://arxiv.org/abs/2605.25007</a></p>
+</li>
+<li><p>Jiwan Kim et al. Disentangling and Generating Modalities for Recommendation in Missing Modality Scenarios. SIGIR 2025.</p>
+</li>
+<li><p>Yuan Li et al. Robust Multimodal Recommendation via Graph Retrieval-Enhanced Modality Completion. arXiv:2605.00670, 2026.</p>
+</li>
+<li><p>Yujia Qin et al. ToolLLM: Facilitating Large Language Models to Master 16000+ Real-World APIs. ICLR 2024.</p>
+</li>
+<li><p>Shunyu Yao et al. ReAct: Synergizing Reasoning and Acting in Language Models. ICLR 2023.</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+        <category>论文速递</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>τ-Rec：面向智能体推荐系统的可验证基准</title>
+    <url>/article/paper-2606.10156/</url>
+    <content><![CDATA[<p><a href="https://arxiv.org/abs/2606.10156">论文链接</a> · <a href="https://github.com/nbharaths/tau-rec">代码链接</a></p>
+<h2 id="一、研究背景与问题"><a href="#一、研究背景与问题" class="headerlink" title="一、研究背景与问题"></a>一、研究背景与问题</h2><p>现代推荐系统正从静态的单轮排序流水线演化为由大语言模型驱动的智能体系统：智能体在多轮对话中规划、调用外部工具查询目录、对多准则约束进行推理，并在会话内逐步适应用户偏好。InteRecAgent、RecMind、MACRec 与 AgentRecBench 等工作都体现了这一趋势。然而，面向智能体推荐系统的评测并未同步跟进。现有基准大致分为两类，且都不足以支撑智能体场景。第一类是静态对话语料类基准，如 INSPIRED、DuRecDial、OpenDialKG 与 CRSLab，它们以 BLEU、Recall@k 等表层指标对照固定标注对话衡量推荐质量，容易受到记忆化与数据泄漏的影响。第二类是“LLM 作为评判者”类基准，如 MT-Bench、UserSimCRS v2 与 CRS Arena，依赖主观打分，成本高、非确定性且跨运行不一致；Bernard 与 Balog 也指出，现有对话式推荐指标与真实用户满意度之间仅存在弱相关。</p>
+<p>为此，作者提出 τ-Rec，一个面向智能体对话式推荐的可验证基准。τ-Rec 将推荐建模为多轮对话中的约束优化问题，并把交互视为工具—智能体—用户（TAU）回路上的部分可观测马尔可夫决策过程（POMDP）。推荐智能体可使用目录与元数据工具，而用户模拟器持有智能体必须通过对话引导出的私有偏好。智能体同时接受两项能力的检验：其一是偏好引导，即通过提出恰当问题揭示用户未明说的需求；其二是约束推理，即调用正确的工具并组合其结果以满足已引导出的约束。在 τ-bench 的基础上，τ-Rec 采用 <span class="math-inline">$\mathrm{pass}^{k}$</span> 指标，衡量智能体在全部 <span class="math-inline">$k$</span> 次独立试验中正确完成任务的概率，从而揭示 Recall@N、Hit Rate@N 等仅衡量能力的指标无法检测的可靠性维度。基准目录由 TMDB 中晚于主流大模型训练截止时间的电影构成，以防止记忆化。</p>
+<p>τ-Rec 还引入了现有对话式推荐基准所缺失的策略合规目标。受 τ-bench 领域策略文档与 MATCHA 在游戏推荐中安全策略工作的启发，τ-Rec 的策略不仅检验智能体推荐了什么，还检验它如何推荐：例如年龄受限内容是否被恰当限制、赞助内容是否被披露、已消费条目是否被过滤，以及面对不可能满足的请求时智能体是否选择弃答而非编造推荐。这一维度使负责任的人工智能行为成为一等评测目标。作者以 GPT-5 mini 作为用户模拟器，评测了 GPT-5.4、Claude Sonnet 4.6、Gemini 2.5 Flash、GPT-5 mini、DeepSeek V4 Flash 与 Qwen3-32B 等模型作为智能体的表现，结果暴露出显著的可靠性悬崖：即便最强智能体在 <span class="math-inline">$\mathrm{pass}^{1}$</span> 上也仅约 57%，在 <span class="math-inline">$\mathrm{pass}^{4}$</span> 上降至约 35%。</p>
+<h2 id="二、方法"><a href="#二、方法" class="headerlink" title="二、方法"></a>二、方法</h2><p>τ-Rec 将推荐交互建模为工具—智能体—用户（TAU）三元组上的部分可观测马尔可夫决策过程。每一轮中，推荐智能体可观测到：与模拟用户的对话历史、其已发出的工具调用结果，以及通过工具响应暴露的目录元数据。用户的完整约束集合（包括隐藏约束）不可观测，必须通过对话推断。智能体的动作空间包括三类：面向用户的自然语言话语、目录工具调用（搜索、过滤、元数据查询、可用性检查），以及提交单一候选的终止性 <code>recommend</code> 工具。当智能体发出推荐或轮次预算耗尽时，回合结束。</p>
+<p>环境建立在四个技术支柱之上，每个支柱都针对既有对话式推荐评测的特定失效模式。</p>
+<p>第一，可验证奖励。成功与否依据类型化目录谓词判定，例如 <code>runtime &lt;= 120</code> 或 <code>content_rating</code> <span class="math-inline">$\in {\text{PG-13},\text{G}}$</span>，全部为非主观判断。主奖励为 <code>constraint_score</code> <span class="math-inline">$\times$</span> <code>policy_score</code> 的乘积，二者均取值于 <span class="math-inline">$[0,1]$</span>。在实验采用的严格评分下，仅当所有必需约束维度均被满足且所有生效策略均被遵守时，推荐才算成功；作者另报告部分得分分解，以将失败归因到具体维度。由于评分直接依据类型化谓词对目录求值，无需任何 LLM 调用，完全确定且可复现。</p>
+<p>第二，揭示标签引导（RTE）。任务中的每个约束被标记为 <code>volunteer</code>（用户在开场轮主动陈述）、<code>on_ask</code>（仅当被明确询问该属性时才陈述）或 <code>hidden</code>（用户从不明确陈述，但会拒绝违反该约束的推荐）。该标记迫使智能体通过对话引导信息，而非在首轮就获得完整偏好清单，从而堵住了许多既有对话式推荐基准可被单轮模式匹配轻易攻破的漏洞。</p>
+<p>第三，<span class="math-inline">$\mathrm{pass}^{k}$</span> 可靠性指标。沿用 τ-bench，报告智能体在全部 <span class="math-inline">$k$</span> 次独立试验中均完成任务的概率，而非跨试验的平均成功率：</p>
+<div class="math-display">\[\mathrm{pass}^{k} = \frac{1}{|T|} \sum_{t \in T} \frac{\binom{c_t}{k}}{\binom{n_t}{k}}\]</div>
+
+<p>其中 <span class="math-inline">$c&#95;t$</span> 为任务 <span class="math-inline">$t$</span> 上成功的试验次数，<span class="math-inline">$n&#95;t$</span> 为试验总数。<span class="math-inline">$\mathrm{pass}^{1}$</span> 衡量能力，<span class="math-inline">$k&gt;1$</span> 的 <span class="math-inline">$\mathrm{pass}^{k}$</span> 衡量一致性。正如 Bernard 与 Balog 所论，仅衡量能力的指标会掩盖智能体需反复成功时才显现的可靠性悬崖。</p>
+<p>第四，将策略执行作为一等目标。每个任务携带一组来自领域策略文档的生效策略标志，程序化检查审计轨迹是否遵守七项策略：<code>recommend_tool</code>（必须通过专用工具而非自由文本发出推荐）、<code>watch_history</code>（不得推荐已消费条目）、<code>availability</code>（仅推荐用户所述流媒体服务上可用的作品）、<code>age_restricted</code>（对年轻用户角色限制成人内容）、<code>sponsored</code>（披露赞助位）、<code>transparency</code>（在不可能任务上明确弃答而非强行给出不存在的推荐）以及 <code>single_recommendation</code>（返回单一具体推荐而非列表）。</p>
+<p>在目录构建方面，基准目录来自 TMDB 公共 REST API，构建流水线分三阶段。阶段一为发现：以 2025—2026 年上映日期过滤查询 <code>/discover/movie</code>，确保晚于所有主流 LLM 的训练截止时间，并按热度与投票数排序以筛选元数据覆盖充分的影片。阶段二为丰富：对每个候选发起后续请求，获取类型标签、时长（分钟）、MPAA 风格内容分级（G &#x2F; PG &#x2F; PG-13 &#x2F; R &#x2F; NR）、演员与导演、评分均值与投票数（作为质量代理）、上映日期，以及来自 <code>/movie/&#123;id&#125;/watch/providers</code> 的分地区流媒体提供商信息。阶段三为规范化与校验：记录被规范化为类型化模式，轻度去重，并过滤以确保所有任务相关属性（<code>runtime</code>、<code>genres</code>、<code>content_rating</code>、<code>streaming_services</code>、<code>rating</code>）均已填充；缺失任一必需字段的条目被丢弃，以保证约束谓词可被干净地求值。当前目录包含 153 部电影，且易于扩展；流水线参数化且幂等，可定期刷新生成绑定日期的目录快照，并自动重新校验所有任务约束以确认任务可解性。</p>
+<p>在任务构建方面，每个任务规定：模拟用户的自然语言人设；目录模式上的类型化约束（类型、时长上下界、内容分级允许列表、最低评分均值、必需流媒体服务），每个约束带 RTE 标签；供模拟器塑造回复风格但不参与评分的可选软偏好；以及智能体轨迹中必须遵守的生效策略标志列表。任务沿两个轴分层：复杂度由约束数量决定，分为简单（1—2 个约束）、中等（3—4 个）与复杂（5 个及以上）；揭示难度在任务层面设定，分为 volunteer（全部约束主动暴露）、mixed（至少含一个 <code>on_ask</code> 约束）与 hidden（至少含一个模拟器从不明确陈述的约束）。当前版本包含 60 个任务，覆盖复杂度（20 简单 &#x2F; 24 中等 &#x2F; 16 复杂）与揭示难度（13 volunteer &#x2F; 32 mixed &#x2F; 15 hidden）的网格，其中含 5 个无有效推荐任务，用于检验智能体是否正确弃答而非编造推荐。</p>
+<p><img src="/images/34346b0c0c9400a2bdbf40507e456f06.png" alt="方法图 1"></p>
+<p>该图示意 τ-Rec 的工具—智能体—用户（TAU）交互回路：推荐智能体在多轮对话中同时面向模拟用户与目录工具，用户持有包括隐藏约束在内的私有偏好，智能体需通过提问引导偏好并调用工具组合结果，最终经专用推荐工具提交单一候选。</p>
+<p><img src="/images/5fdd802e0315b36503b17b7682574d67.png" alt="方法图 2"></p>
+<p>该图展示基准目录的构建流水线：从 TMDB 发现晚于训练截止时间的候选影片，经元数据丰富（类型、时长、分级、评分、流媒体可用性等）后规范化为类型化模式并校验，形成可供约束谓词直接求值的目录快照。</p>
+<p><img src="/images/dc4b46f00795b84c81913dae74b72a9b.png" alt="方法图 3"></p>
+<p>该图说明任务的揭示标签引导（RTE）机制：同一约束可被标记为主动陈述、被问才说或从不明确陈述，从而控制信息在对话中浮现的方式，迫使智能体通过提问而非单轮模式匹配来引导偏好。</p>
+<h2 id="三、实验"><a href="#三、实验" class="headerlink" title="三、实验"></a>三、实验</h2><p>作者在全部 60 个任务上、每个任务 4 次试验，以 GPT-5 mini 作为用户模拟器，评测了九种配置（六个基础模型，其中 GPT-5.4 运行两种思考模式、DeepSeek V4 Flash 运行三种思考模式）。所有运行使用 LiteLLM，智能体模型在支持时使用 <code>temp=0</code>，模拟器使用 <code>temp=1.0</code>。</p>
+<p>主结果方面，GPT-5.4、Sonnet 4.6 与 DeepSeek V4 Flash 各变体构成第一梯队（<span class="math-inline">$\mathrm{pass}^{1}$</span> 为 0.537—0.571），置信区间相互重叠。所有模型的 <span class="math-inline">$\mathrm{pass}^{2}$</span> 与 <span class="math-inline">$\mathrm{pass}^{4}$</span> 均低于 <span class="math-inline">$\mathrm{pass}^{1}$</span>，表明其智能体表现缺乏一致性。为验证目录确实晚于训练截止时间，作者对 DeepSeek V4 Flash 做了无工具消融，<span class="math-inline">$\mathrm{pass}^{1}$</span> 从 0.546 降至 0.083，少数成功仅出现在无有效推荐任务上。</p>
+<p>策略合规方面，各模型差异显著。最强梯队（带思考的 GPT-5.4、GPT-5 mini、DeepSeek V4 Flash）合规率超过 0.92，而 Qwen3-32B 降至 0.756，其 <code>availability</code> 违规率达 0.21，即在未核实流媒体服务可用性的情况下推荐作品。</p>
+<p>效率方面，工具使用差异很大：DeepSeek V4 Flash 每次试验中位调用 28 次，而 Qwen3-32B 为 5 次、Gemini 2.5 Flash 为 8 次。高调用量模型（DeepSeek V4 Flash、带思考的 GPT-5.4、Sonnet 4.6）需要更多轮次才给出推荐，但获得更高的约束得分。</p>
+<p>失败分析识别出三种失效模式。其一是“弃答者”（Qwen3-32B、GPT-5 mini、Gemini 2.5 Flash），其 <code>No-rec</code> 率分别为 0.43、0.45、0.67，工具调用中位数仅为个位数，未发出 <code>recommend()</code> 便退出。其二是“错误承诺者”，自信地给出违反约束的推荐，Qwen3-32B 的 0.21 可用性违规率叠加高承诺率是最清晰的案例。其三是均衡模型（DeepSeek V4 Flash、带思考的 GPT-5.4、Sonnet 4.6），投入 15—28 次中位工具调用并最终承诺，获得最高的约束得分（0.57—0.58）。<span class="math-inline">$\mathrm{pass}^{k}$</span> 放大了这些差异：在重复试验下，无论是含糊回避还是虚张声势都无法收敛，可靠性悬崖更加陡峭。</p>
+<p>难度梯度方面，揭示标签机制产生了跨所有模型的陡峭难度梯度。对 DeepSeek V4 Flash，<span class="math-inline">$\mathrm{pass}^{1}$</span> 从 volunteer 任务的 0.846 降至 mixed 任务的 0.586，再降至 hidden 任务的 0.200，仅因信息揭示方式不同就产生约 4 倍差距。GPT-5 mini（0.712 &#x2F; 0.414 &#x2F; 0.167）与 Qwen3-32B（0.481 &#x2F; 0.281 &#x2F; 0.067）呈现相同梯度。隐藏约束揭示了引导与检索之间的区别：擅长在已知偏好集上满足约束的智能体，在偏好必须先从拒绝信号中推断时会陷入困境。</p>
+<p>能力—延迟前沿方面，由于每轮延迟对任何智能体推荐系统都至关重要，作者分析了能力与延迟的权衡。GPT-5.4（无思考）位于前沿的快速端（<span class="math-inline">$\mathrm{pass}^{1}&#x3D;0.47$</span>，约 7 秒&#x2F;步），Sonnet 4.6（约 15 秒）与 DeepSeek V4 Flash 各变体（约 15—24 秒）构成前沿其余部分，最高为 DeepSeek V4 Flash（最大思考）的 <span class="math-inline">$\mathrm{pass}^{1}&#x3D;0.57$</span>。非前沿模型（GPT-5 mini、Qwen3-32B、Gemini 2.5 Flash）在相近或更短步延迟下被前沿方案支配。思考模式呈现浅层、次线性的轨迹，例如 DeepSeek V4 Flash 从无思考到最大思考仅提升 <span class="math-inline">$\mathrm{pass}^{1}$</span> 约 0.025，表明当前模型在该基准上受能力约束。</p>
+<p><img src="/images/135dd8f051eb3d4dd91112598ede381f.png" alt="实验图 1"></p>
+<p>该图给出各模型配置的 <span class="math-inline">$\mathrm{pass}^{1}$</span>、<span class="math-inline">$\mathrm{pass}^{2}$</span>、<span class="math-inline">$\mathrm{pass}^{4}$</span> 对比，直观呈现随 <span class="math-inline">$k$</span> 增大而普遍下降的可靠性悬崖：即便第一梯队模型在 <span class="math-inline">$\mathrm{pass}^{1}$</span> 上约 0.54—0.57，在 <span class="math-inline">$\mathrm{pass}^{4}$</span> 上也降至约 0.35。</p>
+<h2 id="四、总结"><a href="#四、总结" class="headerlink" title="四、总结"></a>四、总结</h2><p>作者总结了 τ-Rec 的局限与未来工作。目录规模方面，目录被有意保持较小（153 部影片），以将推理能力与检索规模隔离开来——智能体通过 API 工具访问目录，因此规模对模型不可见——但这限制了失败模式的多样性；在保持训练截止后新鲜度的同时扩展规模是未来工作。单一领域方面，尽管框架与领域无关，已发布的基准仅覆盖电影；鉴于类型化谓词评分，扩展到其他领域较为直接，跨领域任务套件与更大 <span class="math-inline">$k$</span> 的运行是自然的下一步。统计功效方面，每个任务仅报告 4 次试验，<span class="math-inline">$\mathrm{pass}^{4}$</span> 的 95% 自助法置信区间不可忽略（<span class="math-inline">$\pm$</span>0.10—0.13）；要区分置信区间重叠的模型，需要更多每任务试验（受成本约束）或更多每单元任务（受标注约束）。总体而言，τ-Rec 以可验证奖励、揭示标签引导、<span class="math-inline">$\mathrm{pass}^{k}$</span> 可靠性指标与策略合规检查，为智能体推荐系统提供了系统化、确定且可复现的评测框架，并揭示了当前对话式智能体在可靠性上的关键缺口。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p>Huang et al. <a href="https://scholar.google.com/scholar?q=InteRecAgent.+2025">InteRecAgent. 2025</a>.</p>
+</li>
+<li><p>Wang et al. <a href="https://scholar.google.com/scholar?q=RecMind.+2024">RecMind. 2024</a>.</p>
+</li>
+<li><p>Wang et al. <a href="https://doi.org/10.1145/3626772">MACRec. 2024</a>.</p>
+</li>
+<li><p>Shang et al. <a href="https://scholar.google.com/scholar?q=AgentRecBench.+2025">AgentRecBench. 2025</a>.</p>
+</li>
+<li><p>Hayati et al. <a href="https://scholar.google.com/scholar?q=INSPIRED.+2020">INSPIRED. 2020</a>.</p>
+</li>
+<li><p>Liu et al. <a href="https://scholar.google.com/scholar?q=DuRecDial.+2020">DuRecDial. 2020</a>.</p>
+</li>
+<li><p>Moon et al. <a href="https://scholar.google.com/scholar?q=OpenDialKG.+2019">OpenDialKG. 2019</a>.</p>
+</li>
+<li><p>Zhou et al. <a href="https://scholar.google.com/scholar?q=CRSLab.+2021">CRSLab. 2021</a>.</p>
+</li>
+<li><p>Di Palma et al. <a href="https://doi.org/10.1145/3767695.3769478">On memorization in recommender evaluation. 2025</a>.</p>
+</li>
+<li><p>Zhang et al. <a href="https://arxiv.org/abs/2602.13626">Benchmark leakage. 2026</a>.</p>
+</li>
+<li><p>Zheng et al. <a href="https://scholar.google.com/scholar?q=MT-Bench.+2023">MT-Bench. 2023</a>.</p>
+</li>
+<li><p>Bernard et al. <a href="https://scholar.google.com/scholar?q=UserSimCRS+v2.+2026">UserSimCRS v2. 2026</a>.</p>
+</li>
+<li><p>Bernard et al. <a href="https://doi.org/10.1145/3701551.3704120">CRS Arena. 2025</a>.</p>
+</li>
+<li><p>Bernard &amp; Balog. <a href="https://doi.org/10.1145/3767695.3769478">Metrics for conversational recommender systems. 2025</a>.</p>
+</li>
+<li><p>Yao et al. <a href="https://scholar.google.com/scholar?q=%CF%84-bench.+2024">τ-bench. 2024</a>.</p>
+</li>
+<li><p>Yao et al. <a href="https://arxiv.org/abs/2506.07982">τ²-bench</a>.</p>
+</li>
+<li><p>Hui et al. <a href="https://scholar.google.com/scholar?q=MATCHA.+2025">MATCHA. 2025</a>.</p>
+</li>
+<li><p>Jain et al. <a href="https://scholar.google.com/scholar?q=LiveCodeBench.+2024">LiveCodeBench. 2024</a>.</p>
+</li>
+<li><p><a href="https://doi.org/10.1007/978-3-032-21321-1_51">SciNUP</a>.</p>
+</li>
+<li><p>Qin et al. <a href="https://scholar.google.com/scholar?q=ToolBench.+2023">ToolBench. 2023</a>.</p>
+</li>
+<li><p>Trivedi et al. <a href="https://doi.org/10.18653/v1/2024.acl-long.850">AppWorld. 2024</a>.</p>
+</li>
+<li><p>Zhou et al. <a href="https://scholar.google.com/scholar?q=IFEval.+2023">IFEval. 2023</a>.</p>
+</li>
+<li><p>Alibaba. <a href="https://scholar.google.com/scholar?q=RecBot.+2025">RecBot. 2025</a>.</p>
+</li>
+<li><p>Wang et al. <a href="https://scholar.google.com/scholar?q=iEvaLM.+2023">iEvaLM. 2023</a>.</p>
+</li>
+<li><p>Meshi et al. <a href="https://doi.org/10.18653/v1/2026.eacl-long.244">ConvApparel. 2026</a>.</p>
+</li>
+<li><p><a href="https://doi.org/10.1145/3701716.3715258">RecUserSim</a>.</p>
+</li>
+</ul>
+]]></content>
+      <categories>
+        <category>推荐系统</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+        <tag>agentic recommender systems</tag>
+        <tag>verifiable rewards</tag>
+        <tag>pass^k</tag>
+        <tag>reveal-tagged elicitation</tag>
+        <tag>policy compliance</tag>
+        <tag>LLM user simulation</tag>
+        <tag>benchmark</tag>
       </tags>
   </entry>
   <entry>
@@ -4498,166 +4658,6 @@
         <tag>experience lifecycle</tag>
         <tag>self-evolving agents</tag>
         <tag>outcome-calibrated attribution</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>Meta-Modal Agent：把缺失模态当作路由信号，重排冷启动候选池</title>
-    <url>/article/paper-2605.25007/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2605.25007">arXiv 2605.25007</a> · PDF：<a href="https://app.notion.com/papers/2605.25007.pdf">本地阅读</a></p>
-</blockquote>
-<p>多模态推荐系统依赖文本、图像和交互图三类证据，但在冷启动场景中，这些证据恰恰最不完整：新用户没有行为历史，新商品可能只有图片没有描述，隐私约束下用户属性还可能被主动屏蔽。已有方法大多把缺失模态当作“待恢复的信号”，通过插补、特征传播或生成式重建来补全表示。当存活模态本身信息很弱时，这种重建可能注入没有依据的证据，反而污染排序。</p>
-<p>Meta-Modal Agent（MMA）换了一个角度：不恢复缺失模态，而是让一个基于 LLM 的候选池重排序器在推理过程中决定“下一步查哪类证据”，并把工具返回 Null 当作一次有效观测，据此调整后续动作。论文把这一过程形式化为部分可观测马尔可夫决策过程（POMDP），用平衡缺失任务强化学习在掩码模态片段上训练策略。</p>
-<p>论文的真实定位需要说清楚：MMA 不是检索器，它只在第一阶段检索器给出的固定候选池上打分，再与第一阶段检索分数融合。因此它报告的是重排序增益，而不是端到端召回增益。作者也明确区分了两个变体：MMA-Auto 只使用自动化文本、图像、图工具，是部署主张；MMA-Interactive 额外允许向用户提问，仅作为上界诊断。</p>
-<p>研究矛盾在于：静态补全方法在存活证据较强时有效，但在极端缺失下可能生成看似合理却无支撑的特征；而朴素的 ReAct 式智能体又假设工具总会返回有效结果，一旦遇到 Null 容易重复失败路径或幻觉证据。MMA 要验证的是，学习到的顺序路由能否在相同工具和融合规则下，稳定优于确定性路由和强静态补全基线。</p>
-<p>前置条件与部署边界同样明确：方法依赖第一阶段检索器先召回目标商品，MMA 无法找回第一阶段漏掉的候选；训练和推理都基于 Llama-3-8B-Instruct 8-bit 量化加 LoRA，推理成本显著高于静态模型。这些约束决定了结果应被读作“固定池重排序的稳健改进”，而非冷启动推荐的全面解决方案。</p>
-<h2 id="一、方法：把-Null-返回变成路由观测"><a href="#一、方法：把-Null-返回变成路由观测" class="headerlink" title="一、方法：把 Null 返回变成路由观测"></a>一、方法：把 Null 返回变成路由观测</h2><p>MMA 的整体数据流可以概括为四步：接收共享候选池、调用证据工具、把 Null 写入交互历史、输出候选分数并与第一阶段分数融合。图 1 给出了这一流程的全局视图。</p>
-<p><img src="/images/e6519db3f82631e6c9e5e2a80723d5ed.png" alt="图 1：MMA 总览"></p>
-<p>阅读这张图时，可以先看左侧的候选池入口：每个 episode 固定一个大小为 B 的候选集，目标商品被插入其中，其余位置由存活模态对应的硬负样本填充——文本可用时用 BM25，仅图像时用 CLIP 最近邻，仅行为时用 ANN 图检索。中间是证据路由层，智能体在文本、图像、图三类工具之间选择，工具返回 Null 时该结果进入交互历史而非被静默丢弃。右侧是终端评分动作，输出候选 ID 到分数的映射，再与第一阶段检索分数按验证集选定的权重融合。这张图支撑的核心主张是：缺失模态不是特征层面的噪声，而是动作层面的观测，路由策略本身构成重排序能力的一部分。</p>
-<h3 id="1-1-Episode-接口与候选池"><a href="#1-1-Episode-接口与候选池" class="headerlink" title="1.1 Episode 接口与候选池"></a>1.1 Episode 接口与候选池</h3><p>每个 episode 的候选池 C_e 大小固定为 B，智能体看到的是匿名化商品 ID、第一阶段排名，以及仅从当前可观测来源派生的摘要。文本可用时暴露标题、类目和描述片段；仅图像时暴露冻结 CLIP 标签摘要；仅行为时暴露图邻居摘要。隐藏目标商品 i^* 只用于评估器计算奖励和指标，从不展示给智能体。模态可用性用二值掩码 m \in {0,1}^{|\mathcal{M}|} 表示，覆盖文本、图像、行为三个维度，掩码在一个 episode 内固定、跨 episode 变化，且不直接告知智能体——智能体只能通过调用工具并观察是否返回 Null 来发现缺失。</p>
-<h3 id="1-2-证据路由智能体"><a href="#1-2-证据路由智能体" class="headerlink" title="1.2 证据路由智能体"></a>1.2 证据路由智能体</h3><p>episode 被建模为 POMDP \langle S, \mathcal{A}, \mathcal{P}, \Omega, O, \mathcal{R}, \gamma \rangle。潜在状态包含用户偏好分布和固定掩码，环境在 episode 内静态，因此所有适应都来自交互历史 H_t &#x3D; (z_1,a_1,o_1,\ldots,z_t,a_t,o_t) 的更新，其中 z_t 是推理轨迹，a_t 是结构化工具动作，o_t 是返回观测。策略先产生推理轨迹，再产生单行 JSON 动作；动作空间是工具名与 JSON 参数串的笛卡尔积，非法 JSON 或未知工具名会触发无效动作惩罚。</p>
-<p>三个自动化工具分别是：<code>Analyze_Text</code> 返回规范化标题、类目和截断描述，文本缺失时返回 Null；<code>Analyze_Image</code> 运行冻结 CLIP-ViT-L&#x2F;14 编码器返回 top-5 零样本语义标签，图像缺失时返回 Null；<code>Retrieve_Graph</code> 在预计算的商品-商品协同图上做 ANN 搜索返回共同购买邻居标题，行为缺失时返回 Null。第四个工具 <code>Ask_User</code> 仅用于 MMA-Interactive，它把存活模态证据转成自然语言澄清，属于理想化上界而非部署主张。</p>
-<h3 id="1-3-候选评分与融合"><a href="#1-3-候选评分与融合" class="headerlink" title="1.3 候选评分与融合"></a>1.3 候选评分与融合</h3><p>终端动作 <code>Score_Candidates</code> 输出候选 ID 到相关性分数的 JSON 映射，而不是单商品推荐或检索动作。MMA 分数在候选池内做 min–max 归一化后与归一化的第一阶段分数融合：\hat{s}_i &#x3D; \alpha s_i^{(0)} + (1-\alpha) s_i^{\mathrm{MMA}}，融合权重 \alpha 由验证集网格搜索选定后固定用于测试。终端 JSON 中遗漏的候选保留第一阶段分数和相对顺序；JSON 格式错误则触发无效动作惩罚，该 episode 回退到第一阶段排序。</p>
-<h3 id="1-4-平衡缺失任务训练"><a href="#1-4-平衡缺失任务训练" class="headerlink" title="1.4 平衡缺失任务训练"></a>1.4 平衡缺失任务训练</h3><p>训练按缺失模式划分为 7 个任务族：全模态、缺文本、缺图像、冷用户（缺行为）、仅文本、仅图像、仅行为。每个任务族按固定掩码分布采样，rollout 时任务族均匀采样，使严重的 OOMA 情形与容易的全观测情形获得相同训练曝光。策略优化使用 PPO 加广义优势估计，训练时更新 LoRA 适配器和价值头，测试时只通过上下文适应，不做梯度更新。</p>
-<h2 id="二、实验：固定池重排序的四项证据检查"><a href="#二、实验：固定池重排序的四项证据检查" class="headerlink" title="二、实验：固定池重排序的四项证据检查"></a>二、实验：固定池重排序的四项证据检查</h2><p>实验围绕四个问题组织：无 oracle 的 OOMA 稳健性、逐模态 OOMA 分解、固定池全目录重排序、以及确定性路由机制对照。数据集为 Amazon-Baby、Amazon-Sports 和 Yelp 2022 版，按时间划分：最早 80% 交互训练，接下来 10% 验证，最近 10% 测试。</p>
-<p>终端动作 <code>Score_Candidates</code> 输出候选 ID 到相关性分数的 JSON 映射，而不是单商品推荐或检索动作。MMA 分数在候选池内做 min–max 归一化后与归一化的第一阶段分数融合：<span class="math-inline">$\hat{s}&#95;i &#x3D; \alpha s&#95;i^{(0)} + (1-\alpha) s&#95;i^{\mathrm{MMA}}$</span>，融合权重 <span class="math-inline">$\alpha$</span> 由验证集网格搜索选定后固定用于测试。终端 JSON 中遗漏的候选保留第一阶段分数和相对顺序；JSON 格式错误则触发无效动作惩罚，该 episode 回退到第一阶段排序。</p>
-<h3 id="1-4-平衡缺失任务训练-1"><a href="#1-4-平衡缺失任务训练-1" class="headerlink" title="1.4 平衡缺失任务训练"></a>1.4 平衡缺失任务训练</h3><h3 id="2-1-无-oracle-的-OOMA-主结果"><a href="#2-1-无-oracle-的-OOMA-主结果" class="headerlink" title="2.1 无 oracle 的 OOMA 主结果"></a>2.1 无 oracle 的 OOMA 主结果</h3><p>主结果比较 MMA-Auto 与强静态补全基线。MMA-Auto 禁用 <code>Ask_User</code>，因此增益只能来自自动化路由、候选评分和与第一阶段分数的融合。</p>
-<p>DGMRec 在三个数据集上都是更强的静态基线，MMA-Auto 相对它的平均 NDCG@10 提升为 4.0%。绝对增益不大，但方向一致：Baby、Sports、Yelp 分别提升 0.0064、0.0066、0.0068。三个数据集证据结构不同——Amazon 有结构化文本和商品图，Yelp 更依赖评论文本和场所照片——这种跨域一致性支持“学习到的证据路由带来稳健重排序增益”这一较窄的部署主张。需要强调的是，目标正样本池中的负样本来自存活模态的硬检索，任务不是找出明显相关商品，而是在缺失条件下重排看似合理的候选，因此增益应被读作对存活证据的更好利用，而非全目录检索能力的证明。</p>
-<h3 id="2-2-逐模态-OOMA-分解"><a href="#2-2-逐模态-OOMA-分解" class="headerlink" title="2.2 逐模态 OOMA 分解"></a>2.2 逐模态 OOMA 分解</h3><p>MMA-Auto 在全部 9 个数据集-模态组合上都优于 DGMRec 和 GRE-MC 中较强的一个。仅文本 episode 的绝对 NDCG 最高，因为标题、类目和描述直接暴露语义相关性；仅行为 episode 的绝对分数接近仅文本，尤其在 Amazon 上，因为图邻居摘要常携带强协同信号，但相对增益小于图像场景。9 个组合全部提升，比任何单一组合的幅度更能说明路由机制在变化的缺失模式下都有效。</p>
-<h3 id="2-3-固定池全目录重排序"><a href="#2-3-固定池全目录重排序" class="headerlink" title="2.3 固定池全目录重排序"></a>2.3 固定池全目录重排序</h3><p>目标正样本协议通过构造插入目标商品，可能高估重排序难度控制。固定池全目录重排序用真实第一阶段检索器产生候选池，再让 MMA-Auto 重排同一池子。</p>
-<p>Recall@100 按构造完全相同，因此表格隔离的是固定检索池内部的排序质量。平均 NDCG@10 从 0.0178 升到 0.0201，平均 HR@10 从 0.0385 升到 0.0427，平均每数据集相对 NDCG@10 增益为 12.7%。绝对 NDCG 远低于目标正样本设置，因为第一阶段检索器必须先在全目录中召回目标商品，MMA 才能重排它——这正是第三阶段打分器的预期行为：它能改善已有候选的顺序，但无法找回第一阶段漏掉的商品。这一检查把主张限制在固定池重排序范围内，而不是端到端检索提升。</p>
-<h3 id="2-4-交互上界与机制对照"><a href="#2-4-交互上界与机制对照" class="headerlink" title="2.4 交互上界与机制对照"></a>2.4 交互上界与机制对照</h3><p>由于澄清响应是从存活证据合成的理想化反馈，这一结果只作为上界诊断，不进入部署主张。</p>
-<p>机制对照使用 RuleRouter-Fuse：它拥有与 MMA-Auto 相同的候选池、自动化工具、轮次预算和验证集选定的融合规则，但用固定路由顺序和确定性证据打分器替代 LLM 推理与策略学习。</p>
-<p>MMA-Auto 在三个数据集上都优于 RuleRouter-Fuse，平均 NDCG@10 从 0.1578 升到 0.1711，相对增益 8.4%；RuleRouter-Fuse 在每个数据集上都低于 DGMRec，说明固定路由在 OOMA 下较脆弱。诊断指标解释了原因：确定性路由失败调用率更高（65.8% 对 47.0%），每 episode 需要更多轮次（3.8 对 2.5）。固定顺序在存活模态偏离其偏好路径时会浪费调用，遇到 Null 后也缺乏判断“是否还值得再查候选级证据”的能力；MMA-Auto 则根据累积历史条件化后续动作，把失败调用变成切换工具或提前终止的证据。</p>
-<p>配对显著性检验显示，MMA-Auto 相对 DGMRec 在 Baby、Sports、Yelp 上的平均差值分别为 +0.0064、+0.0066、+0.0068，Wilcoxon p 分别为 0.021、0.034、0.018，Cliff’s δ 分别为 0.18、0.15、0.19。</p>
-<p>消融方面，零样本 ReAct 锚点表现最差，说明仅有提示和工具访问在结构性缺失下不够；</p>
-<h3 id="2-5-代价与边界"><a href="#2-5-代价与边界" class="headerlink" title="2.5 代价与边界"></a>2.5 代价与边界</h3><p>附录报告了推理成本：DGMRec 为 0.012 秒、2.1 GB、1.2e9 FLOPs，GRE-MC 为 0.015 秒、2.8 GB、1.8e9 FLOPs，MMA-Interactive 为 1.250 秒、8.6 GB、8.2e11 FLOPs，平均 3.9 次前向。智能体推理显著慢于静态基线，因此增益应被读作精度-延迟权衡。附录还按 OOMA 子条件报告了恢复率、失败调用率、成功所需轮次和首动作路由率，这些轨迹支持机制分析，但不足以证明训练环境之外的通用推理能力。</p>
-<h2 id="三、总结"><a href="#三、总结" class="headerlink" title="三、总结"></a>三、总结</h2><p>MMA 的机制核心是把缺失模态从表示学习问题改写为顺序证据路由问题：智能体在固定候选池上调用文本、图像、图工具，把 Null 返回写入交互历史并据此切换证据源，终端输出候选分数与第一阶段检索分数融合。平衡缺失任务训练让 7 种掩码模式获得均匀曝光，PPO 奖励同时考虑排序质量和调用成本。</p>
-<p>实验证据支持一个范围明确的主张：在无 oracle、无用户澄清的 OOMA 设置下，MMA-Auto 在 9 个数据集-模态组合上全部优于最强静态基线，平均 NDCG@10 提升 4.0%；固定池全目录重排序平均相对提升 12.7%，且 Recall@100 不变；相对同工具同融合规则的确定性路由，平均 NDCG@10 从 0.1578 升到 0.1711，同时失败调用率和轮次更低。</p>
-<p>限制同样清楚：MMA 是固定池重排序器，无法找回第一阶段漏掉的商品；交互变体只是理想化上界；推理成本比静态模型高两个数量级以上；效应量 modest，且任务索引相对池化训练没有带来明显平均增益。</p>
-<p>可迁移的设计启示是：在工具可能失败的智能体系统里，把失败返回当作一等观测而非静默异常，并用缺失模式分层采样保证罕见但关键的状态获得训练覆盖，比单纯增加工具或提示更能带来稳健的决策改进。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>Jinze Wang, Yangchen Zeng, Tiehua Zhang, Lu Zhang, Yuze Liu, Zhishu Shen, Jiong Jin, Zhu Sun. Meta-Modal Agent: Sequential Evidence Routing for Missing-Modality Candidate Reranking. arXiv:2605.25007. <a href="https://arxiv.org/abs/2605.25007">https://arxiv.org/abs/2605.25007</a></p>
-</li>
-<li><p>Jiwan Kim et al. Disentangling and Generating Modalities for Recommendation in Missing Modality Scenarios. SIGIR 2025.</p>
-</li>
-<li><p>Yuan Li et al. Robust Multimodal Recommendation via Graph Retrieval-Enhanced Modality Completion. arXiv:2605.00670, 2026.</p>
-</li>
-<li><p>Yujia Qin et al. ToolLLM: Facilitating Large Language Models to Master 16000+ Real-World APIs. ICLR 2024.</p>
-</li>
-<li><p>Shunyu Yao et al. ReAct: Synergizing Reasoning and Acting in Language Models. ICLR 2023.</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-        <category>论文速递</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>τ-Rec：面向智能体推荐系统的可验证基准</title>
-    <url>/article/paper-2606.10156/</url>
-    <content><![CDATA[<p><a href="https://arxiv.org/abs/2606.10156">论文链接</a> · <a href="https://github.com/nbharaths/tau-rec">代码链接</a></p>
-<h2 id="一、研究背景与问题"><a href="#一、研究背景与问题" class="headerlink" title="一、研究背景与问题"></a>一、研究背景与问题</h2><p>现代推荐系统正从静态的单轮排序流水线演化为由大语言模型驱动的智能体系统：智能体在多轮对话中规划、调用外部工具查询目录、对多准则约束进行推理，并在会话内逐步适应用户偏好。InteRecAgent、RecMind、MACRec 与 AgentRecBench 等工作都体现了这一趋势。然而，面向智能体推荐系统的评测并未同步跟进。现有基准大致分为两类，且都不足以支撑智能体场景。第一类是静态对话语料类基准，如 INSPIRED、DuRecDial、OpenDialKG 与 CRSLab，它们以 BLEU、Recall@k 等表层指标对照固定标注对话衡量推荐质量，容易受到记忆化与数据泄漏的影响。第二类是“LLM 作为评判者”类基准，如 MT-Bench、UserSimCRS v2 与 CRS Arena，依赖主观打分，成本高、非确定性且跨运行不一致；Bernard 与 Balog 也指出，现有对话式推荐指标与真实用户满意度之间仅存在弱相关。</p>
-<p>为此，作者提出 τ-Rec，一个面向智能体对话式推荐的可验证基准。τ-Rec 将推荐建模为多轮对话中的约束优化问题，并把交互视为工具—智能体—用户（TAU）回路上的部分可观测马尔可夫决策过程（POMDP）。推荐智能体可使用目录与元数据工具，而用户模拟器持有智能体必须通过对话引导出的私有偏好。智能体同时接受两项能力的检验：其一是偏好引导，即通过提出恰当问题揭示用户未明说的需求；其二是约束推理，即调用正确的工具并组合其结果以满足已引导出的约束。在 τ-bench 的基础上，τ-Rec 采用 <span class="math-inline">$\mathrm{pass}^{k}$</span> 指标，衡量智能体在全部 <span class="math-inline">$k$</span> 次独立试验中正确完成任务的概率，从而揭示 Recall@N、Hit Rate@N 等仅衡量能力的指标无法检测的可靠性维度。基准目录由 TMDB 中晚于主流大模型训练截止时间的电影构成，以防止记忆化。</p>
-<p>τ-Rec 还引入了现有对话式推荐基准所缺失的策略合规目标。受 τ-bench 领域策略文档与 MATCHA 在游戏推荐中安全策略工作的启发，τ-Rec 的策略不仅检验智能体推荐了什么，还检验它如何推荐：例如年龄受限内容是否被恰当限制、赞助内容是否被披露、已消费条目是否被过滤，以及面对不可能满足的请求时智能体是否选择弃答而非编造推荐。这一维度使负责任的人工智能行为成为一等评测目标。作者以 GPT-5 mini 作为用户模拟器，评测了 GPT-5.4、Claude Sonnet 4.6、Gemini 2.5 Flash、GPT-5 mini、DeepSeek V4 Flash 与 Qwen3-32B 等模型作为智能体的表现，结果暴露出显著的可靠性悬崖：即便最强智能体在 <span class="math-inline">$\mathrm{pass}^{1}$</span> 上也仅约 57%，在 <span class="math-inline">$\mathrm{pass}^{4}$</span> 上降至约 35%。</p>
-<h2 id="二、方法"><a href="#二、方法" class="headerlink" title="二、方法"></a>二、方法</h2><p>τ-Rec 将推荐交互建模为工具—智能体—用户（TAU）三元组上的部分可观测马尔可夫决策过程。每一轮中，推荐智能体可观测到：与模拟用户的对话历史、其已发出的工具调用结果，以及通过工具响应暴露的目录元数据。用户的完整约束集合（包括隐藏约束）不可观测，必须通过对话推断。智能体的动作空间包括三类：面向用户的自然语言话语、目录工具调用（搜索、过滤、元数据查询、可用性检查），以及提交单一候选的终止性 <code>recommend</code> 工具。当智能体发出推荐或轮次预算耗尽时，回合结束。</p>
-<p>环境建立在四个技术支柱之上，每个支柱都针对既有对话式推荐评测的特定失效模式。</p>
-<p>第一，可验证奖励。成功与否依据类型化目录谓词判定，例如 <code>runtime &lt;= 120</code> 或 <code>content_rating</code> <span class="math-inline">$\in {\text{PG-13},\text{G}}$</span>，全部为非主观判断。主奖励为 <code>constraint_score</code> <span class="math-inline">$\times$</span> <code>policy_score</code> 的乘积，二者均取值于 <span class="math-inline">$[0,1]$</span>。在实验采用的严格评分下，仅当所有必需约束维度均被满足且所有生效策略均被遵守时，推荐才算成功；作者另报告部分得分分解，以将失败归因到具体维度。由于评分直接依据类型化谓词对目录求值，无需任何 LLM 调用，完全确定且可复现。</p>
-<p>第二，揭示标签引导（RTE）。任务中的每个约束被标记为 <code>volunteer</code>（用户在开场轮主动陈述）、<code>on_ask</code>（仅当被明确询问该属性时才陈述）或 <code>hidden</code>（用户从不明确陈述，但会拒绝违反该约束的推荐）。该标记迫使智能体通过对话引导信息，而非在首轮就获得完整偏好清单，从而堵住了许多既有对话式推荐基准可被单轮模式匹配轻易攻破的漏洞。</p>
-<p>第三，<span class="math-inline">$\mathrm{pass}^{k}$</span> 可靠性指标。沿用 τ-bench，报告智能体在全部 <span class="math-inline">$k$</span> 次独立试验中均完成任务的概率，而非跨试验的平均成功率：</p>
-<div class="math-display">\[\mathrm{pass}^{k} = \frac{1}{|T|} \sum_{t \in T} \frac{\binom{c_t}{k}}{\binom{n_t}{k}}\]</div>
-
-<p>其中 <span class="math-inline">$c&#95;t$</span> 为任务 <span class="math-inline">$t$</span> 上成功的试验次数，<span class="math-inline">$n&#95;t$</span> 为试验总数。<span class="math-inline">$\mathrm{pass}^{1}$</span> 衡量能力，<span class="math-inline">$k&gt;1$</span> 的 <span class="math-inline">$\mathrm{pass}^{k}$</span> 衡量一致性。正如 Bernard 与 Balog 所论，仅衡量能力的指标会掩盖智能体需反复成功时才显现的可靠性悬崖。</p>
-<p>第四，将策略执行作为一等目标。每个任务携带一组来自领域策略文档的生效策略标志，程序化检查审计轨迹是否遵守七项策略：<code>recommend_tool</code>（必须通过专用工具而非自由文本发出推荐）、<code>watch_history</code>（不得推荐已消费条目）、<code>availability</code>（仅推荐用户所述流媒体服务上可用的作品）、<code>age_restricted</code>（对年轻用户角色限制成人内容）、<code>sponsored</code>（披露赞助位）、<code>transparency</code>（在不可能任务上明确弃答而非强行给出不存在的推荐）以及 <code>single_recommendation</code>（返回单一具体推荐而非列表）。</p>
-<p>在目录构建方面，基准目录来自 TMDB 公共 REST API，构建流水线分三阶段。阶段一为发现：以 2025—2026 年上映日期过滤查询 <code>/discover/movie</code>，确保晚于所有主流 LLM 的训练截止时间，并按热度与投票数排序以筛选元数据覆盖充分的影片。阶段二为丰富：对每个候选发起后续请求，获取类型标签、时长（分钟）、MPAA 风格内容分级（G &#x2F; PG &#x2F; PG-13 &#x2F; R &#x2F; NR）、演员与导演、评分均值与投票数（作为质量代理）、上映日期，以及来自 <code>/movie/&#123;id&#125;/watch/providers</code> 的分地区流媒体提供商信息。阶段三为规范化与校验：记录被规范化为类型化模式，轻度去重，并过滤以确保所有任务相关属性（<code>runtime</code>、<code>genres</code>、<code>content_rating</code>、<code>streaming_services</code>、<code>rating</code>）均已填充；缺失任一必需字段的条目被丢弃，以保证约束谓词可被干净地求值。当前目录包含 153 部电影，且易于扩展；流水线参数化且幂等，可定期刷新生成绑定日期的目录快照，并自动重新校验所有任务约束以确认任务可解性。</p>
-<p>在任务构建方面，每个任务规定：模拟用户的自然语言人设；目录模式上的类型化约束（类型、时长上下界、内容分级允许列表、最低评分均值、必需流媒体服务），每个约束带 RTE 标签；供模拟器塑造回复风格但不参与评分的可选软偏好；以及智能体轨迹中必须遵守的生效策略标志列表。任务沿两个轴分层：复杂度由约束数量决定，分为简单（1—2 个约束）、中等（3—4 个）与复杂（5 个及以上）；揭示难度在任务层面设定，分为 volunteer（全部约束主动暴露）、mixed（至少含一个 <code>on_ask</code> 约束）与 hidden（至少含一个模拟器从不明确陈述的约束）。当前版本包含 60 个任务，覆盖复杂度（20 简单 &#x2F; 24 中等 &#x2F; 16 复杂）与揭示难度（13 volunteer &#x2F; 32 mixed &#x2F; 15 hidden）的网格，其中含 5 个无有效推荐任务，用于检验智能体是否正确弃答而非编造推荐。</p>
-<p><img src="/images/34346b0c0c9400a2bdbf40507e456f06.png" alt="方法图 1"></p>
-<p>该图示意 τ-Rec 的工具—智能体—用户（TAU）交互回路：推荐智能体在多轮对话中同时面向模拟用户与目录工具，用户持有包括隐藏约束在内的私有偏好，智能体需通过提问引导偏好并调用工具组合结果，最终经专用推荐工具提交单一候选。</p>
-<p><img src="/images/5fdd802e0315b36503b17b7682574d67.png" alt="方法图 2"></p>
-<p>该图展示基准目录的构建流水线：从 TMDB 发现晚于训练截止时间的候选影片，经元数据丰富（类型、时长、分级、评分、流媒体可用性等）后规范化为类型化模式并校验，形成可供约束谓词直接求值的目录快照。</p>
-<p><img src="/images/dc4b46f00795b84c81913dae74b72a9b.png" alt="方法图 3"></p>
-<p>该图说明任务的揭示标签引导（RTE）机制：同一约束可被标记为主动陈述、被问才说或从不明确陈述，从而控制信息在对话中浮现的方式，迫使智能体通过提问而非单轮模式匹配来引导偏好。</p>
-<h2 id="三、实验"><a href="#三、实验" class="headerlink" title="三、实验"></a>三、实验</h2><p>作者在全部 60 个任务上、每个任务 4 次试验，以 GPT-5 mini 作为用户模拟器，评测了九种配置（六个基础模型，其中 GPT-5.4 运行两种思考模式、DeepSeek V4 Flash 运行三种思考模式）。所有运行使用 LiteLLM，智能体模型在支持时使用 <code>temp=0</code>，模拟器使用 <code>temp=1.0</code>。</p>
-<p>主结果方面，GPT-5.4、Sonnet 4.6 与 DeepSeek V4 Flash 各变体构成第一梯队（<span class="math-inline">$\mathrm{pass}^{1}$</span> 为 0.537—0.571），置信区间相互重叠。所有模型的 <span class="math-inline">$\mathrm{pass}^{2}$</span> 与 <span class="math-inline">$\mathrm{pass}^{4}$</span> 均低于 <span class="math-inline">$\mathrm{pass}^{1}$</span>，表明其智能体表现缺乏一致性。为验证目录确实晚于训练截止时间，作者对 DeepSeek V4 Flash 做了无工具消融，<span class="math-inline">$\mathrm{pass}^{1}$</span> 从 0.546 降至 0.083，少数成功仅出现在无有效推荐任务上。</p>
-<p>策略合规方面，各模型差异显著。最强梯队（带思考的 GPT-5.4、GPT-5 mini、DeepSeek V4 Flash）合规率超过 0.92，而 Qwen3-32B 降至 0.756，其 <code>availability</code> 违规率达 0.21，即在未核实流媒体服务可用性的情况下推荐作品。</p>
-<p>效率方面，工具使用差异很大：DeepSeek V4 Flash 每次试验中位调用 28 次，而 Qwen3-32B 为 5 次、Gemini 2.5 Flash 为 8 次。高调用量模型（DeepSeek V4 Flash、带思考的 GPT-5.4、Sonnet 4.6）需要更多轮次才给出推荐，但获得更高的约束得分。</p>
-<p>失败分析识别出三种失效模式。其一是“弃答者”（Qwen3-32B、GPT-5 mini、Gemini 2.5 Flash），其 <code>No-rec</code> 率分别为 0.43、0.45、0.67，工具调用中位数仅为个位数，未发出 <code>recommend()</code> 便退出。其二是“错误承诺者”，自信地给出违反约束的推荐，Qwen3-32B 的 0.21 可用性违规率叠加高承诺率是最清晰的案例。其三是均衡模型（DeepSeek V4 Flash、带思考的 GPT-5.4、Sonnet 4.6），投入 15—28 次中位工具调用并最终承诺，获得最高的约束得分（0.57—0.58）。<span class="math-inline">$\mathrm{pass}^{k}$</span> 放大了这些差异：在重复试验下，无论是含糊回避还是虚张声势都无法收敛，可靠性悬崖更加陡峭。</p>
-<p>难度梯度方面，揭示标签机制产生了跨所有模型的陡峭难度梯度。对 DeepSeek V4 Flash，<span class="math-inline">$\mathrm{pass}^{1}$</span> 从 volunteer 任务的 0.846 降至 mixed 任务的 0.586，再降至 hidden 任务的 0.200，仅因信息揭示方式不同就产生约 4 倍差距。GPT-5 mini（0.712 &#x2F; 0.414 &#x2F; 0.167）与 Qwen3-32B（0.481 &#x2F; 0.281 &#x2F; 0.067）呈现相同梯度。隐藏约束揭示了引导与检索之间的区别：擅长在已知偏好集上满足约束的智能体，在偏好必须先从拒绝信号中推断时会陷入困境。</p>
-<p>能力—延迟前沿方面，由于每轮延迟对任何智能体推荐系统都至关重要，作者分析了能力与延迟的权衡。GPT-5.4（无思考）位于前沿的快速端（<span class="math-inline">$\mathrm{pass}^{1}&#x3D;0.47$</span>，约 7 秒&#x2F;步），Sonnet 4.6（约 15 秒）与 DeepSeek V4 Flash 各变体（约 15—24 秒）构成前沿其余部分，最高为 DeepSeek V4 Flash（最大思考）的 <span class="math-inline">$\mathrm{pass}^{1}&#x3D;0.57$</span>。非前沿模型（GPT-5 mini、Qwen3-32B、Gemini 2.5 Flash）在相近或更短步延迟下被前沿方案支配。思考模式呈现浅层、次线性的轨迹，例如 DeepSeek V4 Flash 从无思考到最大思考仅提升 <span class="math-inline">$\mathrm{pass}^{1}$</span> 约 0.025，表明当前模型在该基准上受能力约束。</p>
-<p><img src="/images/135dd8f051eb3d4dd91112598ede381f.png" alt="实验图 1"></p>
-<p>该图给出各模型配置的 <span class="math-inline">$\mathrm{pass}^{1}$</span>、<span class="math-inline">$\mathrm{pass}^{2}$</span>、<span class="math-inline">$\mathrm{pass}^{4}$</span> 对比，直观呈现随 <span class="math-inline">$k$</span> 增大而普遍下降的可靠性悬崖：即便第一梯队模型在 <span class="math-inline">$\mathrm{pass}^{1}$</span> 上约 0.54—0.57，在 <span class="math-inline">$\mathrm{pass}^{4}$</span> 上也降至约 0.35。</p>
-<h2 id="四、总结"><a href="#四、总结" class="headerlink" title="四、总结"></a>四、总结</h2><p>作者总结了 τ-Rec 的局限与未来工作。目录规模方面，目录被有意保持较小（153 部影片），以将推理能力与检索规模隔离开来——智能体通过 API 工具访问目录，因此规模对模型不可见——但这限制了失败模式的多样性；在保持训练截止后新鲜度的同时扩展规模是未来工作。单一领域方面，尽管框架与领域无关，已发布的基准仅覆盖电影；鉴于类型化谓词评分，扩展到其他领域较为直接，跨领域任务套件与更大 <span class="math-inline">$k$</span> 的运行是自然的下一步。统计功效方面，每个任务仅报告 4 次试验，<span class="math-inline">$\mathrm{pass}^{4}$</span> 的 95% 自助法置信区间不可忽略（<span class="math-inline">$\pm$</span>0.10—0.13）；要区分置信区间重叠的模型，需要更多每任务试验（受成本约束）或更多每单元任务（受标注约束）。总体而言，τ-Rec 以可验证奖励、揭示标签引导、<span class="math-inline">$\mathrm{pass}^{k}$</span> 可靠性指标与策略合规检查，为智能体推荐系统提供了系统化、确定且可复现的评测框架，并揭示了当前对话式智能体在可靠性上的关键缺口。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
-<li><p>Huang et al. <a href="https://scholar.google.com/scholar?q=InteRecAgent.+2025">InteRecAgent. 2025</a>.</p>
-</li>
-<li><p>Wang et al. <a href="https://scholar.google.com/scholar?q=RecMind.+2024">RecMind. 2024</a>.</p>
-</li>
-<li><p>Wang et al. <a href="https://doi.org/10.1145/3626772">MACRec. 2024</a>.</p>
-</li>
-<li><p>Shang et al. <a href="https://scholar.google.com/scholar?q=AgentRecBench.+2025">AgentRecBench. 2025</a>.</p>
-</li>
-<li><p>Hayati et al. <a href="https://scholar.google.com/scholar?q=INSPIRED.+2020">INSPIRED. 2020</a>.</p>
-</li>
-<li><p>Liu et al. <a href="https://scholar.google.com/scholar?q=DuRecDial.+2020">DuRecDial. 2020</a>.</p>
-</li>
-<li><p>Moon et al. <a href="https://scholar.google.com/scholar?q=OpenDialKG.+2019">OpenDialKG. 2019</a>.</p>
-</li>
-<li><p>Zhou et al. <a href="https://scholar.google.com/scholar?q=CRSLab.+2021">CRSLab. 2021</a>.</p>
-</li>
-<li><p>Di Palma et al. <a href="https://doi.org/10.1145/3767695.3769478">On memorization in recommender evaluation. 2025</a>.</p>
-</li>
-<li><p>Zhang et al. <a href="https://arxiv.org/abs/2602.13626">Benchmark leakage. 2026</a>.</p>
-</li>
-<li><p>Zheng et al. <a href="https://scholar.google.com/scholar?q=MT-Bench.+2023">MT-Bench. 2023</a>.</p>
-</li>
-<li><p>Bernard et al. <a href="https://scholar.google.com/scholar?q=UserSimCRS+v2.+2026">UserSimCRS v2. 2026</a>.</p>
-</li>
-<li><p>Bernard et al. <a href="https://doi.org/10.1145/3701551.3704120">CRS Arena. 2025</a>.</p>
-</li>
-<li><p>Bernard &amp; Balog. <a href="https://doi.org/10.1145/3767695.3769478">Metrics for conversational recommender systems. 2025</a>.</p>
-</li>
-<li><p>Yao et al. <a href="https://scholar.google.com/scholar?q=%CF%84-bench.+2024">τ-bench. 2024</a>.</p>
-</li>
-<li><p>Yao et al. <a href="https://arxiv.org/abs/2506.07982">τ²-bench</a>.</p>
-</li>
-<li><p>Hui et al. <a href="https://scholar.google.com/scholar?q=MATCHA.+2025">MATCHA. 2025</a>.</p>
-</li>
-<li><p>Jain et al. <a href="https://scholar.google.com/scholar?q=LiveCodeBench.+2024">LiveCodeBench. 2024</a>.</p>
-</li>
-<li><p><a href="https://doi.org/10.1007/978-3-032-21321-1_51">SciNUP</a>.</p>
-</li>
-<li><p>Qin et al. <a href="https://scholar.google.com/scholar?q=ToolBench.+2023">ToolBench. 2023</a>.</p>
-</li>
-<li><p>Trivedi et al. <a href="https://doi.org/10.18653/v1/2024.acl-long.850">AppWorld. 2024</a>.</p>
-</li>
-<li><p>Zhou et al. <a href="https://scholar.google.com/scholar?q=IFEval.+2023">IFEval. 2023</a>.</p>
-</li>
-<li><p>Alibaba. <a href="https://scholar.google.com/scholar?q=RecBot.+2025">RecBot. 2025</a>.</p>
-</li>
-<li><p>Wang et al. <a href="https://scholar.google.com/scholar?q=iEvaLM.+2023">iEvaLM. 2023</a>.</p>
-</li>
-<li><p>Meshi et al. <a href="https://doi.org/10.18653/v1/2026.eacl-long.244">ConvApparel. 2026</a>.</p>
-</li>
-<li><p><a href="https://doi.org/10.1145/3701716.3715258">RecUserSim</a>.</p>
-</li>
-</ul>
-]]></content>
-      <categories>
-        <category>推荐系统</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-        <tag>agentic recommender systems</tag>
-        <tag>verifiable rewards</tag>
-        <tag>pass^k</tag>
-        <tag>reveal-tagged elicitation</tag>
-        <tag>policy compliance</tag>
-        <tag>LLM user simulation</tag>
-        <tag>benchmark</tag>
       </tags>
   </entry>
   <entry>
@@ -7310,87 +7310,6 @@
       </tags>
   </entry>
   <entry>
-    <title>可验证环境不是推荐任务：RACES 如何用递归组合扩展推理训练</title>
-    <url>/article/verifiable-environments-lego-bricks/</url>
-    <content><![CDATA[<blockquote>
-<p>论文：<a href="https://arxiv.org/abs/2606.12373">RACES: Recursive Automated Composition for Environment Scaling</a><br><br>作者匿名代码与数据快照：<a href="https://anonymous.4open.science/r/Submission_of_NIPS2026_34776-B7FD">Submission of NeurIPS 2026</a></p>
-</blockquote>
-<h2 id="问题是什么"><a href="#问题是什么" class="headerlink" title="问题是什么"></a>问题是什么</h2><p>这篇论文研究的不是“序列推荐”，而是<strong>可验证环境上的强化学习与推理泛化</strong>。这类环境能够用确定性验证器判断答案对错，因此适合为推理模型提供可扩展的奖励信号。真正的瓶颈在于：人工设计环境代价高，逐个生成新环境通常只能线性扩展任务数量，而且容易停留在相似难度和相似推理模式上。</p>
-<p>RACES 的核心问题是：已有环境能否像乐高积木一样递归组合，从有限的原子环境自动形成更多、更难、结构更丰富的训练任务？论文把一个可验证环境写成四元组：</p>
-<p>$$<br>e&#x3D;(G_e, f_e, D_e, V_e),<br>$$</p>
-<p>其中 $G_e$ 生成问题，$f_e$ 定义问题到答案的映射，$D_e$ 与 $V_e$ 分别描述输入域和输出域。只要前一环境的输出域与后一环境的输入域兼容，两者就可以继续组合。</p>
-<h2 id="RACES-如何工作"><a href="#RACES-如何工作" class="headerlink" title="RACES 如何工作"></a>RACES 如何工作</h2><p><img src="/images/papers/2606.12373/races-framework.png" alt="RACES 从原子环境池递归组合出复合环境"></p>
-<p><strong>图解：</strong> 这张方法总览图从左到右展示原子环境池、可执行性筛选、递归组合以及四种组合算子。重点看中间的“积木式”递归：新生成的复合环境还能重新进入候选池，继续与其他环境组合。图支持的有限结论是，RACES 扩展的是环境的<strong>组合结构</strong>，而不是简单复制或改写题目文本。</p>
-<p>框架维护一个环境前沿集合，先检查类型是否兼容，再实际执行组合后的生成器与验证器，只有通过质量检查的环境才会进入下一轮。这样，系统不是让语言模型凭空描述一个新任务，而是保留可执行的生成逻辑和可验证的答案链。</p>
-<p>论文定义了四种算子：</p>
-<ul>
-<li><strong>SEQUENTIAL</strong>：前一个环境的答案成为后一个环境的输入，形成多步依赖。</li>
-<li><strong>PARALLEL</strong>：多个环境独立求解，再把结果共同交给聚合环境。</li>
-<li><strong>SORT</strong>：对多个子任务的结果执行排序，要求模型同时完成求解与比较。</li>
-<li><strong>SELECT</strong>：根据条件从候选结果中选择目标，增加分支判断。</li>
-</ul>
-<p>这些算子诱导不同推理结构。递归应用后，环境数量不再只随原子任务数量线性增长，但每个复合环境仍能通过组成它的确定性验证器进行检查。</p>
-<h2 id="训练设置"><a href="#训练设置" class="headerlink" title="训练设置"></a>训练设置</h2><p>实验使用 DeepSeek-R1-Distill-Qwen-14B 和 Qwen3-14B，两者都采用 GRPO 训练。主要设置为 300 个训练步骤、12,800 个训练实例、batch size 128、学习率 $2\times10^{-6}$、每题 8 个 rollout，以及 32K 最大上下文长度。训练运行在 32 张 A100 80GB GPU 上。</p>
-<p>论文比较三组模型：未经强化学习的 Base、在单个原子环境上训练的 $\mathrm{RL}<em>{\mathrm{individual}}$，以及在 RACES 复合环境上训练的 $\mathrm{RL}</em>{\mathrm{RACES}}$。</p>
-<h2 id="主要结果"><a href="#主要结果" class="headerlink" title="主要结果"></a>主要结果</h2><table>
-<thead>
-<tr>
-<th>模型</th>
-<th align="right">Base</th>
-<th align="right">单环境 RL</th>
-<th align="right">RACES RL</th>
-<th align="right">RACES 相对 Base</th>
-<th align="right">RACES 相对单环境</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>DeepSeek-R1-Distill-Qwen-14B</td>
-<td align="right">48.2</td>
-<td align="right">48.8</td>
-<td align="right">51.3</td>
-<td align="right">+3.1</td>
-<td align="right">+2.5</td>
-</tr>
-<tr>
-<td>Qwen3-14B</td>
-<td align="right">58.8</td>
-<td align="right">60.1</td>
-<td align="right">61.1</td>
-<td align="right">+2.3</td>
-<td align="right">+1.0</td>
-</tr>
-</tbody></table>
-<p>这里必须区分两个参照系：DeepSeek 系列的 51.3 相比<strong>未经 RL 的 Base 48.2</strong>提高 3.1 分；相比<strong>单环境 RL 的 48.8</strong>提高 2.5 分。旧版文章遗漏了前一个基线，导致“平均提升 3.1 分”和“提升 2.5 分”看起来互相冲突。</p>
-<h2 id="为什么训练奖励更低，泛化反而更好"><a href="#为什么训练奖励更低，泛化反而更好" class="headerlink" title="为什么训练奖励更低，泛化反而更好"></a>为什么训练奖励更低，泛化反而更好</h2><p><img src="/images/papers/2606.12373/training-reward.png" alt="单环境与 RACES 训练奖励对比"></p>
-<p><strong>图解：</strong> 图中单环境训练的奖励快速升高，而 RACES 的奖励持续更低。重点不是把低奖励解释成训练失败，而是识别任务难度差异：复合环境包含更长的依赖链和更多推理模式。该图只能说明 RACES 训练任务更难，不能单独证明泛化更强。</p>
-<p><img src="/images/papers/2606.12373/ood-performance.png" alt="不同训练方法的分布外评测表现"></p>
-<p><strong>图解：</strong> 这张图给出与上一张图对应的分布外评测曲线。尽管 RACES 的训练奖励较低，其下游平均分在约 200 步时达到 51.9，而单环境训练约为 50.4。两图合看才支持论文的核心解释：容易记住的训练环境不必然带来更好的跨任务泛化，更难且结构更多样的组合环境可能提供更有效的训练信号。</p>
-<h2 id="组合深度带来的收益与边界"><a href="#组合深度带来的收益与边界" class="headerlink" title="组合深度带来的收益与边界"></a>组合深度带来的收益与边界</h2><p><img src="/images/papers/2606.12373/composition-size.png" alt="不同组合长度下的训练奖励与波动"></p>
-<p><strong>图解：</strong> 图中比较组合长度从 2 增加到 6 时的奖励水平和波动。组合越深，平均奖励和方差整体下降，表明任务趋难；下游表现从长度 2 的 50.8 提升到长度 5 的 51.2，但长度 6 回落到 50.7。重点结论不是“越深越好”，而是存在难度甜点区：过浅缺少结构多样性，过深则可能造成奖励稀疏和优化困难。</p>
-<p>论文还报告了一项环境效率结果：对 Qwen3-4B，RACES 只使用 50 个环境即可取得 50.8 的平均分，而单环境方法使用 300 个环境得到 50.4。这说明组合机制的价值不仅是提高最终分数，也在于复用已有环境结构。</p>
-<h2 id="局限与阅读判断"><a href="#局限与阅读判断" class="headerlink" title="局限与阅读判断"></a>局限与阅读判断</h2><p>论文明确承认四类算子没有覆盖条件分支、有界循环等全部程序结构；复合任务依赖模型已经具备一定推理能力，较弱模型容易遭遇稀疏奖励；更深组合还会产生长轨迹，因此 32K 上下文窗口成为实际门槛。</p>
-<p>此外，当前公开地址是匿名评审代码与数据快照，并非正式 GitHub 仓库；文章因此不把它误写成 GitHub 链接。主表给出了清晰的平均分，但没有为所有差异报告统计显著性检验。对“组合环境导致泛化提升”的因果解释，应结合训练曲线、环境效率和组合深度消融共同阅读，而不能只看单一最终分数。</p>
-<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ol>
-<li><a href="https://arxiv.org/abs/2606.12373">RACES: Recursive Automated Composition for Environment Scaling</a>. arXiv:2606.12373, 2026.</li>
-<li><a href="https://arxiv.org/abs/2511.07317">RLVE: Scaling Reinforcement Learning from Verifiable Environments</a>. arXiv:2511.07317, 2025.</li>
-<li><a href="https://arxiv.org/abs/2601.04809">SCALER: Scaling Verifiable Environments for Reinforcement Learning</a>. arXiv:2601.04809, 2026.</li>
-<li><a href="https://openreview.net/forum?id=YcrOuJRVGh">ReSyn: Environment Synthesis for Reinforcement Learning</a>. OpenReview, 2026.</li>
-<li><a href="https://arxiv.org/abs/2602.12036">Composition-RL: Compositional Reinforcement Learning for Reasoning</a>. arXiv:2602.12036, 2026.</li>
-<li><a href="https://openreview.net/forum?id=jt7oCtYqHE">From f(x) and g(x) to f(g(x)): Learning Through Problem Composition</a>. OpenReview, 2026.</li>
-</ol>
-]]></content>
-      <categories>
-        <category>AI</category>
-        <category>大模型与智能体</category>
-      </categories>
-      <tags>
-        <tag>论文速读</tag>
-        <tag>强化学习</tag>
-        <tag>可验证环境</tag>
-        <tag>推理泛化</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>模态噪声会在融合时被放大：SMORE 把融合搬到频域</title>
     <url>/article/smore-spectrum-modality-fusion/</url>
     <content><![CDATA[<blockquote>
@@ -7518,6 +7437,87 @@
       </categories>
       <tags>
         <tag>论文速读</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>可验证环境不是推荐任务：RACES 如何用递归组合扩展推理训练</title>
+    <url>/article/verifiable-environments-lego-bricks/</url>
+    <content><![CDATA[<blockquote>
+<p>论文：<a href="https://arxiv.org/abs/2606.12373">RACES: Recursive Automated Composition for Environment Scaling</a><br><br>作者匿名代码与数据快照：<a href="https://anonymous.4open.science/r/Submission_of_NIPS2026_34776-B7FD">Submission of NeurIPS 2026</a></p>
+</blockquote>
+<h2 id="问题是什么"><a href="#问题是什么" class="headerlink" title="问题是什么"></a>问题是什么</h2><p>这篇论文研究的不是“序列推荐”，而是<strong>可验证环境上的强化学习与推理泛化</strong>。这类环境能够用确定性验证器判断答案对错，因此适合为推理模型提供可扩展的奖励信号。真正的瓶颈在于：人工设计环境代价高，逐个生成新环境通常只能线性扩展任务数量，而且容易停留在相似难度和相似推理模式上。</p>
+<p>RACES 的核心问题是：已有环境能否像乐高积木一样递归组合，从有限的原子环境自动形成更多、更难、结构更丰富的训练任务？论文把一个可验证环境写成四元组：</p>
+<p>$$<br>e&#x3D;(G_e, f_e, D_e, V_e),<br>$$</p>
+<p>其中 $G_e$ 生成问题，$f_e$ 定义问题到答案的映射，$D_e$ 与 $V_e$ 分别描述输入域和输出域。只要前一环境的输出域与后一环境的输入域兼容，两者就可以继续组合。</p>
+<h2 id="RACES-如何工作"><a href="#RACES-如何工作" class="headerlink" title="RACES 如何工作"></a>RACES 如何工作</h2><p><img src="/images/papers/2606.12373/races-framework.png" alt="RACES 从原子环境池递归组合出复合环境"></p>
+<p><strong>图解：</strong> 这张方法总览图从左到右展示原子环境池、可执行性筛选、递归组合以及四种组合算子。重点看中间的“积木式”递归：新生成的复合环境还能重新进入候选池，继续与其他环境组合。图支持的有限结论是，RACES 扩展的是环境的<strong>组合结构</strong>，而不是简单复制或改写题目文本。</p>
+<p>框架维护一个环境前沿集合，先检查类型是否兼容，再实际执行组合后的生成器与验证器，只有通过质量检查的环境才会进入下一轮。这样，系统不是让语言模型凭空描述一个新任务，而是保留可执行的生成逻辑和可验证的答案链。</p>
+<p>论文定义了四种算子：</p>
+<ul>
+<li><strong>SEQUENTIAL</strong>：前一个环境的答案成为后一个环境的输入，形成多步依赖。</li>
+<li><strong>PARALLEL</strong>：多个环境独立求解，再把结果共同交给聚合环境。</li>
+<li><strong>SORT</strong>：对多个子任务的结果执行排序，要求模型同时完成求解与比较。</li>
+<li><strong>SELECT</strong>：根据条件从候选结果中选择目标，增加分支判断。</li>
+</ul>
+<p>这些算子诱导不同推理结构。递归应用后，环境数量不再只随原子任务数量线性增长，但每个复合环境仍能通过组成它的确定性验证器进行检查。</p>
+<h2 id="训练设置"><a href="#训练设置" class="headerlink" title="训练设置"></a>训练设置</h2><p>实验使用 DeepSeek-R1-Distill-Qwen-14B 和 Qwen3-14B，两者都采用 GRPO 训练。主要设置为 300 个训练步骤、12,800 个训练实例、batch size 128、学习率 $2\times10^{-6}$、每题 8 个 rollout，以及 32K 最大上下文长度。训练运行在 32 张 A100 80GB GPU 上。</p>
+<p>论文比较三组模型：未经强化学习的 Base、在单个原子环境上训练的 $\mathrm{RL}<em>{\mathrm{individual}}$，以及在 RACES 复合环境上训练的 $\mathrm{RL}</em>{\mathrm{RACES}}$。</p>
+<h2 id="主要结果"><a href="#主要结果" class="headerlink" title="主要结果"></a>主要结果</h2><table>
+<thead>
+<tr>
+<th>模型</th>
+<th align="right">Base</th>
+<th align="right">单环境 RL</th>
+<th align="right">RACES RL</th>
+<th align="right">RACES 相对 Base</th>
+<th align="right">RACES 相对单环境</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>DeepSeek-R1-Distill-Qwen-14B</td>
+<td align="right">48.2</td>
+<td align="right">48.8</td>
+<td align="right">51.3</td>
+<td align="right">+3.1</td>
+<td align="right">+2.5</td>
+</tr>
+<tr>
+<td>Qwen3-14B</td>
+<td align="right">58.8</td>
+<td align="right">60.1</td>
+<td align="right">61.1</td>
+<td align="right">+2.3</td>
+<td align="right">+1.0</td>
+</tr>
+</tbody></table>
+<p>这里必须区分两个参照系：DeepSeek 系列的 51.3 相比<strong>未经 RL 的 Base 48.2</strong>提高 3.1 分；相比<strong>单环境 RL 的 48.8</strong>提高 2.5 分。旧版文章遗漏了前一个基线，导致“平均提升 3.1 分”和“提升 2.5 分”看起来互相冲突。</p>
+<h2 id="为什么训练奖励更低，泛化反而更好"><a href="#为什么训练奖励更低，泛化反而更好" class="headerlink" title="为什么训练奖励更低，泛化反而更好"></a>为什么训练奖励更低，泛化反而更好</h2><p><img src="/images/papers/2606.12373/training-reward.png" alt="单环境与 RACES 训练奖励对比"></p>
+<p><strong>图解：</strong> 图中单环境训练的奖励快速升高，而 RACES 的奖励持续更低。重点不是把低奖励解释成训练失败，而是识别任务难度差异：复合环境包含更长的依赖链和更多推理模式。该图只能说明 RACES 训练任务更难，不能单独证明泛化更强。</p>
+<p><img src="/images/papers/2606.12373/ood-performance.png" alt="不同训练方法的分布外评测表现"></p>
+<p><strong>图解：</strong> 这张图给出与上一张图对应的分布外评测曲线。尽管 RACES 的训练奖励较低，其下游平均分在约 200 步时达到 51.9，而单环境训练约为 50.4。两图合看才支持论文的核心解释：容易记住的训练环境不必然带来更好的跨任务泛化，更难且结构更多样的组合环境可能提供更有效的训练信号。</p>
+<h2 id="组合深度带来的收益与边界"><a href="#组合深度带来的收益与边界" class="headerlink" title="组合深度带来的收益与边界"></a>组合深度带来的收益与边界</h2><p><img src="/images/papers/2606.12373/composition-size.png" alt="不同组合长度下的训练奖励与波动"></p>
+<p><strong>图解：</strong> 图中比较组合长度从 2 增加到 6 时的奖励水平和波动。组合越深，平均奖励和方差整体下降，表明任务趋难；下游表现从长度 2 的 50.8 提升到长度 5 的 51.2，但长度 6 回落到 50.7。重点结论不是“越深越好”，而是存在难度甜点区：过浅缺少结构多样性，过深则可能造成奖励稀疏和优化困难。</p>
+<p>论文还报告了一项环境效率结果：对 Qwen3-4B，RACES 只使用 50 个环境即可取得 50.8 的平均分，而单环境方法使用 300 个环境得到 50.4。这说明组合机制的价值不仅是提高最终分数，也在于复用已有环境结构。</p>
+<h2 id="局限与阅读判断"><a href="#局限与阅读判断" class="headerlink" title="局限与阅读判断"></a>局限与阅读判断</h2><p>论文明确承认四类算子没有覆盖条件分支、有界循环等全部程序结构；复合任务依赖模型已经具备一定推理能力，较弱模型容易遭遇稀疏奖励；更深组合还会产生长轨迹，因此 32K 上下文窗口成为实际门槛。</p>
+<p>此外，当前公开地址是匿名评审代码与数据快照，并非正式 GitHub 仓库；文章因此不把它误写成 GitHub 链接。主表给出了清晰的平均分，但没有为所有差异报告统计显著性检验。对“组合环境导致泛化提升”的因果解释，应结合训练曲线、环境效率和组合深度消融共同阅读，而不能只看单一最终分数。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ol>
+<li><a href="https://arxiv.org/abs/2606.12373">RACES: Recursive Automated Composition for Environment Scaling</a>. arXiv:2606.12373, 2026.</li>
+<li><a href="https://arxiv.org/abs/2511.07317">RLVE: Scaling Reinforcement Learning from Verifiable Environments</a>. arXiv:2511.07317, 2025.</li>
+<li><a href="https://arxiv.org/abs/2601.04809">SCALER: Scaling Verifiable Environments for Reinforcement Learning</a>. arXiv:2601.04809, 2026.</li>
+<li><a href="https://openreview.net/forum?id=YcrOuJRVGh">ReSyn: Environment Synthesis for Reinforcement Learning</a>. OpenReview, 2026.</li>
+<li><a href="https://arxiv.org/abs/2602.12036">Composition-RL: Compositional Reinforcement Learning for Reasoning</a>. arXiv:2602.12036, 2026.</li>
+<li><a href="https://openreview.net/forum?id=jt7oCtYqHE">From f(x) and g(x) to f(g(x)): Learning Through Problem Composition</a>. OpenReview, 2026.</li>
+</ol>
+]]></content>
+      <categories>
+        <category>AI</category>
+        <category>大模型与智能体</category>
+      </categories>
+      <tags>
+        <tag>论文速读</tag>
+        <tag>强化学习</tag>
+        <tag>可验证环境</tag>
+        <tag>推理泛化</tag>
       </tags>
   </entry>
   <entry>
