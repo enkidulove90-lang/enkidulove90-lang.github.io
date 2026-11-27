@@ -2,19 +2,19 @@
 
 title: "PaSaMaster：用递归自进化检索把文献发现的幻觉率压到零"
 
-date: 2026-05-14
+date: "2026-05-14"
 
-year: 2026
+year: "2026"
 
-venue_type: arXiv预印本
+venue_type: "arXiv预印本"
 
-venue_name: arXiv
+venue_name: ""
 
-categories: [推荐系统, 论文速递]
+categories: ["推荐系统", "论文速递"]
 
-tags: [论文速读]
+tags: ["论文速读"]
 
-slug: paper-2605.14306
+slug: "paper-2605.14306"
 
 ---
 
@@ -32,7 +32,7 @@ PaSaMaster 的部署前提是三层基础设施：一个把超过 1.6 亿篇论�
 
 PaSaMaster 把查询 q 映射为一个按相关性排序、且每条推荐都可追溯的论文列表 P。整个流程由四个算子串联：PLAN 生成检索策略 S 与验证清单 C；RETRIEVE 从语料库和多通道工具中拉取初始候选集；VERIFY 对每篇候选按清单逐项打分并定位证据；RERANK 做跨论文的列表级重排。
 
-![PaSaMaster 与 PaSaMaster-Bench 总览](/images/492cad1c3a74b96b4dbf0367b83cd8a3.png)
+![PaSaMaster 与 PaSaMaster-Bench 总览](/images/c19eca83c773c1bf21dc5b44f7210911.png)
 
 读这张图可以先看上半部分 a：左侧的自然语言意图进入导航器，被拆成检索策略和验证清单；中间馆员群并行执行多通道检索、证据验证和意图—论文打分；右侧输出的是带论文级相关性分数、推荐理由和逐条约束判断的 top-K 列表。下半部分 b 是配套基准的构建流程：专家写意图、多通道召回候选池、再按清单逐项标注，最终形成 244 个任务、覆盖 38 个学科的目标论文集。这张图支撑的核心主张是：系统的输出空间被限制在验证语料库内，而意图理解可以在检索过程中被反复修正。
 
@@ -54,9 +54,7 @@ PaSaMaster 把查询 q 映射为一个按相关性排序、且每条推荐都可
 
 实验在 PaSaMaster-Bench 上进行，评测截断 K=20，指标包括 Recall@20、Precision@20、F1-score@20、NDCG@20，以及每查询成本和源幻觉率。基线分四组：词法检索（Google Scholar）、语义检索（OpenScholar、Bohrium Science Navigator）、生成式 LLM（DeepSeek-v3.2、Kimi-K2.5、MiniMax-M2.7、GLM-5、Gemini-3.1-pro、GPT-5.2，均配备 Search 与 Visit 工具做工具辅助检索）、固定流水线智能体检索（Google Scholar Labs）。
 
-## 二、实验：38 个学科上的检索质量、幻觉与成本
 
-实验在 PaSaMaster-Bench 上进行，评测截断 K=20，指标包括 Recall@20、Precision@20、F1-score@20、NDCG@20，以及每查询成本和源幻觉率。基线分四组：词法检索（Google Scholar）、语义检索（OpenScholar、Bohrium Science Navigator）、生成式 LLM（DeepSeek-v3.2、Kimi-K2.5、MiniMax-M2.7、GLM-5、Gemini-3.1-pro、GPT-5.2，均配备 Search 与 Visit 工具做工具辅助检索）、固定流水线智能体检索（Google Scholar Labs）。
 
 
 

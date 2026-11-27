@@ -2,19 +2,19 @@
 
 title: "LenGuard-GPC：用引导提示一致性奖励与分阶段长度守卫重塑空间推理RL"
 
-date: 2026-07-19
+date: "2026-07-19"
 
-year: 2026
+year: "2026"
 
-venue_type: arXiv预印本
+venue_type: "arXiv预印本"
 
-venue_name: arXiv
+venue_name: ""
 
-categories: [推荐系统, 论文速递]
+categories: ["推荐系统", "论文速递"]
 
-tags: [论文速读]
+tags: ["论文速读"]
 
-slug: paper-2607.17243
+slug: "paper-2607.17243"
 
 ---
 
@@ -32,7 +32,7 @@ slug: paper-2607.17243
 
 LenGuard-GPC 的奖励由三部分组成：任务奖励、引导提示一致性奖励和分阶段长度奖励。任务奖励是答案准确率与格式奖励的加权和；一致性奖励衡量同一条采样轨迹在标准提示与引导提示下 token 级预测分布的差异；长度奖励则按轨迹长度分段给出。三者加权后进入 GRPO 的组内归一化，得到相对优势。
 
-![LenGuard-GPC 整体流程：在分阶段区间内平衡负 KL 一致性奖励与长度奖励](/images/c546cc4ab41cdfee25e31aec5cec61a4.png)
+![LenGuard-GPC 整体流程：在分阶段区间内平衡负 KL 一致性奖励与长度奖励](/images/0ceabfd567e7713d72f3b9b45de9b16e.png)
 
 读这张图时，先看左侧的采样与双提示分支：模型只从标准提示生成一条轨迹，引导提示不参与生成，只在固定轨迹上并行计算每个 token 的预测分布。中间部分把两条分布逐 token 比较并累加为 KL 分数，再取负作为一致性奖励。右侧是分阶段长度奖励的折线：长度未到 l1 时不加奖励，在 [l1, l2] 区间内奖励从 r1 升到 r2，之后保持恒定直到 l3。图想支撑的主张是，当平均每 token KL 较高时，负 KL 一致性奖励占主导，推动推理更简洁；当平均每 token KL 较低时，长度奖励相对更强，防止模型坍缩成过短且内容贫乏的推理链。
 
@@ -44,9 +44,7 @@ LenGuard-GPC 的奖励由三部分组成：任务奖励、引导提示一致性�
 
 实验以 Qwen3-VL-8B-Instruct 为基座，对比 vanilla GRPO、闭源模型 Gemini-2.5-Pro 与 GPT-5、多个开源通用模型、空间智能模型以及随机选择基线。评价指标为准确率（%），并在 MMSI-Bench 上给出细粒度子类别结果。训练数据规模、预处理方式、训练/验证/测试划分以及硬件与超参数在原文中未披露，因此下表只列证据中明确出现的设置。
 
-细粒度结果进一步显示提升集中在跨视图位置推理。在 MMSI-Bench 上，相比 vanilla GRPO，Cam.-Obj. 提升 13.9 个百分点，Cam.-Reg. 提升 12.0 个百分点，Obj.-Reg. 提升 7.1 个百分点，Obj.-Obj. 提升 5.3 个百分点。与此同时，Attribute Appr. 和 Motion Obj. 出现下降，说明基于外观的属性和物体运动推理仍是难点。这一分布与“一致性奖励主要强化跨视图空间关系”的解释一致，但也提示方法并非在所有子类上单调改进。
 
-![MMSI 与 ViewSpatial 上的平均生成 token 开销对比](/images/papers/2607.17243/624c4c350639b99f6b444069d9f992c15ae7170265a2f9360b2bbdc72d239c78.jpg)
 
 
 
@@ -69,7 +67,7 @@ LenGuard-GPC 的奖励由三部分组成：任务奖励、引导提示一致性�
 
 细粒度结果进一步显示提升集中在跨视图位置推理。在 MMSI-Bench 上，相比 vanilla GRPO，Cam.-Obj. 提升 13.9 个百分点，Cam.-Reg. 提升 12.0 个百分点，Obj.-Reg. 提升 7.1 个百分点，Obj.-Obj. 提升 5.3 个百分点。与此同时，Attribute Appr. 和 Motion Obj. 出现下降，说明基于外观的属性和物体运动推理仍是难点。这一分布与“一致性奖励主要强化跨视图空间关系”的解释一致，但也提示方法并非在所有子类上单调改进。
 
-![MMSI 与 ViewSpatial 上的平均生成 token 开销对比](/images/c9a9e047b7af4b1d8d052b013a67bfe2.png)
+![MMSI 与 ViewSpatial 上的平均生成 token 开销对比](/images/df0e2a8d88c5a9357c34f8eed5eb39f9.png)
 
 这张图用于支撑“更短但更准”的主张。横轴是两个基准，纵轴是平均生成 token 数；对比 vanilla GRPO 与 LenGuard-GPC 的柱高可以看到，LenGuard-GPC 在保持更高准确率的同时生成了更短的推理轨迹。阅读时应注意，长度下降本身不是目的，论文强调的是在分阶段长度守卫下避免短答案坍缩，因此这张图需要与准确率表一起看，而不是单独作为效率结论。
 

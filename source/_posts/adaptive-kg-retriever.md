@@ -2,19 +2,19 @@
 
 title: "自适应知识图谱检索器"
 
-date: 2026-01-20
+date: "2026-01-20"
 
-year: 2026
+year: "2026"
 
-venue_type: 会议
+venue_type: "arXiv预印本"
 
-venue_name: ACL 2026
+venue_name: ""
 
-categories: [推荐系统, 知识图谱]
+categories: ["推荐系统", "知识图谱"]
 
-tags: [论文速读]
+tags: ["论文速读"]
 
-slug: adaptive-kg-retriever
+slug: "adaptive-kg-retriever"
 
 ---
 

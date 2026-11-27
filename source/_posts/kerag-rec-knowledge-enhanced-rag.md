@@ -2,19 +2,19 @@
 
 title: "知识图谱塞进 LLM 塞多少才合适：KERAG_R 的检索-选择-格式化流程"
 
-date: 2025-07-08
+date: "2025-07-08"
 
-year: 2025
+year: "2025"
 
-venue_type: arXiv预印本
+venue_type: "arXiv预印本"
 
-venue_name: arXiv
+venue_name: ""
 
-categories: [推荐系统, 知识图谱]
+categories: ["推荐系统", "知识图谱"]
 
-tags: [论文速读]
+tags: ["论文速读"]
 
-slug: kerag-rec-knowledge-enhanced-rag
+slug: "kerag-rec-knowledge-enhanced-rag"
 
 ---
 
@@ -30,7 +30,7 @@ slug: kerag-rec-knowledge-enhanced-rag
 
 整条链路是「**检索 → 构造提示 → 微调**」，依次对应论文里的 GraphRAG、知识增强提示构造、知识增强指令微调三个模块。
 
-![KERAG\_R 的整体结构：GraphRAG 检索、知识增强提示构造、知识增强指令微调](/images/1fe06465b9afa015ca63a43e461f9175.png)
+![KERAG\_R 的整体结构：GraphRAG 检索、知识增强提示构造、知识增强指令微调](/images/707a48745fb708f0ee560a36cde171cd.png)
 
 上图是论文的 Figure 1，三块分别是：(a) GraphRAG 负责从 KG 里挑出与物品最相关的三元组；(b) 把挑出的三元组组装进指令提示；(c) 用这批提示去微调模型。下面按顺序拆。
 
@@ -140,7 +140,7 @@ L = min_Θ Σ_{(x,y) ∈ D_train} Σ_t −log P_Θ( y_t | x, y_{[1:t−1]} )   (
 
 ### 反直觉结论：一个三元组就够了
 
-![三元组数量对性能的影响：单条三元组即达到最优，继续增加反而下降](/images/e2cfe13a24913b8ea53004b9b793add3.png)
+![三元组数量对性能的影响：单条三元组即达到最优，继续增加反而下降](/images/3494c1af832988c265c144481d011bad.png)
 
 论文的 RQ3 专门扫了三元组数量。结论是：**每个用户交互过的物品只配 1 条三元组就足够**，继续增加不但没有增益，反而会**损害** LLM 的推理——因为额外的三元组带来了与当前排序任务无关的关系边，模型在生成时被这些无关事实带偏。
 

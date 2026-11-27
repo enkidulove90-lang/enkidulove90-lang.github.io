@@ -2,19 +2,19 @@
 
 title: "InvariRank：当候选顺序一变，LLM 重排序的偏好就散了"
 
-date: 2026-08-04
+date: "2026-08-04"
 
-year: 2026
+year: "2026"
 
-venue_type: arXiv预印本
+venue_type: "arXiv预印本"
 
-venue_name: arXiv
+venue_name: ""
 
-categories: [推荐系统, 论文速递]
+categories: ["推荐系统", "论文速递"]
 
-tags: [论文速读]
+tags: ["论文速读"]
 
-slug: paper-2608.03091
+slug: "paper-2608.03091"
 
 ---
 
@@ -48,7 +48,7 @@ slug: paper-2608.03091
 
 列表级输出一致性 LOC 直接用采样排序之间的平均成对一致性衡量，主报告 Kendall's τ，越高表示等价排列下的完整排序越一致。PPI、GPI、LOC 并非统计独立，而是同一候选顺序敏感性在局部、全局、输出三个层面的刻画。此外，作者测量 top-k 曝光 E_k(p)：候选处于输入位置 p 时进入 top-k 的概率。由于候选位置被随机化，位置不敏感的重排器应给出 E_k(p)=k/K 的均匀曝光，系统性偏离即边际位置曝光偏差。这一度量只看平均 top 位置分布，不看跨排列一致性，因此与前三者有本质区别。
 
-![PPI 与 GPI 随候选列表长度变化](/images/14f66a2c965d1ede75caea4d9bd04389.png)
+![PPI 与 GPI 随候选列表长度变化](/images/8b61cae1e97e051f07883905780f2ca9.png)
 
 这张图按 K=15、25、50 三个列表长度分别画出 PPI 与 GPI 的曲线，横轴是候选列表长度，纵轴是一致性度量，数值越低越好。阅读顺序是先看左图 PPI 再看右图 GPI，两条曲线的方法排序在三个长度上保持一致：SGS 处于最低位，Bootstrapping 居中，STELLA_LW 明显抬升。它支撑的主张是，方法间的一致性差异不是某个列表长度下的偶然现象，而是随 K 变化仍稳定存在的结构性差异。
 
@@ -56,19 +56,7 @@ slug: paper-2608.03091
 
 ### 数据、模型与实现条件
 
-| 项目 | 设置 |
-| --- | --- |
-| 数据集 | MovieLens-32M、Amazon Books |
-| 划分方式 | 用户交互按时间排序，时序划分训练集与评估集 |
-| 候选构造 | LightGCN 检索 top-K，K∈{15,25,50}；每个候选集至少含一个留出相关物品 |
-| 模型 | Llama-3.2-3B-Instruct、Mistral-7B-Instruct-v0.3、Qwen2.5-7B-Instruct |
-| 排序提取 | 从候选标记标识符的 token log-probabilities 提取，非采样生成 |
-| 排列采样 | 每个查询和方法 M=20 个候选排列 |
-| 基线 | Zero-shot、Bootstrapping（Borda 聚合）、SGS（顺序选择并重洗）、STELLA_LW（生成式校准 + 贝叶斯后验更新） |
-| 指标 | HR@5、nDCG@5、PPI↓、GPI↓、LOC↑（Kendall's τ）、top-k 曝光 |
-| 未披露 | 硬件、软件版本、训练超参数 |
 
-STELLA_LW 的校准阶段最多使用 150 个探测候选集，把每个相关候选放在每个输入位置并重复 5 次以估计平滑的位置转移矩阵；推理时最多 10 次后验更新并早停，返回最小熵后验诱导的排序，信息增益可忽略时回退到原始排序。
 
 
 
@@ -105,7 +93,7 @@ Bootstrapping 提供了一个中间参照。相对 Zero-shot，它在 Llama-3B/M
 
 ### 曝光曲线：拉平不等于稳定
 
-![top-5 曝光随输入位置的变化](/images/c55cfd5ee46da9b8ed30a765278a17d6.png)
+![top-5 曝光随输入位置的变化](/images/75ddb195083bc8f6dcdfce4d178ee387.png)
 
 这张图按 K=15、25、50 三个子图展示 top-5 曝光随输入位置的变化，横轴是候选在 prompt 中的输入位置，纵轴是该位置候选进入 top-5 的概率，均匀无偏的参照线是 k/K。阅读时先看 Zero-shot 曲线：早期输入位置的曝光明显低于后期位置，呈现系统性偏斜；再看 Bootstrapping，偏斜被压低但没有消失；最后看 STELLA_LW 与 SGS，两条曲线都更接近平坦。它支撑的主张正是论文的关键区分——STELLA_LW 把边际曝光拉平了，却在同一设置下给出最高的 PPI、GPI 和最低的 LOC，因此曝光平坦化不能作为排列一致性的替代证据。
 

@@ -2,19 +2,19 @@
 
 title: "模态缺失不等于信息丢失：I³-MRec 的信息瓶颈不变学习"
 
-date: 2025-08-06
+date: "2025-08-06"
 
-year: 2025
+year: "2025"
 
-venue_type: 会议
+venue_type: "arXiv预印本"
 
-venue_name: ACM MM 2025
+venue_name: ""
 
-categories: [推荐系统, 多模态推荐]
+categories: ["推荐系统", "多模态推荐"]
 
-tags: [论文速读]
+tags: ["论文速读"]
 
-slug: i3mrec-invariant-information-bottleneck
+slug: "i3mrec-invariant-information-bottleneck"
 
 ---
 
@@ -30,11 +30,11 @@ slug: i3mrec-invariant-information-bottleneck
 
 - **MTMT**（Missing Training, Missing Test）：训练和测试都缺。
 
-![Baby 数据集上两种设定下的性能](/images/7f49c3caf46986b0e9b6908aef258cd4.png)
+![Baby 数据集上两种设定下的性能](/images/98eb3205350246190bc18faee7d1b453.png)
 
 *这张图在 Amazon Baby 上把两种设定并列画出来（"Full Modality"对应无缺失的上界，另外两组对应 FTMT / MTMT）。读法是看同一方法在两根柱子之间的落差：落差越大，说明模型对"缺失出现在训练还是测试"越敏感。论文用这张图支撑一个判断——只在测试时缺失的问题，和训练时就缺失的问题，不能用同一套方法论对付；鲁棒表示学习类方法（MILK、SiBraR 那一类）在两种设定下的表现差异尤其明显。*
 
-![不同缺失模态类型下的性能](/images/6c92aa3a9bee6fd834675ba9cfc2baa6.png)
+![不同缺失模态类型下的性能](/images/01b27927afb653ccd07f8cbfa2993634.png)
 
 *第二张图把"缺什么"也拆开了：缺失视觉、缺失文本、还是两者都可能缺。结论是缺失类型对性能的影响并不对称——这与多模态推荐里"文本贡献更大"的普遍观察一致，也意味着一个模型如果只在"随机缺失"下评测过，未必能应付"系统性缺某一模态"的真实场景。*
 
@@ -46,7 +46,7 @@ slug: i3mrec-invariant-information-bottleneck
 
 - **不变风险最小化（IRM）**：把不同的"模态可用性模式"当作不同的环境（environment），要求表示在各环境下都取到最优——这是"不变性"的标准做法。
 
-![I³-MRec 整体框架](/images/b9d7b11004031b594683184c3f91c55b.png)
+![I³-MRec 整体框架](/images/8ccad1dd2e2a3f1d74bff03f25e6dd4a.png)
 
 *框架图给出完整流程：先用基于图的协同过滤范式学出面向偏好的用户/物品表示，再在多个"模态可用性模式"上施加不变性约束，最后融合出对缺失鲁棒的表示。注意它没有"补全"模块——这和不完整多模态推荐里的另一条主线（把缺失模态补出来）是两种哲学：补全派要求"恢复内容"，不变派要求"忽略缺失"。*
 

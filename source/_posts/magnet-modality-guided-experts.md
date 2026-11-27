@@ -2,19 +2,19 @@
 
 title: "MAGNET：模态引导图专家网络"
 
-date: 2026-02-24
+date: "2026-02-24"
 
-year: 2026
+year: "2026"
 
-venue_type: arXiv预印本
+venue_type: "arXiv预印本"
 
-venue_name: arXiv
+venue_name: ""
 
-categories: [推荐系统, 多模态推荐]
+categories: ["推荐系统", "多模态推荐"]
 
-tags: [论文速读]
+tags: ["论文速读"]
 
-slug: magnet-modality-guided-experts
+slug: "magnet-modality-guided-experts"
 
 ---
 

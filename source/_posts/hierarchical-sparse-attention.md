@@ -2,19 +2,19 @@
 
 title: "分层稀疏注意力：迈向无限上下文建模"
 
-date: 2026-07-03
+date: "2026-07-03"
 
-year: 2026
+year: "2026"
 
-venue_type: arXiv预印本
+venue_type: "arXiv预印本"
 
-venue_name: arXiv
+venue_name: ""
 
-categories: [AI, 大模型与智能体]
+categories: ["AI", "大模型与智能体"]
 
-tags: [论文速读]
+tags: ["论文速读"]
 
-slug: hierarchical-sparse-attention
+slug: "hierarchical-sparse-attention"
 
 ---
 

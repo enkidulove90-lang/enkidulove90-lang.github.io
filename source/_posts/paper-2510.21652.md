@@ -2,19 +2,19 @@
 
 title: "AstaBench：用可控文献环境与成本感知排行榜严格评测科研智能体"
 
-date: 2025-10-24
+date: "2025-10-24"
 
-year: 2025
+year: "2025"
 
-venue_type: arXiv预印本
+venue_type: "arXiv预印本"
 
-venue_name: arXiv
+venue_name: ""
 
-categories: [推荐系统, 论文速递]
+categories: ["推荐系统", "论文速递"]
 
-tags: [论文速读]
+tags: ["论文速读"]
 
-slug: paper-2510.21652
+slug: "paper-2510.21652"
 
 ---
 
@@ -34,7 +34,7 @@ AstaBench 的方法由三层构成。第一层是评测原则：任务需覆盖�
 
 在任务组织上，11 个基准被归入四个类别。文献理解包括 PaperFindingBench、LitQA2-FullText-Search、ScholarQA-CS2、ArxivDIGESTables-Clean 等；编码与执行包括 SUPER-Expert、CORE-Bench-Hard、DS-1000；数据分析以 DiscoveryBench 为代表；端到端发现包括 E2E-Bench 与 E2E-Bench-Hard。智能体套件包含九类 Asta 专用智能体与多种通用基线，最终实验覆盖 22 个智能体类别、57 个具体智能体。
 
-![文献理解问答基准的分数—成本分析](/images/20fe201b9df2ae8e2eb1f3bf47356ea1.png)
+![文献理解问答基准的分数—成本分析](/images/0f09a837aa1d3a242b757bf7df39ccb6.png)
 
 这张图应沿横轴从低成本向高成本阅读，纵轴是基准得分，误差棒为 95% 置信区间，虚线连接帕累托前沿上的点。它支撑的核心主张是：在文献理解问答上，专用智能体与通用 ReAct 的差距并非单纯由成本决定；Asta Scholar QA 在 ScholarQA-CS2 上以约 0.126 美元的成本取得 87.7 分，而 ReAct 搭配 gpt-5 以约 0.373 美元取得 79.8 分，说明任务优化能带来成本与质量的双重优势，但这一优势在 LitQA2-FullText 上并不一致。
 
@@ -67,7 +67,7 @@ AstaBench 的方法由三层构成。第一层是评测原则：任务需覆盖�
 
 最强相关基线是 ReAct 搭配 gpt-5，综合 44.0 分；类别层面呈现明显不一致：编码与执行上 ReAct 搭配 gpt-5 的 55.0 分高于 Asta v0 的 47.6 分；端到端发现上 Asta v0 的 68.8 分远高于 ReAct 搭配 gpt-5 的 36.1 分。这说明专用优化并非全面领先，而是以更高工程与推理成本换取特定类别优势。
 
-![端到端发现基准的分数—成本分析](/images/46f045f0988886db031814416c3cd02b.png)
+![端到端发现基准的分数—成本分析](/images/e1f42333ee6ae61419761b896646dada.png)
 
 这张图聚焦端到端发现，横轴为对数成本，纵轴为得分，虚线标出帕累托前沿。阅读时应关注高成本区间的 Asta Panda 与 Asta v0：Asta Panda 搭配 claude-sonnet-4 在 E2E-Bench 上得 70.5 分、成本约 10.643 美元，在 E2E-Bench-Hard 上得 68.2 分、成本约 14.487 美元；而 Smolagents Coder 搭配 gpt-5 仅用约 0.205 美元就在 E2E-Bench 上得 62.8 分，但在 E2E-Bench-Hard 上跌至 30.3 分。这支撑了“端到端发现的高分伴随极高成本，且难度提升后性能骤降”的判断。
 

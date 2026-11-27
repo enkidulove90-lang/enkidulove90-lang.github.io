@@ -2,19 +2,19 @@
 
 title: "压缩 KV Cache 为什么在推荐上失效：EARN 的 register token"
 
-date: 2025-07-01
+date: "2025-07-01"
 
-year: 2025
+year: "2025"
 
-venue_type: 会议
+venue_type: "arXiv预印本"
 
-venue_name: KDD 2025
+venue_name: ""
 
-categories: [推荐系统, 生成式推荐]
+categories: ["推荐系统", "生成式推荐"]
 
-tags: [论文速读]
+tags: ["论文速读"]
 
-slug: earn-register-token-inference-accel
+slug: "earn-register-token-inference-accel"
 
 ---
 
@@ -30,7 +30,7 @@ EARN 的差别在于：**它不是想办法"丢"，而是先训练模型学会"�
 
 ## 一、方法：register tokens + 在第 k 层丢掉原文
 
-![EARN 整体结构：训练时 prefix/suffix register 可训练，推理时在第 k 层之后移除 prompt tokens](/images/932af607186823c260ba5fb092849996.png)
+![EARN 整体结构：训练时 prefix/suffix register 可训练，推理时在第 k 层之后移除 prompt tokens](/images/af1f94775cf2f63efc88d60dc118f89a.png)
 
 ### 1. 两个 register
 
@@ -58,7 +58,7 @@ X = [ R_prefix ; Prompt ; R_suffix ]
 
 图示的注意力分布对比也印证了这个设计的必要性：
 
-![不同任务上的注意力分布：NLP 阅读理解任务与 LLMRec 任务（Beauty 数据集）的差异](/images/40a30f3091d2bf622d521911a3d96bbc.png)
+![不同任务上的注意力分布：NLP 阅读理解任务与 LLMRec 任务（Beauty 数据集）的差异](/images/254d9ff86aec34cae4797c48fefb7438.png)
 
 推荐任务和自然语言任务的注意力模式并不相同，这也解释了为什么直接照搬 NLP 的 KV 压缩方法在推荐上会失效——**它们按语言任务的注意力分布做剪枝，剪掉的恰好是推荐任务真正依赖的部分**。
 
@@ -124,7 +124,7 @@ Beauty 数据集 + Llama 主干：
 
 ### 更苛刻的设定下依然成立
 
-![不同 batch size 下的效率曲线：注册机制带来的加速在不同批量下保持稳定](/images/f07ff4929dc872ad0cfef33f82feb36e.png)
+![不同 batch size 下的效率曲线：注册机制带来的加速在不同批量下保持稳定](/images/3ce5666c51365dc7bfc6150b5dccf3a1.png)
 
 
 

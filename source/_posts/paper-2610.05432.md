@@ -2,7 +2,7 @@
 
 title: "OpticalRec：面向多模态推荐的统一光学视觉-语言表示"
 
-date: 2026-10-04
+date: "2026-10-04"
 
 year: "2026"
 
@@ -20,13 +20,13 @@ slug: "paper-2610.05432"
 
 [论文链接](https://arxiv.org/abs/2610.05432)
 
-## 研究背景与问题
+## 一、研究背景与问题
 
 多模态推荐（multimodal collaborative filtering, MMCF）的核心目标是为每个物品学习一个能够同时刻画视觉外观与文本语义的表示，再与用户交互图结合完成匹配。近年来视觉-语言模型（VLM）的进展为这一任务提供了强大的预训练表示，但论文指出，主流做法仍然沿用“先独立编码、再后融合”的范式：视觉编码器与文本编码器各自处理单一模态，随后通过求和、拼接或图融合等刚性操作合并。这种范式存在两个结构性缺陷：其一，独立编码天然缺失跨模态交互（如跨注意力），两种模态被投影到异质向量空间；其二，后融合是有损压缩，会进一步扭曲跨模态语义。
 
 作者据此提出两条设计准则：多模态内容应置于统一的输入空间以支持丰富的视觉-语言交互；统一输入应被一次性编码为同质嵌入空间，不再引入破坏性的后融合。基于此，论文提出 OpticalRec——首个面向多模态协同过滤的视觉空间统一编码范式。其关键洞察是“所见即用户所见”：用户浏览商品页时会在商品图与文字之间来回切换注意力，因此把物品的文本元数据渲染为视觉字形（glyph），与商品图共同构成一张“物品卡片”，让图像与文字在同一个像素空间内被视觉编码器原生地联合处理，再经语言解码器完成语义级对齐，从而同时利用现代 VLM 的感知级与语义级双重注意力。论文的主要贡献包括：提出视觉空间统一编码框架；在无需有损后融合的前提下保留视觉-语言相关性，并用互信息与矩阵有效秩给出理论支撑；在多个 Amazon 基准与多种推荐骨干上取得一致提升；以及该模块轻量、即插即用、对渲染布局/字体/颜色鲁棒。
 
-## 方法
+## 二、方法
 
 任务定义。设用户集合 $\mathcal{U}=\{u_1,\dots,u_M\}$、物品集合 $\mathcal{I}=\{i_1,\dots,i_N\}$，物品 $i$ 由图像 $\mathbf{v}_i$ 与文本描述 $\mathbf{t}_i$ 描述。物品嵌入由编码器 $f$ 给出，用户表示由交互物品聚合得到：
 
@@ -78,11 +78,11 @@ $$
 
 矩阵有效秩分析。为刻画表示是否塌缩，论文采用有效秩 $\mathrm{erank}(\mathbf{X})=\exp\left(-\sum_{i=1}^{n} p_i \log p_i\right)$，其中 $p_i=\sigma_i/\sum_j \sigma_j$ 为归一化奇异值分布；取值越低表示表示塌缩，越高表示信息分布越丰富。
 
-![方法图 1](/images/ce6116625ca78cc40c64997450cb7896.png)
+![方法图 1](/images/e946b454d26a6d308722b4519eb22108.png)
 
 该图对比三种编码路径：传统独立编码加后融合、基于提示的 VLM 编码，以及 OpticalRec 的统一像素空间编码。前两者在融合前都缺少跨模态交互，而 OpticalRec 让图像与渲染文字在同一视觉编码器内完成 patch 级交互，再经语言解码器完成语义级对齐，全程无需后融合。
 
-## 实验
+## 三、实验
 
 数据集与设置。实验采用 Amazon 评论数据中三个常用 MMCF 基准：Baby（108,897 用户 / 17,836 物品 / 330,771 交互，稀疏度 99.983%）、Pets（461,828 / 61,060 / 1,772,584，99.993%）与 Clothing（398,796 / 75,616 / 2,109,975，99.993%），预处理采用 5-core 过滤并剔除缺失特征的物品。骨干模型包括 VBPR、LATTICE、FREEDOM、BM3 与 LGMRec，并额外构造基于提示的 VLM 基线以隔离感知级交互的贡献。主实验使用 Qwen3-VL-8B 且全程冻结，推荐模型用 AdamW 训练并早停，评价指标为 NDCG@20、Recall@20 与 Hit Ratio@20。
 
@@ -94,35 +94,31 @@ $$
 
 消融与鲁棒性。渲染分辨率方面，$544\times544$ 整体最优，更低或更高分辨率均略有下降，说明中等分辨率已足以保留视觉-语言语义并避免不必要的高分辨率推理开销。版式、字号与颜色扰动实验（50% 数据随机打乱 {标题, 品牌, 类别, 价格} 位置、字号缩放 ±25%、文字改为黑白）显示所有结果相对默认设置均在 ±1% 以内。更长文本实验表明加入物品详细描述可带来 +0.7% 至 +1.6% 的提升，且在 1000 字符阈值附近饱和（+1.14%），说明默认仅用标题、品牌、类别、价格已提供较强的推荐信号。效率方面，渲染为一次性离线过程：Baby 的 17,836 件物品用 8 个 worker 耗时 13.5 分钟、占用 2.4 GB；Pets 为 46.0 分钟、8.1 GB；Clothing 为 57.0 分钟、10.1 GB，开销在现代机器上可接受。
 
-![实验图 1](/images/4a17b1a89acf6a51b6c26ab27a0e18d7.png)
+![实验图 1](/images/cdb09150d273f58dd958ae0b2f44aeec.png)
 
 该图以圣诞猫衣物品卡片为例，用 Cat、Christmas、Clothes 对应 patch 作为查询展示双重注意力：视觉编码器注意力较宽泛地覆盖商品图与相关文字区域，语言解码器注意力更集中于语义匹配的图文区域，说明感知层与语义层承担互补的跨模态对齐角色。
 
-![实验图 2](/images/9d5e6f2af3ae14194a2b3a936a656b2d.png)
+![实验图 2](/images/108c920e4ce5c5357a6143b7d40f7e24.png)
 
 该图用 PCA 与 50% 置信椭圆展示嵌入分布：OpticalRec 在图像与文本表示之间形成统一流形，而后融合明显偏向单一模态，说明事后融合难以平衡异质模态分布，统一编码的跨模态对齐更好。
 
-![实验图 3](/images/4d53a35b7bc82f5f379fe782b0cf42dc.png)
+![实验图 3](/images/faf4c33984d6a718e29b11015eafee7f.png)
 
 该图比较单模态编码、后融合与 OpticalRec 的矩阵有效秩。灰色区域标出后融合造成的有效秩下降，而 OpticalRec 在各设置下均最高，说明其嵌入空间保留了更丰富的视觉-语言变化、塌缩更少。
 
-![实验图 4](/images/0265f3d7dcb134593847533d33caf813.png)
+![实验图 4](/images/968a981cd4bcb068c92870b9468d903f.png)
 
 该图展示不同物品卡片渲染分辨率下的性能变化，$544\times544$ 在多个数据集与骨干上整体最优，过低或过高分辨率均略有下降，说明中等分辨率已足以承载视觉-语言语义并降低推理开销。
 
-![实验图 5](/images/99df8f7421788d93a59efc5304757e90.png)
+![实验图 5](/images/17f6b4e54e5ca47cf9443969ced5ac0b.png)
 
 该图作为分辨率鲁棒性分析的补充面板，进一步呈现不同渲染分辨率对推荐指标的影响趋势，与主图结论一致：中等分辨率即可稳定取得最佳或接近最佳的表现，便于实际部署时固定渲染配置。
 
-## 总结
+## 四、总结
 
 论文提出 OpticalRec，一种面向多模态协同过滤的统一光学视觉-语言编码框架。它通过将物品文本与图像渲染到共享视觉空间，使跨模态交互同时发生在视觉编码器的感知层与语言解码器的语义层，从而避免破坏性的后融合。跨数据集、跨推荐骨干的实验显示出一致增益，并伴随更高的嵌入有效秩、对渲染变化的鲁棒性以及可接受的一次性预处理成本。作者也指出局限：本文聚焦于基于特征的多模态协同过滤这一大规模物品编码的主流设定，尽管已评估多种骨干、渲染设置、文本长度与 VLM 规模，向视频推荐等更多推荐领域的推广验证仍值得未来研究。
 
 ## References
-
-- Yueqi Wang, Zitian Guo, Yupeng Hou, Yifei Wang, Kibum Kim, Zhenrui Yue, Shuo Xing, Haodong Li, Heming Xia, Renrui Zhang, Zhengzhong Tu, and Julian McAuley. 2026. [OpticalRec: Unified Optical Vision-Language Representation for Multimodal Recommendation](https://arxiv.org/abs/2610.05432). arXiv preprint arXiv:2610.05432.
-
-<!-- 未提供可核验论文链接的完整书目暂不在网页展示。
 
 - Shuai Bai, Yuxuan Cai, and 1 others. 2025. Qwen3-vl technical report. Preprint, arXiv:2511.21631.
 
@@ -138,11 +134,7 @@ $$
 
 - Yupeng Hou, Jiacheng Li, Zhankui He, An Yan, Xiusi Chen, and Julian McAuley. 2024. Bridging language and items for retrieval and recommendation. Preprint, arXiv:2403.03952.
 
--->
-
 - Kibum Kim, Jiwan Kim, Kyle Min, Yueqi Wang, Jinyoung Moon, Julian McAuley, and Chanyoung Park. 2026. [Sink-token-aware pruning for fine-grained video understanding in efficient video llms](https://arxiv.org/abs/2604.20937). arXiv preprint arXiv:2604.20937. （代码：[https://github.com/rlqja1107/SToP](https://github.com/rlqja1107/SToP)）
-
-<!-- 未提供可核验论文链接的完整书目暂不在网页展示。
 
 - Zijie Lei, Tao Feng, Zhigang Hua, Yan Xie, Guanyu Lin, Shuang Yang, Ge Liu, and Jiaxuan You. 2026. Unirec: Unified multimodal encoding for llm-based recommendations. arXiv preprint arXiv:2601.19423.
 
@@ -162,11 +154,7 @@ $$
 
 - Rongqing Kenneth Ong and Andy WH Khong. 2025. Spectrum-based modality representation fusion graph convolutional network for multimodal recommendation. In Proceedings of the Eighteenth ACM International Conference on Web Search and Data Mining, pages 773–781.
 
--->
-
 - OpenAI. 2026. [OpenAI gpt-5 system card](https://arxiv.org/abs/2601.03267). Preprint, arXiv:2601.03267.
-
-<!-- 未提供可核验论文链接的完整书目暂不在网页展示。
 
 - OpenGV. 2025. Internvl3.5: Advancing open-source multimodal models in versatility, reasoning, and efficiency. Preprint, arXiv:2508.18265.
 
@@ -225,5 +213,3 @@ $$
 - Xin Zhou, Xiaoxiong Zhang, Dusit Niyato, and Zhiqi Shen. 2025b. Learning item representations directly from multimodal features for effective recommendation. arXiv preprint arXiv:2505.04960.
 
 - Xin Zhou, Hongyu Zhou, Yong Liu, Zhiwei Zeng, Chunyan Miao, Pengwei Wang, Yuan You, and Feijun Jiang. 2023b. Bootstrap latent representations for multi-modal recommendation. In Proceedings of the ACM web conference 2023, pages 845–854.
-
--->

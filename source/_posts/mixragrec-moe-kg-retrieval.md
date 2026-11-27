@@ -2,19 +2,19 @@
 
 title: "检索粒度该由谁决定？拆解 MixRAGRec 的三智能体 KG-RAG 推荐"
 
-date: 2026-05-27
+date: "2026-05-27"
 
-year: 2026
+year: "2026"
 
-venue_type: 会议
+venue_type: "arXiv预印本"
 
-venue_name: KDD 2026
+venue_name: ""
 
-categories: [推荐系统, 知识图谱]
+categories: ["推荐系统", "知识图谱"]
 
-tags: [论文速读]
+tags: ["论文速读"]
 
-slug: mixragrec-moe-kg-retrieval
+slug: "mixragrec-moe-kg-retrieval"
 
 ---
 
@@ -26,7 +26,7 @@ slug: mixragrec-moe-kg-retrieval
 
 但真实查询的难度分布很宽。有的查询只需要一句常识就能答，有的则必须沿着多跳关系走一段图才能凑齐证据。同一个检索粒度套在所有查询上，两头都会出问题：对简单查询是**过度检索**——塞进去的无关三元组变成噪声，还白烧 token；对复杂查询是**欠检索**——证据不足，模型只能靠参数记忆去猜。
 
-![现有方法与 MixRAGRec 的差异](/images/3175e9505928104679f8f0d881fa3998.png)
+![现有方法与 MixRAGRec 的差异](/images/c8bf8fecd24bd4c896f76aa423567366.png)
 
 图 1：(a) 现有 RAGRec 对所有查询用同一检索粒度，要么被噪声拖累、要么知识不足；(b) MixRAGRec 按查询复杂度路由到合适的粒度，在"效用—成本"之间取平衡。
 
@@ -34,7 +34,7 @@ slug: mixragrec-moe-kg-retrieval
 
 ## 三个 Agent 的分工
 
-![MixRAGRec 总览](/images/3869449dfb43be0e0853c2571553d6a8.png)
+![MixRAGRec 总览](/images/0d704ac9ec959cf9bd8312d8b17ec111.png)
 
 图 2：三个智能体各管一段——检索、对齐、推荐，最后由 MMAPO 在统一目标下联合优化。
 
@@ -50,7 +50,7 @@ slug: mixragrec-moe-kg-retrieval
 
 ## 四个检索专家：从"不检索"到"连通子图"
 
-![知识图谱构建与四个检索专家](/images/c4845353893daa68229390a4bb1c2192.png)
+![知识图谱构建与四个检索专家](/images/bbb7720d5cdd8e255191ea981d1dd1da.png)
 
 图 3：左侧是 KG 的构建与双索引，右侧是四个粒度递增的检索专家。
 

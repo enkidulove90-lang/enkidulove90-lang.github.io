@@ -2,19 +2,19 @@
 
 title: "LLM 能替推荐系统解决哪些问题：一份四类挑战的地图"
 
-date: 2025-07-17
+date: "2025-07-17"
 
-year: 2025
+year: "2025"
 
-venue_type: arXiv预印本
+venue_type: "arXiv预印本"
 
-venue_name: arXiv
+venue_name: ""
 
-categories: [推荐系统, 生成式推荐]
+categories: ["推荐系统", "生成式推荐"]
 
-tags: [论文速读]
+tags: ["论文速读"]
 
-slug: llm-recsys-challenges-review
+slug: "llm-recsys-challenges-review"
 
 ---
 
@@ -28,7 +28,7 @@ slug: llm-recsys-challenges-review
 
 ## 一、先看地图：四类挑战 × LLM 解法
 
-![推荐系统挑战与对应 LLM 解法的分类框架：数据侧、建模与算法、评测与实验、隐私安全与合规](/images/a3a7145bef0f4f243933e1bb1e099bc7.png)
+![推荐系统挑战与对应 LLM 解法的分类框架：数据侧、建模与算法、评测与实验、隐私安全与合规](/images/0a41b961331648ee44f4364aa9e2c0d8.png)
 
 如上图（论文 Fig. 1），整篇综述把挑战归为**四大块**，每块下面再列具体问题与对应的 LLM 方案：
 
@@ -54,7 +54,7 @@ predicted preference = μ + b_u + b_i + ⟨p_u, q_i⟩
 
 新用户/新物品的 `b` 和向量都无从估计。综述梳理的 LLM 路线是**表示自举（representation bootstrapping）**：用 LLM 从物品的文本描述、元数据里生成稠密表示，把"没有交互"这个条件下的可用信号最大化。
 
-![表示自举：用 LLM 从文本或元数据描述生成稠密用户与物品嵌入](/images/b1580c05c957208c2f3585a6ae4d0608.png)
+![表示自举：用 LLM 从文本或元数据描述生成稠密用户与物品嵌入](/images/e042f2e8dab3ddd757dab631674e74a0.png)
 
 上图展示了这条路线的工作方式：新物品还没有任何点击，但它的标题、类别、描述是现成的，LLM 把它们编码成语义向量，直接当作初始嵌入注入模型。类似地，新用户可通过对话式偏好引导（综述里举了 Spotify 的对话智能体、TikTok 的个性化助手做冷启动 onboarding）在第一次会话里就把画像建起来。
 
@@ -86,7 +86,7 @@ predicted preference = μ + b_u + b_i + ⟨p_u, q_i⟩
 
 多任务、多域、多模态叠加时，稠密模型要为所有组合付出算力。综述把**稀疏混合专家（MoE）**列为建模层面的关键机制：
 
-![稀疏 MoE 层：门控网络动态把输入 token 路由到少量专家，只激活 top-k](/images/a8823c0bc19bdea5ecda034fb7194a93.png)
+![稀疏 MoE 层：门控网络动态把输入 token 路由到少量专家，只激活 top-k](/images/a6449ad09774b4868a990c76365838ae.png)
 
 上图是经典 MoE 结构——门控网络对每个 token 打分，只把 top-k 交给少数专家。放到推荐语境里的意义是：**参数容量可以继续涨，但每次前向的激活算力保持在可控范围**。综述举的工业案例是 Llama4Rec：两个主组件分别为"互相增强"与"自适应聚合"，用 LLM 架构承载多域推荐。
 

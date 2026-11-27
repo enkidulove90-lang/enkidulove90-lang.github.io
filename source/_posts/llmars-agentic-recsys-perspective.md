@@ -2,19 +2,19 @@
 
 title: "从被动到主动：多模态大模型时代的智能体推荐（视角论文）"
 
-date: 2025-03-20
+date: "2025-03-20"
 
-year: 2025
+year: "2025"
 
-venue_type: arXiv预印本
+venue_type: "arXiv预印本"
 
-venue_name: arXiv
+venue_name: ""
 
-categories: [推荐系统, 多模态推荐]
+categories: ["推荐系统", "多模态推荐"]
 
-tags: [论文速读]
+tags: ["论文速读"]
 
-slug: llmars-agentic-recsys-perspective
+slug: "llmars-agentic-recsys-perspective"
 
 ---
 
@@ -24,7 +24,7 @@ slug: llmars-agentic-recsys-perspective
 
 ## 从被动响应到主动服务：推荐的四个层次
 
-![LLM 智能体研究的增长趋势](/images/54ff846447f204c2ad88211373f6dde0.png)
+![LLM 智能体研究的增长趋势](/images/9db161db0fbfe810dda551761ea7c6d7.png)
 
 *这张图给出领域演进的宏观背景：把已有工作按"单智能体 / 多智能体"分类后统计，可以看到基于 LLM 的智能体研究在近年快速上升。论文用它说明 LLM-ARS 不是凭空提出的概念，而是"LLM 智能体能力成熟"这条曲线延伸到推荐领域的结果。*
 
@@ -38,7 +38,7 @@ slug: llmars-agentic-recsys-perspective
 
 关键判断是：**层次 2 → 3 的变化不是精度问题，而是交互范式问题**——从"被动响应用户请求"变成"主动感知环境并采取行动"，这带来用户界面层面的变化（被动推荐 → 主动推荐）。
 
-![LLM-ARS 中的个性化智能体类型](/images/4e4625fae2307eb3b85083d977ac94e3.png)
+![LLM-ARS 中的个性化智能体类型](/images/807110e08f74cf3a3f20376c0df0e998.png)
 
 *这张图区分了智能体在推荐系统里扮演的两种角色：(i) 智能体模拟用户行为（用户模拟器，用于策略评估与数据增广）；(ii) 智能体充当推荐器/助手（直接做决策与解释）。这个区分很实用——同一个人在项目里说"用 agent 做推荐"，可能指完全不同的两件事。*
 

@@ -2,19 +2,19 @@
 
 title: "别把视频当两路特征：VRAgent-R1 用两个智能体拆开「看懂」与「决断」"
 
-date: 2025-07-03
+date: "2025-07-03"
 
-year: 2025
+year: "2025"
 
-venue_type: arXiv预印本
+venue_type: "arXiv预印本"
 
-venue_name: arXiv
+venue_name: ""
 
-categories: [推荐系统, 多模态推荐]
+categories: ["推荐系统", "多模态推荐"]
 
-tags: [论文速读]
+tags: ["论文速读"]
 
-slug: vragent-r1-mllm-agent-video-rec
+slug: "vragent-r1-mllm-agent-video-rec"
 
 ---
 
@@ -24,13 +24,13 @@ slug: vragent-r1-mllm-agent-video-rec
 
 但人类看视频不是这么工作的——人是**先扫关键画面、再把画面与文字上下文拼在一起理解**的，而且理解之后还会**代入"我会不会看下一个"**这个决策过程。VRAgent-R1 就是把这两件事显式拆成两个智能体：一个负责"看懂视频"，一个负责"模拟用户"。
 
-![VRAgent-R1 的定性示例：传统 SFT 的 MLLM 因缺乏长链推理给出错误预测](/images/23e6202007cef9594ee3c925e42d73f8.png)
+![VRAgent-R1 的定性示例：传统 SFT 的 MLLM 因缺乏长链推理给出错误预测](/images/bf1c1724fe8ddec4a0e8f1bbfabf15e3.png)
 
 ---
 
 ## 一、IP Agent：像人一样看视频
 
-![VRAgent-R1 框架：IP Agent 负责协同多模态理解，US Agent 负责模拟用户决策](/images/702718e23514d1f0a154d3952efd70b8.png)
+![VRAgent-R1 框架：IP Agent 负责协同多模态理解，US Agent 负责模拟用户决策](/images/5aaa7cd93f592192a7622d481268aae0.png)
 
 如上图（论文图 2），框架分两侧：**IP Agent（Item Perception，物品感知）** 与 **US Agent（User Simulation，用户模拟）**。先看左侧的 IP Agent，它由三步组成，每一步都在解决"直接喂给模型"的具体缺陷：
 
@@ -118,7 +118,7 @@ MLLM 生成的初始描述"**未必适合推荐场景**"——里面往往有大
 
 ### 4. 冷启动：多模态理解带来的额外收益
 
-![不同用户组的性能：对冷启动用户的优势超过 10%](/images/f8b0aa65172f709f3f7fdf6099a1300b.png)
+![不同用户组的性能：对冷启动用户的优势超过 10%](/images/d25a8062ac9d675bf3b8f017a8ffe442.png)
 
 论文特别看了冷启动用户（交互少的群体）：
 

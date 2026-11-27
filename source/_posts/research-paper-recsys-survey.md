@@ -2,19 +2,19 @@
 
 title: "论文推荐系统现状：63 篇论文统计出的四个真相"
 
-date: 2025-08-12
+date: "2025-08-12"
 
-year: 2025
+year: "2025"
 
-venue_type: 期刊
+venue_type: "arXiv预印本"
 
-venue_name: Applied Sciences
+venue_name: ""
 
-categories: [AI, 学术检索]
+categories: ["AI", "学术检索"]
 
-tags: [论文速读]
+tags: ["论文速读"]
 
-slug: research-paper-recsys-survey
+slug: "research-paper-recsys-survey"
 
 ---
 
@@ -24,7 +24,7 @@ slug: research-paper-recsys-survey
 
 这篇综述的做法比较硬核：不是泛泛回顾，而是**用 5 个研究问题定量统计 63 篇工作**（2021 年 11 月至 2024 年 12 月），并与之前的综述做对比，看趋势往哪走。
 
-![综述的文献回顾流程](/images/bad0e3776a68876ef194ec44dcecf918.png)
+![综述的文献回顾流程](/images/f2ba362d345f911976eed68ccff12fa8.png)
 
 ---
 
@@ -95,7 +95,7 @@ RQ3 拆成三问：相关性判据（上文已述）、指标、评测方式。
 
 关键问题在于**相关性判据不统一**：有的用参考文献，有的用引用者，有的用数据集标签。判据不同，同一套指标（Precision/Recall/NDCG）算出来的数就**不可比**。综述把它列为已有挑战之一，并在新挑战里再次强调。
 
-![综述统计的基线与数据集使用情况](/images/2c7996187319f35d9c2cc9ed9e2bcafe.png)
+![综述统计的基线与数据集使用情况](/images/c7773158296ac7413cc2e2601fd92d8c.png)
 
 上图给出被分析工作的基线与数据集使用图谱——它也直观说明了集中度问题：少数几个基线与数据集被反复使用。
 

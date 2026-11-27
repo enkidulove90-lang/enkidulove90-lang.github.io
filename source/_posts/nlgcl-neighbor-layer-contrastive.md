@@ -2,19 +2,19 @@
 
 title: "对比视图就在 GCN 里：NLGCL 的邻层对比"
 
-date: 2025-07-10
+date: "2025-07-10"
 
-year: 2025
+year: "2025"
 
-venue_type: 会议
+venue_type: "arXiv预印本"
 
-venue_name: RecSys 2025
+venue_name: ""
 
-categories: [推荐系统, 图对比学习]
+categories: ["推荐系统", "图对比学习"]
 
-tags: [论文速读]
+tags: ["论文速读"]
 
-slug: nlgcl-neighbor-layer-contrastive
+slug: "nlgcl-neighbor-layer-contrastive"
 
 ---
 
@@ -24,7 +24,7 @@ slug: nlgcl-neighbor-layer-contrastive
 
 这篇论文先做了一件事：**把"造视图"这件事的成本与副作用摆到台面上算清楚**，然后提出一个几乎不花钱的替代方案。
 
-![对比学习范式对比：左侧是传统"造增强视图"范式，右侧是本文的 NNL 范式](/images/34f5a52c48b523432e190ca437838839.png)
+![对比学习范式对比：左侧是传统"造增强视图"范式，右侧是本文的 NNL 范式](/images/3b8f685cdfa5d95b0208b23b6cea047b.png)
 
 ---
 
@@ -136,13 +136,13 @@ e^(l) = AGG( e^(l-1), { e_j^(l-1) | j ∈ N(i) } )
 
 ### 对比范围的实证
 
-![对比视图范围的影响](/images/c8060752f1ee881e1f591d09c0f120c8.png)
+![对比视图范围的影响](/images/8526b9c0ea17d0f8154b37d09f6a3d41.png)
 
 论文专门比较了异构范围与全域范围（以及更细的取样方式）。结论是**对比范围的选择会显著影响效果**，并非"范围越大越好"。这也是一个实用提醒：**对比学习的负样本构造不是免费的参数，它是一个需要调的设计选择**。
 
 ### 效率研究
 
-![效率研究（以 NDCG@10 衡量）](/images/410d470d4ea35c43f8be8414566bd750.png)
+![效率研究（以 NDCG@10 衡量）](/images/70a3d381daa65ea925028517079764d1.png)
 
 论文做了完整的效率对照（`T/E` 训练时间、`#E` 每轮开销、`TT` 总时间，在四个数据集上）。核心结论与前面的分析一致：**NLGCL 的时间开销接近不带对比学习的 GCN 基线**，而增强式方法（SGL、NCL）接近两倍。
 

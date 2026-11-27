@@ -2,19 +2,19 @@
 
 title: "模态不可靠时该信谁：MARGO 给模态权重加显式监督"
 
-date: 2025-04-23
+date: "2025-04-23"
 
-year: 2025
+year: "2025"
 
-venue_type: arXiv预印本
+venue_type: "arXiv预印本"
 
-venue_name: arXiv
+venue_name: ""
 
-categories: [推荐系统, 多模态推荐]
+categories: ["推荐系统", "多模态推荐"]
 
-tags: [论文速读]
+tags: ["论文速读"]
 
-slug: margo-modality-reliability
+slug: "margo-modality-reliability"
 
 ---
 
@@ -24,7 +24,7 @@ slug: margo-modality-reliability
 
 ## 现象：模态不可靠不是例外
 
-![模态数据不可靠的例子](/images/94fb96da2088806bca8745def1a13b1e.png)
+![模态数据不可靠的例子](/images/cf28ea0cbaadf3044d628ce38119fdc6.png)
 
 *这张图直接摆出数据集里的"坏样本"：有的商品主图是纯白底甚至占位图，有的标题只是品牌名重复，还有图文明显不匹配的情况。论文的论点是这类样本不是噪声例外，而是常态——在这类数据上学出来的模态权重往往是错的，因为它只有"推荐精度"这一个（间接）监督信号，权重错了也可能靠其他模态掩盖过去。*
 
@@ -32,7 +32,7 @@ slug: margo-modality-reliability
 
 ## 整体设计
 
-![MARGO 框架](/images/f11582296deeb94f218f754f79532fce.png)
+![MARGO 框架](/images/8bd2242eb8388f41e72fde7292ff2379.png)
 
 *框架图的关键在于"多出来的一条监督线"。常规做法是：各模态编码 → 加权融合 → 排序损失，权重只被排序损失间接约束。MARGO 在这条链上加了模态可靠性（modality reliability）的显式监督：先估计每个物品在每个模态上的可靠程度，再用它作为目标去校准权重（即图中的权重校准分支），最后才是融合与排序。*
 
@@ -46,7 +46,7 @@ slug: margo-modality-reliability
 
 这样权重网络不再"从零猜"，而是被要求去逼近一个显式的可靠性估计。
 
-![权重校准过程](/images/c50d09e3265d9e9bcf4f8f4019ca37c0.png)
+![权重校准过程](/images/c30b6aaee588e47c80e4c9aea457d779.png)
 
 *这张图拆解了校准的具体流程：可靠性信号从何而来、如何被喂给权重学习、以及两阶段的先后顺序。它的意义是说明 MARGO 并没有引入额外的标注数据——可靠性是从数据自身（模态本身的统计与一致性）推出来的，所以整条链路是端到端可训练的。*
 
