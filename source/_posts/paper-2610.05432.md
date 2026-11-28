@@ -21,6 +21,7 @@ mathjax: true
 description: "提出OpticalRec统一视觉空间编码框架用于多模态推荐"
 
 arxiv_id: "2610.05432"
+authors: "Yueqi Wang；Zitian Guo；Yupeng Hou；Yifei Wang；Kibum Kim；Zhenrui Yue；Shuo Xing；Haodong Li；Heming Xia；Renrui Zhang；Zhengzhong Tu；Julian McAuley"
 
 location_type: "Affiliation"
 
