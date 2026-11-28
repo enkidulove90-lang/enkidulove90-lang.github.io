@@ -39,6 +39,10 @@ class FigureAsset:
     is_hd: bool
     provenance: str
     page_number: int | None = None
+    # P3 reviewed-figure manifest: human verification record and source hash
+    # flow through from the shared figure_manifest into the article draft.
+    visual_review: str = ""
+    manifest_sha256: str = ""
 
 
 @dataclass(frozen=True)

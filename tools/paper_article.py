@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from mineru_adapter import FigureAsset, ParsedPaper
+from paper_identity import canWriteSafely, detectIdentity, identityKey
 
 
 REQUIRED_SECTIONS = (
@@ -39,6 +40,11 @@ class ArticleDraft:
     figures: list[FigureAsset] = field(default_factory=list)
     source_pdf: Path | None = None
     source_spans: dict[str, str] = field(default_factory=dict)
+    doi: str = ""
+    canonical_id: str = ""
+    paper_url: str = ""
+    references: list[dict] = field(default_factory=list)  # cited refs with paper_url/code_url
+    fact_provenance: dict | None = None  # per-field {value, source, verification_status, evidence}
 
 
 def _summary_sections(path: Path | None) -> tuple[str, dict[str, str]]:
@@ -302,50 +308,100 @@ def build_article(
     )
 
 
-def validate_article(draft: ArticleDraft) -> list[str]:
+CORE_FACT_FIELDS = ("paper_title", "authors", "venue_name", "year", "identity")
+
+
+def check_article(draft: ArticleDraft, *, stage: str = "publish") -> tuple[list[str], list[str]]:
+    """Validate an article with tiered gates.
+
+    Truth gates (provenance, identity, sections, leaks, numeric claims, PDF)
+    block at BOTH stages. Presentation-quality gates (figure count, HD,
+    captions, figure explanation) only WARN at ``stage="draft"`` and block at
+    ``stage="publish"``. This fixes the old priority inversion where a non-HD
+    figure blocked while a missing author/venue was merely reported.
+
+    Returns (errors, warnings). Unknown stage values are treated as "publish"
+    (fail closed).
+    """
     errors: list[str] = []
-    if not draft.figures:
-        errors.append("missing article figure")
+    warnings: list[str] = []
+    publishing = stage != "draft"
+
+    def block(message: str) -> None:
+        errors.append(message)
+
+    def present(message: str) -> None:
+        if publishing:
+            errors.append(message)
+        else:
+            warnings.append(message)
+
+    # ---- Truth gates: always blocking ----
+    # Strict provenance gate: when a package carries fact_provenance (the new
+    # trusted-source pipeline), every core field must be verified. Legacy
+    # drafts without provenance keep the old identity-only behavior.
+    if draft.fact_provenance is not None:
+        fields = draft.fact_provenance.get("fields") or {}
+        for name in CORE_FACT_FIELDS:
+            field = fields.get(name) or {}
+            if field.get("verification_status") != "verified":
+                block(f"core fact unverified: {name}")
     for section in REQUIRED_SECTIONS:
         if section not in draft.markdown:
-            errors.append(f"missing section: {section}")
+            block(f"missing section: {section}")
     for marker in LEAK_MARKERS:
         if marker in draft.markdown:
-            errors.append(f"internal research marker: {marker}")
+            block(f"internal research marker: {marker}")
     source_percentages = set(PERCENTAGE.findall(draft.source_text))
     for value in sorted(set(PERCENTAGE.findall(draft.markdown)) - source_percentages):
-        errors.append(f"unsupported numeric claim: {value}")
-    if f"https://arxiv.org/abs/{draft.arxiv_id}" not in draft.markdown:
-        errors.append("missing arXiv link")
+        block(f"unsupported numeric claim: {value}")
+    if detectIdentity(draft)["type"] == "none":
+        block("missing recognized paper identity")
+    if draft.source_pdf and not draft.source_pdf.exists():
+        block(f"missing source PDF: {draft.source_pdf}")
+
+    # ---- Presentation-quality gates: warn at draft, block at publish ----
+    if not draft.figures:
+        present("missing article figure")
     for figure in draft.figures:
         if not figure.path.exists():
-            errors.append(f"missing figure: {figure.path}")
+            present(f"missing figure: {figure.path}")
         elif not figure.is_hd:
-            errors.append(f"non-HD figure: {figure.path.name}")
+            present(f"non-HD figure: {figure.path.name}")
         if not figure.caption:
-            errors.append(f"missing figure caption: {figure.path.name}")
+            present(f"missing figure caption: {figure.path.name}")
+        # Shared reviewed-figure manifest: a figure sourced from the manifest
+        # (hash present) must carry a human visual-review record before publish.
+        if getattr(figure, "manifest_sha256", "") and not getattr(figure, "visual_review", ""):
+            present(f"unreviewed figure: {figure.path.name} (manifest hash present, no visual review)")
     if draft.figures and "图示解释：" not in draft.markdown:
-        errors.append("missing figure explanation")
-    if draft.source_pdf and not draft.source_pdf.exists():
-        errors.append(f"missing source PDF: {draft.source_pdf}")
-    return errors
+        present("missing figure explanation")
+    return errors, warnings
+
+
+def validate_article(draft: ArticleDraft) -> list[str]:
+    """Backward-compatible publish gate: returns blocking errors only."""
+    return check_article(draft, stage="publish")[0]
 
 
 def materialize_article(draft: ArticleDraft, site_root: Path) -> Path:
     errors = validate_article(draft)
     if errors:
         raise ValueError("article validation failed: " + "; ".join(errors))
+    key = identityKey(draft)
+    if not canWriteSafely(draft):
+        raise ValueError("paper identity required for materialization: no recognized identity key")
     site_root = Path(site_root)
-    image_dir = site_root / "source" / "images" / "papers" / draft.arxiv_id
+    image_dir = site_root / "source" / "images" / "papers" / key
     image_dir.mkdir(parents=True, exist_ok=True)
     for figure in draft.figures:
         shutil.copy2(figure.path, image_dir / figure.path.name)
     if draft.source_pdf:
         pdf_dir = site_root / "source" / "papers"
         pdf_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(draft.source_pdf, pdf_dir / f"{draft.arxiv_id}.pdf")
+        shutil.copy2(draft.source_pdf, pdf_dir / f"{key}.pdf")
     posts = site_root / "source" / "_posts"
     posts.mkdir(parents=True, exist_ok=True)
-    output = posts / f"paper-{draft.arxiv_id}.md"
+    output = posts / f"paper-{key}.md"
     output.write_text(draft.markdown, encoding="utf-8", newline="\n")
     return output
