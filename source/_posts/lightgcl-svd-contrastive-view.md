@@ -2,19 +2,19 @@
 
 title: "对比视图不必靠随机扰动：LightGCL 用 SVD 抽取图的谱结构"
 
-date: "2023-02-16"
+date: 2023-02-16
 
-year: "2023"
+year: 2023
 
-venue_type: "arXiv预印本"
+venue_type: 会议
 
-venue_name: ""
+venue_name: ICLR 2023
 
-categories: ["推荐系统", "图对比学习"]
+categories: [推荐系统, 图对比学习]
 
-tags: ["论文速读"]
+tags: [论文速读]
 
-slug: "lightgcl-svd-contrastive-view"
+slug: lightgcl-svd-contrastive-view
 
 ---
 
@@ -30,7 +30,7 @@ slug: "lightgcl-svd-contrastive-view"
 
 LightGCL 的切入点是：**为什么非要靠随机扰动来造视图？图本身的全局结构就提供了另一个视角。**
 
-![LightGCL 整体结构](/images/60cad9bdb56ed46632a73296954cfc40.png)
+![LightGCL 整体结构](/images/94ebfe6e98579d3c4c615e628bdbe062.png)
 
 ---
 
@@ -108,11 +108,11 @@ Gowalla 上的提升（+14%~16%）明显大于 Yelp（+8%~10%），这个差异�
 
 ### 两个额外收益：稀疏用户与流行度偏差
 
-![不同稀疏度用户的性能：柱状图为 Recall，折线为相对 Recall](/images/07117d264246c845d39bfababb75bdb1.png)
+![不同稀疏度用户的性能：柱状图为 Recall，折线为相对 Recall](/images/060a550d68f6d9fcd2fc1ffd0b6aaa88.png)
 
 论文按用户的交互稀疏程度分组测试。GCL 方法通常宣称能帮到稀疏用户（因为对比学习在数据少时正则化作用更明显），LightGCL 在这里的表现同样是分档观察的——**稀疏用户组的相对提升不弱于密集用户组**，说明 SVD 视图带来的全局协同信息对"邻居少"的节点尤其有价值。
 
-![LightGCL 缓解流行度偏差的能力：与 SOTA 对比学习方法 HCCF、SimGCL 的比较](/images/bcabca9f9575054562ed6fe65edb7a8b.png)
+![LightGCL 缓解流行度偏差的能力：与 SOTA 对比学习方法 HCCF、SimGCL 的比较](/images/bf6737e5c6e43bc59addc0bc2a515b83.png)
 
 流行度偏差是推荐系统的老问题：模型倾向于推热门物品，长尾物品得不到曝光。论文专门做了这组对比，结论是 LightGCL 在**压流行度偏差上优于 HCCF、SimGCL 等对比学习基线**。
 

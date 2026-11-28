@@ -2,19 +2,19 @@
 
 title: "海上远程操作中心高效认证方法"
 
-date: "2025-08-01"
+date: 2025-08-01
 
-year: "2025"
+year: 2025
 
-venue_type: "arXiv预印本"
+venue_type: 期刊
 
-venue_name: ""
+venue_name: Automatisierungstechnik
 
-categories: ["跨学科与基础"]
+categories: [跨学科与基础]
 
-tags: ["论文速读"]
+tags: [论文速读]
 
-slug: "maritime-remote-operation-certification"
+slug: maritime-remote-operation-certification
 
 ---
 

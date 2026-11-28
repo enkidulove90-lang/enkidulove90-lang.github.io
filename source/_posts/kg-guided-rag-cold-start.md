@@ -2,19 +2,19 @@
 
 title: "冷启动推荐的知识引导检索增强生成"
 
-date: "2025-05-27"
+date: 2025-05-27
 
-year: "2025"
+year: 2025
 
-venue_type: "arXiv预印本"
+venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
-categories: ["推荐系统", "知识图谱"]
+categories: [推荐系统, 知识图谱]
 
-tags: ["论文速读"]
+tags: [论文速读]
 
-slug: "kg-guided-rag-cold-start"
+slug: kg-guided-rag-cold-start
 
 ---
 

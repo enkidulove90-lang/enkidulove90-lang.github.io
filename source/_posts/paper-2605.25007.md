@@ -2,19 +2,19 @@
 
 title: "Meta-Modal Agent：把缺失模态当作路由信号，重排冷启动候选池"
 
-date: "2026-05-24"
+date: 2026-05-24
 
-year: "2026"
+year: 2026
 
-venue_type: "arXiv预印本"
+venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
-categories: ["推荐系统", "论文速递"]
+categories: [推荐系统, 论文速递]
 
-tags: ["论文速读"]
+tags: [论文速读]
 
-slug: "paper-2605.25007"
+slug: paper-2605.25007
 
 ---
 
@@ -34,7 +34,7 @@ Meta-Modal Agent（MMA）换了一个角度：不恢复缺失模态，而是让�
 
 MMA 的整体数据流可以概括为四步：接收共享候选池、调用证据工具、把 Null 写入交互历史、输出候选分数并与第一阶段分数融合。图 1 给出了这一流程的全局视图。
 
-![图 1：MMA 总览](/images/5c6d1edfd45b914e06bc3075012cc411.png)
+![图 1：MMA 总览](/images/e6519db3f82631e6c9e5e2a80723d5ed.png)
 
 阅读这张图时，可以先看左侧的候选池入口：每个 episode 固定一个大小为 B 的候选集，目标商品被插入其中，其余位置由存活模态对应的硬负样本填充——文本可用时用 BM25，仅图像时用 CLIP 最近邻，仅行为时用 ANN 图检索。中间是证据路由层，智能体在文本、图像、图三类工具之间选择，工具返回 Null 时该结果进入交互历史而非被静默丢弃。右侧是终端评分动作，输出候选 ID 到分数的映射，再与第一阶段检索分数按验证集选定的权重融合。这张图支撑的核心主张是：缺失模态不是特征层面的噪声，而是动作层面的观测，路由策略本身构成重排序能力的一部分。
 
@@ -60,7 +60,9 @@ episode 被建模为 POMDP \langle S, \mathcal{A}, \mathcal{P}, \Omega, O, \math
 
 实验围绕四个问题组织：无 oracle 的 OOMA 稳健性、逐模态 OOMA 分解、固定池全目录重排序、以及确定性路由机制对照。数据集为 Amazon-Baby、Amazon-Sports 和 Yelp 2022 版，按时间划分：最早 80% 交互训练，接下来 10% 验证，最近 10% 测试。
 
+终端动作 `Score_Candidates` 输出候选 ID 到相关性分数的 JSON 映射，而不是单商品推荐或检索动作。MMA 分数在候选池内做 min–max 归一化后与归一化的第一阶段分数融合：$\hat{s}_i = \alpha s_i^{(0)} + (1-\alpha) s_i^{\mathrm{MMA}}$，融合权重 $\alpha$ 由验证集网格搜索选定后固定用于测试。终端 JSON 中遗漏的候选保留第一阶段分数和相对顺序；JSON 格式错误则触发无效动作惩罚，该 episode 回退到第一阶段排序。
 
+### 1.4 平衡缺失任务训练
 
 
 

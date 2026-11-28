@@ -2,19 +2,19 @@
 
 title: "从排序器到目标追求者：智能体推荐系统的自主性分级"
 
-date: "2026-07-05"
+date: 2026-07-05
 
-year: "2026"
+year: 2026
 
-venue_type: "arXiv预印本"
+venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
-categories: ["推荐系统", "生成式推荐"]
+categories: [推荐系统, 生成式推荐]
 
-tags: ["论文速读"]
+tags: [论文速读]
 
-slug: "agentic-recsys-autonomy-roadmap"
+slug: agentic-recsys-autonomy-roadmap
 
 ---
 
@@ -28,7 +28,7 @@ slug: "agentic-recsys-autonomy-roadmap"
 
 ## 一、先定刻度：Level-of-Autonomy（LoA）
 
-![推荐系统的自主性频谱：从被动排序器（L0）到多智能体编排（L5），L6 是概念性的"智能体社会"](/images/8ddc17c4677f03109cb447be1c52bc7b.png)
+![推荐系统的自主性频谱：从被动排序器（L0）到多智能体编排（L5），L6 是概念性的"智能体社会"](/images/dbd7da70eda128840b762d8d3dcd7930.png)
 
 论文用一条从 L0 到 L6 的连续谱来定位具体架构，而不是用"是不是智能体"这种二元判断：
 
@@ -66,7 +66,7 @@ slug: "agentic-recsys-autonomy-roadmap"
 
 ## 三、三种角色 × 自主性等级：两轴定位
 
-![智能体推荐系统的三种范式：agent 作为辅助者、作为推荐器、作为模拟器](/images/6f63b32f33a2f3110f87c1a25ce43d5d.png)
+![智能体推荐系统的三种范式：agent 作为辅助者、作为推荐器、作为模拟器](/images/ba7934cb8335cfd580af15ac8ffa76fa.png)
 
 论文用两轴给文献定位：**横向是"智能体放在推荐回路的哪个位置"**，纵向是自主性等级。
 
@@ -112,7 +112,7 @@ slug: "agentic-recsys-autonomy-roadmap"
 
 1. **闭环多智能体环境模拟**（模拟整个交互环境）
 
-![智能体模拟的三种分类：数据合成、用户（单智能体）模拟、环境（多智能体）模拟](/images/4b44c411927ba3bb89f5b5522c435895.png)
+![智能体模拟的三种分类：数据合成、用户（单智能体）模拟、环境（多智能体）模拟](/images/81d69e1dcfa6fe8ad2a0d8b0958416eb.png)
 
 上图区分了这三类模拟的边界：数据合成只产出静态样本；用户模拟是"单智能体扮演人"；环境模拟则让多个智能体在闭环里互相影响。第三类最有野心也最危险——如果模拟器本身有偏，用它评估出来的结论会**自证正确**。
 

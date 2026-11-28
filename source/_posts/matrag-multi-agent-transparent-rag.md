@@ -2,19 +2,19 @@
 
 title: "把「可解释」做成可测量的模块：MATRAG 的多智能体透明推荐"
 
-date: "2026-02-11"
+date: 2026-02-11
 
-year: "2026"
+year: 2026
 
-venue_type: "arXiv预印本"
+venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
-categories: ["推荐系统", "知识图谱"]
+categories: [推荐系统, 知识图谱]
 
-tags: ["论文速读"]
+tags: [论文速读]
 
-slug: "matrag-multi-agent-transparent-rag"
+slug: matrag-multi-agent-transparent-rag
 
 ---
 
@@ -26,7 +26,7 @@ slug: "matrag-multi-agent-transparent-rag"
 
 ## 一、框架：四个专职智能体 + 一个编排者
 
-![MATRAG 框架总览：四个专职智能体由编排者调度，配合知识图谱检索与透明度打分](/images/371a4e1fc9a11c938c874205933794b8.png)
+![MATRAG 框架总览：四个专职智能体由编排者调度，配合知识图谱检索与透明度打分](/images/34e306d7711b703c5a989ce7ccd8a6c9.png)
 
 如上图，MATRAG 由**四个专职智能体**加一个**中央编排者（Orchestrator）**组成。每个智能体都是 LLM 实例，配上各自角色的指令与工具：
 

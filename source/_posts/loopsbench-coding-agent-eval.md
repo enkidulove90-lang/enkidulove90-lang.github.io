@@ -2,19 +2,19 @@
 
 title: "循环工程评估基准"
 
-date: "2026-07-31"
+date: 2026-07-31
 
-year: "2026"
+year: 2026
 
-venue_type: "arXiv预印本"
+venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
-categories: ["AI", "大模型与智能体"]
+categories: [AI, 大模型与智能体]
 
-tags: ["论文速读"]
+tags: [论文速读]
 
-slug: "loopsbench-coding-agent-eval"
+slug: loopsbench-coding-agent-eval
 
 ---
 

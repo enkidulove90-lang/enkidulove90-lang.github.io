@@ -2,19 +2,19 @@
 
 title: "WeMM-Embedding：微信多模态嵌入的两阶段训练与语义ID重采样"
 
-date: "2026-08-25"
+date: 2026-08-25
 
-year: "2026"
+year: 2026
 
-venue_type: "arXiv预印本"
+venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
-categories: ["推荐系统", "论文速递"]
+categories: [推荐系统, 论文速递]
 
-tags: ["论文速读"]
+tags: [论文速读]
 
-slug: "paper-2608.24053"
+slug: paper-2608.24053
 
 ---
 
@@ -36,7 +36,7 @@ WeMM-Embedding的输入是一个可选任务指令加上有序的多模态片段
 
 训练数据被统一为五元组：可选指令、源实例、配对目标、可选显式难负样本集合、可选分级相关性分数。源和目标都可以是文本、图像、视频或它们的交错组合。标准pair把配对目标视为正例，同批次其他目标作为批内负例；带分级标注的数据保留原始序数或连续相关性分数，用于构造相对排序约束。这种格式让分类、检索、问答、图文匹配等任务共享同一套批构造和损失接口。
 
-![图1：多模态训练数据的主要家族与任务覆盖](/images/c83f5cd7cc4da97f1aefe492b1086990.png)
+![图1：多模态训练数据的主要家族与任务覆盖](/images/9ed42be41e1f7bf9f400fb34f6d64813.png)
 
 这张图展示了训练语料的组织方式：弱监督图文/视频对、显式描述caption对、检索对、分类对、多模态问答对和分级相关性对，覆盖不同任务设置与内容领域。阅读时可以先看左侧的数据家族划分，再看右侧对应的任务与领域示例。它支撑的主张是：WeMM-Embedding的通用性首先来自数据层面的任务异构性，而不是单一任务上的数据堆叠；统一pair格式是把这些异构监督接入同一训练管线的前提。
 
@@ -52,7 +52,17 @@ WeMM-Embedding的输入是一个可选任务指令加上有序的多模态片段
 
 评估覆盖MMEB-v2（78个数据集，图像、视频、视觉文档）、MMEB-v3（190个任务，含53个文本任务、47个Agent任务、11个音频任务和MCMR）、12个跨模态检索基准，以及微信内部26任务基准。指标方面，图像、视频、音频和Agent任务使用Hit@1，文本和视觉文档任务使用NDCG@5，跨模态检索使用Recall@1或NDCG@10。对比基线包括VLM2Vec-V2、Omni-Embed-Nemotron、E5-Omni、Qwen3-VL-Embedding、WAVE、VLM2Vec、LCO-Embedding-Omni、GME、Tianmu-Emb-Uni，以及Gemini Embedding 2、Amazon Nova MME、Voyage Multimodal 3.5等专有模型。论文未披露具体训练/验证/测试划分、硬件配置和学习率等超参数。
 
+评估覆盖MMEB-v2（78个数据集，图像、视频、视觉文档）、MMEB-v3（190个任务，含53个文本任务、47个Agent任务、11个音频任务和MCMR）、12个跨模态检索基准，以及微信内部26任务基准。指标方面，图像、视频、音频和Agent任务使用Hit@1，文本和视觉文档任务使用NDCG@5，跨模态检索使用Recall@1或NDCG@10。对比基线包括VLM2Vec-V2、Omni-Embed-Nemotron、E5-Omni、Qwen3-VL-Embedding、WAVE、VLM2Vec、LCO-Embedding-Omni、GME、Tianmu-Emb-Uni，以及Gemini Embedding 2、Amazon Nova MME、Voyage Multimodal 3.5等专有模型。论文未披露具体训练/验证/测试划分、硬件配置和学习率等超参数。
 
+| 项目 | 设置 |
+|---|---|
+| 骨干 | Qwen3.5原生多模态，2B/4B/9B |
+| 训练数据 | 数亿级异构pair；精选集约十分之一 |
+| 第一阶段目标 | InfoNCE + score-gap-weighted CoSENT，均结合MRL |
+| 第二阶段目标 | 精选数据 + 重排序监督（子集）+ 跨规模蒸馏 |
+| 公开基准 | MMEB-v2（78任务）、MMEB-v3（190任务）、12个跨模态检索基准 |
+| 内部基准 | 26任务，覆盖分类、搜索、跨域内容匹配、文章相关性、视频相关性 |
+| 指标 | Hit@1、NDCG@5、Recall@1、NDCG@10 |
 
 
 

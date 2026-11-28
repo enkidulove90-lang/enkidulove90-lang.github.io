@@ -2,19 +2,19 @@
 
 title: "TSPORec：用偏好优化为LLM序列推荐挑选信息Token"
 
-date: "2026-08-10"
+date: 2026-08-10
 
-year: "2026"
+year: 2026
 
-venue_type: "arXiv预印本"
+venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
-categories: ["推荐系统", "论文速递"]
+categories: [推荐系统, 论文速递]
 
-tags: ["论文速读"]
+tags: [论文速读]
 
-slug: "paper-2608.09605"
+slug: paper-2608.09605
 
 ---
 
@@ -32,7 +32,7 @@ TSPORec 的答案不是设计一个新的打分函数直接排序，而是把Tok
 
 TSPORec 把问题写成：给定物品Token序列 T=\{t_1,\dots,t_n\}，传统方法取前 k 个Token得到 \mathbf{e}_i=\mathrm{LLM}(t_1,\dots,t_k)；TSPORec 则要学出一个信息性子集 T_k\subseteq T，用 \mathbf{e}_i'=\mathrm{LLM}(T_k) 替代前缀嵌入。选择在chunk级别进行：从序列中挑出 \lfloor k/c\rfloor 个连续Token块，c 为块大小，c=1 即退化为Token级选择。这个粒度参数是后文消融的核心变量。
 
-![TSPORec 三阶段训练流水线](/images/599d2b3f25ffcbd811836524a86180c9.png)
+![TSPORec 三阶段训练流水线](/images/8a50f5e3f2ee1a912f3fa8023b27253e.png)
 
 读这张图可以按从左到右的三段来看。第一段是预训练：用户LLM与物品LLM用InfoNCE损失联合训练，物品嵌入取序列末尾特殊Token `[ITEM]` 的最后一层隐状态 \mathbf{h}_{k+1}，这一步为后续奖励计算提供“裁判”。第二段是策略学习：LLM主干被冻结，只挂一个可学习的策略头，它用query-key注意力给每个Token打重要性分，再按softmax概率采样出Token块；同一段历史被独立采样两次，得到两条子序列，分别经冻结的用户/物品LLM得到两个用户嵌入，与完整物品嵌入做交叉熵比较，胜者获得奖励，策略据此更新。第三段是选择与重训：用训练好的策略在全量数据上挑出高概率chunk，构造精炼数据集，重新训练推荐模型。三段之间的数据流是单向的——预训练产物只作为冻结裁判，策略只改“读哪些Token”，不改LLM权重。
 
@@ -77,7 +77,7 @@ TSPORec 把问题写成：给定物品Token序列 T=\{t_1,\dots,t_n\}，传统�
 
 Token选择策略本身的对比给出了更强的信号：随机选择把HLLM相对SASRec的提升从24.40%压到2.14%，而top-k logits只有+5.36%，甚至不如first-k的+24.40%。这说明“按logit取高分Token”并不是有效的重要性度量，论文将其归因于单向注意力难以携带协同信号——这正是TSPORec双向打分要补的缺口。
 
-![first-k 与 TSPORec 选出的Token分布对比](/images/c479f64fc12feb9dba2fcb6049c220c6.png)
+![first-k 与 TSPORec 选出的Token分布对比](/images/c5468c0dbcf171982dbcdd4670936ace.png)
 
 这张分布图回答的是“TSPORec到底选走了什么”。横轴是Token，纵轴是计数，两条分布分别对应first-k与TSPORec。阅读时重点看高频区的差异：TSPORec的曲线在高频Token处明显被压低，说明它系统性地过滤掉跨物品共享的“热Token”。这类Token语义特异性低，用户LLM难以靠它们区分物品；把它们换成内容词，物品嵌入才更有判别力。案例研究给出了同一结论的具体形态：在Pixel的样例中，TSPORec删去“released in the summer of In accordance”这类功能词片段，改选“cucumber、endless mode、Penny”等内容词；另一个样例中它删去泛化标签“tag: Cover Song”，改选词曲作者等具体元数据。
 

@@ -2,19 +2,19 @@
 
 title: "管道流简化随机模型中湍流转变概率"
 
-date: "2025-03-02"
+date: 2025-03-02
 
-year: "2025"
+year: 2025
 
-venue_type: "arXiv预印本"
+venue_type: 期刊
 
-venue_name: ""
+venue_name: New Journal of Physics
 
-categories: ["跨学科与基础"]
+categories: [跨学科与基础]
 
-tags: ["论文速读"]
+tags: [论文速读]
 
-slug: "pipe-flow-turbulence-transition"
+slug: pipe-flow-turbulence-transition
 
 ---
 

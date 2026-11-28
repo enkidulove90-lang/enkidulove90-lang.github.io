@@ -2,19 +2,19 @@
 
 title: "视觉证据用全片、预告片还是缩略图：Popcorn 给出可配置基准"
 
-date: "2026-06-08"
+date: 2026-06-08
 
-year: "2026"
+year: 2026
 
-venue_type: "arXiv预印本"
+venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
-categories: ["推荐系统", "多模态推荐"]
+categories: [推荐系统, 多模态推荐]
 
-tags: ["论文速读"]
+tags: [论文速读]
 
-slug: "popcorn-visual-evidence-benchmark"
+slug: popcorn-visual-evidence-benchmark
 
 ---
 
@@ -24,7 +24,7 @@ slug: "popcorn-visual-evidence-benchmark"
 
 ## 现象：全片、预告片、缩略图是三件不同的事
 
-![三种视觉证据来源的概念对比](/images/b6681d26b1e9a4b6129851cfdec55e1c.png)
+![三种视觉证据来源的概念对比](/images/117673075155cfe7637b6fe84cec1f17.png)
 
 *这张图把三类证据并列：全片（full movie）保留"消费级别的证据"（就是用户真正看的东西）；预告片（trailer）是高密度但被营销筛选过的片段；缩略图（thumbnail）稀疏但能覆盖全部片库。三者的语义、可获取性、算力成本都不同——这就带来一个此前基准无法回答的问题：某篇论文的涨点，到底来自更好的模型，还是来自换了个更好拿的证据源？*
 
@@ -32,7 +32,7 @@ slug: "popcorn-visual-evidence-benchmark"
 
 Popcorn 不提出新模型，它提出的是一套**可配置基准**：用单一配置控制证据加载、视觉/音频/文本管道、可选融合（Concat / PCA / CCA 等）、数据划分与评测，还把 LLM 增强的元数据（用 LLM 补描述文本）纳入进来。
 
-![Popcorn 架构](/images/2dd04d2c7e16831e39ad14aaaa22f86a.png)
+![Popcorn 架构](/images/6767a63f49ed7e81782482aefea5f090.png)
 
 *架构图的核心是中间那条"配置契约"——同一份代码可以切换证据源与融合方式，因此不同实验之间是可控对比。这类"基准型"工作的价值不在精度数字，而在于把混在一起的变量拆开：证据源、编码器、融合策略、元数据增强，各改一项看各自贡献。*
 
@@ -55,7 +55,7 @@ Popcorn 不提出新模型，它提出的是一套**可配置基准**：用单�
 
 **RQ3 VLM 成本 vs 性能**：论文把 VLM 的召回、覆盖率、多样性与算力成本放在一起权衡（Figure 3），结论是缩略图 VLM 在**可扩展性**上有优势（片库级可覆盖），而全片级证据的收益需要与算力成本一起评估。
 
-![缩略图 VLM 的权衡](/images/1dc5e3adbb6dfa1449b35e1771f0a235.png)
+![缩略图 VLM 的权衡](/images/4b15bff2b909b2450f202b63066bf003.png)
 
 *这张图是"成本—收益"的权衡视图：横轴对应 VLM 的成本维度，纵轴是相对 CNN 基线的 nDCG@10 增益，图上还标了召回、覆盖率、多样性。它的意义是提醒：选证据源不能只看精度柱状图——覆盖率和多样性这些"非精度指标"在冷门片、长尾片上往往更重要。*
 

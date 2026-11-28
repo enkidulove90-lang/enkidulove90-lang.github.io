@@ -2,19 +2,19 @@
 
 title: "用户侧画像比物品侧更值钱：RecLM 的推荐指令微调"
 
-date: "2024-12-26"
+date: 2024-12-26
 
-year: "2024"
+year: 2025
 
-venue_type: "arXiv预印本"
+venue_type: 会议
 
-venue_name: ""
+venue_name: ACL 2025
 
-categories: ["推荐系统", "生成式推荐"]
+categories: [推荐系统, 生成式推荐]
 
-tags: ["论文速读"]
+tags: [论文速读]
 
-slug: "reclm-recommendation-instruction-tuning"
+slug: reclm-recommendation-instruction-tuning
 
 ---
 
@@ -26,7 +26,7 @@ LLM 有语义理解能力，看起来是答案。但直接拿来用会撞上第�
 
 RecLM 的思路是把这两件事接起来：**把协同关系做成指令的一部分，让 LLM 在理解行为上下文的前提下生成画像**。
 
-![RecLM 整体框架](/images/5588cdf1116fb7c3fb44c3b263eee986.png)
+![RecLM 整体框架](/images/8861da367857f32601b677ff27e519a7.png)
 
 ---
 
@@ -50,7 +50,7 @@ RecLM 的思路是把这两件事接起来：**把协同关系做成指令的一
 
 画像质量难以用监督损失刻画，论文引入 RL 来补这一环：训练一个**奖励模型**评估生成画像的质量（输入 `[Q, R]` 对，输出标量分数），再用它作为奖励信号去微调画像生成。
 
-![带 RL 与不带 RL 生成的画像对比](/images/7ea414e71056aeee8d7f9d82a8a05e48.png)
+![带 RL 与不带 RL 生成的画像对比](/images/732208a7dabac2d3024163ea0ec66e35.png)
 
 上图对比了两者产物——不加 RL 时画像偏向复述行为，加 RL 后更接近"偏好归纳"。
 
@@ -83,7 +83,7 @@ RecLM 的思路是把这两件事接起来：**把协同关系做成指令的一
 
 ### 消融：一个反直觉结果
 
-![RecLM 框架中 LLM 微调技术的消融结果](/images/1405f1eb080b27533e3a908cdd133a6b.png)
+![RecLM 框架中 LLM 微调技术的消融结果](/images/71b0c360f53857abc492e84a0f549eb1.png)
 
 MIND 数据集、LightGCN / SGL 骨干：
 

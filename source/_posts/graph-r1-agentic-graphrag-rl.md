@@ -2,19 +2,19 @@
 
 title: "图检索不等于图推理：Graph-R1 用端到端强化学习在知识超图上走"
 
-date: "2025-07-29"
+date: 2025-07-29
 
-year: "2025"
+year: 2026
 
-venue_type: "arXiv预印本"
+venue_type: 会议
 
-venue_name: ""
+venue_name: ICML 2026
 
-categories: ["AI", "检索增强生成"]
+categories: [AI, 检索增强生成]
 
-tags: ["论文速读"]
+tags: [论文速读]
 
-slug: "graph-r1-agentic-graphrag-rl"
+slug: graph-r1-agentic-graphrag-rl
 
 ---
 
@@ -35,13 +35,13 @@ slug: "graph-r1-agentic-graphrag-rl"
 
 Graph-R1 的答案是：把图检索变成**多轮智能体交互**，并用**端到端强化学习**训练这套交互策略。
 
-![Graph-R1 把 GraphRAG 建模为知识超图上的多轮智能体检索过程，用端到端强化学习优化](/images/401db4f5c0480f12bebf01359234ccf6.png)
+![Graph-R1 把 GraphRAG 建模为知识超图上的多轮智能体检索过程，用端到端强化学习优化](/images/8bca3cd871a7575d5fa199f7dffec004.png)
 
 ---
 
 ## 一、方法：知识超图 + 结构化动作空间 + GRPO
 
-![Graph-R1 框架：强化学习增强的推理轨迹，智能体迭代地思考、查询图环境、并作答](/images/8955358587d73aa8b00e03c9ac882d8e.png)
+![Graph-R1 框架：强化学习增强的推理轨迹，智能体迭代地思考、查询图环境、并作答](/images/db76c845a2ccf9aabb08eab564057274.png)
 
 如上图，整条链路有三段：**知识构建 → 多轮图交互 → 结果导向的端到端强化学习**。
 
@@ -127,7 +127,7 @@ J_GRPO(θ) = E[ ... ]      每个问题采样一组轨迹，用组内相对优�
 
 **多跳数据集（2Wiki、Musique）上的差距最大**——2Wiki 上 F1 从 41.29 提到 65.04，Musique 从 22.35 到 46.17。这与设计意图完全吻合：**需要跨多条边串起事实的任务，才是图结构真正能发挥作用的地方**；单跳事实问答上优势就小得多（PopQA 只从 50.76 到 51.22）。
 
-![跨 RAG 基准的 F1 对比：以图为知识环境让强化学习获得更高的性能上限](/images/309cbfd997a07734565bf3c3426f4930.png)
+![跨 RAG 基准的 F1 对比：以图为知识环境让强化学习获得更高的性能上限](/images/7be62fa67e228386cc16159c5bc1bdfb.png)
 
 ### 消融：三个组件里 RL 最不能少
 

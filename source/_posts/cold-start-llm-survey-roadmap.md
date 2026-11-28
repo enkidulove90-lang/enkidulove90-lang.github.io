@@ -2,19 +2,19 @@
 
 title: "冷启动的四条路线：内容、图、跨域、语言模型该怎么选"
 
-date: "2025-01-03"
+date: 2025-01-03
 
-year: "2025"
+year: 2025
 
-venue_type: "arXiv预印本"
+venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
-categories: ["推荐系统", "冷启动"]
+categories: [推荐系统, 冷启动]
 
-tags: ["论文速读"]
+tags: [论文速读]
 
-slug: "cold-start-llm-survey-roadmap"
+slug: cold-start-llm-survey-roadmap
 
 ---
 
@@ -22,7 +22,7 @@ slug: "cold-start-llm-survey-roadmap"
 
 冷启动是推荐系统里最"顽固"的问题：新用户和新物品没有任何交互历史，而推荐模型几乎全部依赖交互历史。过去十年围绕它提出的方法非常多，但它们分散在内容特征、图结构、跨域迁移、语言模型四条互不相通的线上。这篇综述的价值在于**把这四条线装进同一个坐标系**，并说清每类方法到底"补的是什么信息"。
 
-![本综述知识覆盖范围的示意图](/images/6c702a9a14231f31d5fda7870f59fee2.png)
+![本综述知识覆盖范围的示意图](/images/28b92cb66b2de52247577a1a553fef8e.png)
 
 ---
 
@@ -57,7 +57,7 @@ slug: "cold-start-llm-survey-roadmap"
 
 如果交互图里冷节点是孤岛，那就要么补边、要么换图、要么改聚合方式。综述用一张图概括了三种策略：
 
-![图关系使用的不同策略示意](/images/6c2ff8e5dc4eb22982b3671949907a94.png)
+![图关系使用的不同策略示意](/images/0f38e5f7f4ebe03cf928e7fee0c9ff01.png)
 
 1. **交互图增强**：为冷实例补充图关系信息，把原始用户—物品二部图补全。
 
@@ -100,7 +100,7 @@ slug: "cold-start-llm-survey-roadmap"
 
 ## 三、还没解决的五个方向
 
-![冷启动推荐的挑战与未来机会](/images/00842b9e7399d064b34326004ec6b4d8.png)
+![冷启动推荐的挑战与未来机会](/images/1bd9a98d13acfe702b8a220da443b183.png)
 
 综述末尾给出五个开放方向：
 

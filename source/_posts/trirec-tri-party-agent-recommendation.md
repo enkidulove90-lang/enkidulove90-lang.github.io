@@ -2,19 +2,19 @@
 
 title: "推荐不该只服务用户：TriRec 的三方智能体框架"
 
-date: "2026-03-11"
+date: 2026-03-11
 
-year: "2026"
+year: 2026
 
-venue_type: "arXiv预印本"
+venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
-categories: ["推荐系统", "生成式推荐"]
+categories: [推荐系统, 生成式推荐]
 
-tags: ["论文速读"]
+tags: [论文速读]
 
-slug: "trirec-tri-party-agent-recommendation"
+slug: trirec-tri-party-agent-recommendation
 
 ---
 
@@ -24,7 +24,7 @@ slug: "trirec-tri-party-agent-recommendation"
 
 这篇论文提出**三方框架（TriRec）**：把用户、物品（创作者）、平台三个利益方都建进模型，用智能体来承载各自的偏好表达。
 
-![TriRec 两阶段框架：第一阶段做相关度感知的重排，第二阶段做平台主导的多目标重排](/images/a1f09ee511f05dc77db61c4d257d1776.png)
+![TriRec 两阶段框架：第一阶段做相关度感知的重排，第二阶段做平台主导的多目标重排](/images/86def74cdc9f59304c18eeeb58d962ac.png)
 
 ---
 

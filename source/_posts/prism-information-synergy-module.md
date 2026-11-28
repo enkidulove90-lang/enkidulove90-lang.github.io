@@ -2,19 +2,19 @@
 
 title: "模态组合里才有的信息：PRISM 的信息协同模块"
 
-date: "2026-01-16"
+date: 2026-01-16
 
-year: "2026"
+year: 2026
 
-venue_type: "arXiv预印本"
+venue_type: 会议
 
-venue_name: ""
+venue_name: WWW 2026
 
-categories: ["推荐系统", "多模态推荐"]
+categories: [推荐系统, 多模态推荐]
 
-tags: ["论文速读"]
+tags: [论文速读]
 
-slug: "prism-information-synergy-module"
+slug: prism-information-synergy-module
 
 ---
 
@@ -28,7 +28,7 @@ slug: "prism-information-synergy-module"
 
 主流做法是把各模态特征分别编码、再按固定权重融合，这有两个问题：一是**协同信息根本没有被显式建模**（融合只是加权求和，不会去"发现"交集部分）；二是**固定权重忽略了用户差异**——有人主要看图、有人主要看文字，一个全局权重无法表达这种偏好差别。
 
-![用红酒例子说明多模态交互：高层属性（如"送礼"）需要模态组合才能推断](/images/541ce31d52245020606445f04c7034ff.png)
+![用红酒例子说明多模态交互：高层属性（如"送礼"）需要模态组合才能推断](/images/fa5c348b884a33fea07c79604f4724c0.png)
 
 **图示解释：** 图像只能给出瓶身与包装质感，文本只能给出产地、评分等语义；“适合送礼”是两种模态组合后才出现的高层属性，正对应论文要建模的协同信息。
 
@@ -36,7 +36,7 @@ slug: "prism-information-synergy-module"
 
 ## 二、论文方法：先把信息分解成四份，再个性化融合
 
-![PRISM 整体架构](/images/b6ec31c5795f6522f564c22620352562.png)
+![PRISM 整体架构](/images/6b654d87f9c4e8c9a88be0c50615179b.png)
 
 如上图，PRISM 的流程分两层：**交互专家层**与**自适应融合层**。
 
@@ -60,7 +60,7 @@ slug: "prism-information-synergy-module"
 
 论文的 case study 专门验证了这一点：
 
-![PRISM 的案例研究：有无用户偏好引导的对比——带偏好引导时模型能捕捉图像独特性（如鞋的颜色/设计、球衣外观）](/images/600e5c0d6cfb9228a29455c85bd1432d.png)
+![PRISM 的案例研究：有无用户偏好引导的对比——带偏好引导时模型能捕捉图像独特性（如鞋的颜色/设计、球衣外观）](/images/00360b6edc9c7f290f5e66b7ff0015bb.png)
 
 图中对比可以看出：**加上用户偏好引导后，模型对"图像独特性"的捕捉明显更好**（例如鞋子的颜色设计、球衣外观这类视觉特征）。这印证了融合权重确实在按用户差异调节，而不是一律平均。
 

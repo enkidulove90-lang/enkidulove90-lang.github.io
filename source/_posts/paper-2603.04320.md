@@ -36,7 +36,7 @@ CAMMSR 由四个主要部分组成：物品表示初始化、类别引导注意�
 
 $$
 
-\mathbf{e}*{i_m} = x*{i_m} + p_i,\tag{1}
+\mathbf{e}_{i_m} = x_{i_m} + p_i,\tag{1}
 
 $$
 
@@ -46,7 +46,7 @@ $$
 
 $$
 
-\hat{\mathbf{e}}*{i_m} = \sum*{k=1}^{K} g_k^m \operatorname{Expert}*k(\operatorname{Con}(\mathbf{e}*{i_{id}}, \mathbf{e}*{i_t}, \mathbf{e}*{i_v})),\tag{2}
+\hat{\mathbf{e}}_{i_m} = \sum_{k=1}^{K} g_k^m \operatorname{Expert}_k(\operatorname{Con}(\mathbf{e}_{i_{id}}, \mathbf{e}_{i_t}, \mathbf{e}_{i_v})),\tag{2}
 
 $$
 
@@ -70,7 +70,7 @@ $$
 
 $$
 
-\bar{\mathbf{e}}*{i_m} = \mathbf{e}*{i_m} + w_i^m \hat{\mathbf{e}}_{i_m}.\tag{5}
+\bar{\mathbf{e}}_{i_m} = \mathbf{e}_{i_m} + w_i^m \hat{\mathbf{e}}_{i_m}.\tag{5}
 
 $$
 
@@ -86,7 +86,7 @@ $$
 
 $$
 
-\hat{y}*i = \sum*{m \in \{id, t, v\}} \mathbf{Z}^m \mathbf{e}_{i_m}.\tag{7}
+\hat{y}_i = \sum_{m \in \{id, t, v\}} \mathbf{Z}^m \mathbf{e}_{i_m}.\tag{7}
 
 $$
 
@@ -94,7 +94,7 @@ $$
 
 $$
 
-\mathcal{L}*{MSCL}^{m*{1,2}} = - \sum_{i=1}^{|\mathcal{B}|} \log \frac{\exp(\operatorname{Sim}(\mathbf{Z}*{aug,i}^{m_1}, \mathbf{Z}*{aug,i}^{m_2}))}{\sum_{j=1}^{|\mathcal{B}|} \exp(\operatorname{Sim}(\mathbf{Z}*{aug,i}^{m_1}, \mathbf{Z}*{aug,j}^{m_2}))}.\tag{8}
+\mathcal{L}_{MSCL}^{m_{1,2}} = - \sum_{i=1}^{|\mathcal{B}|} \log \frac{\exp(\operatorname{Sim}(\mathbf{Z}_{aug,i}^{m_1}, \mathbf{Z}_{aug,i}^{m_2}))}{\sum_{j=1}^{|\mathcal{B}|} \exp(\operatorname{Sim}(\mathbf{Z}_{aug,i}^{m_1}, \mathbf{Z}_{aug,j}^{m_2}))}.\tag{8}
 
 $$
 
@@ -102,11 +102,11 @@ $$
 
 $$
 
-\mathcal{L} = \mathcal{L}*{SR} + \lambda \mathcal{L}*{MSCL}.\tag{9}
+\mathcal{L} = \mathcal{L}_{SR} + \lambda \mathcal{L}_{MSCL}.\tag{9}
 
 $$
 
-![方法图 1](/images/edd743fa8273896cec76883ecd4b831c.png)
+![方法图 1](/images/524faa6a442cae7a8385a99eb7e56c15.png)
 
 该图展示了 CAMMSR 的整体框架。左侧概述处理流程，右侧展开各组件：物品表示初始化利用预训练提取器结合位置序列得到多模态物品表示；类别引导注意力专家混合借助额外的类别预测任务与注意力机制分配模态权重；模态交换对比学习通过模态交换构造增强视图以强化跨模态对齐；用户兴趣学习使用基于 Transformer 的编码器建模行为序列，并探索以 DyT 替代 LayerNorm。
 
@@ -122,11 +122,11 @@ $$
 
 效率研究（RQ5）显示 CAMMSR 在 Games 与 Beauty 上每轮训练时间具有竞争力，且收敛所需轮数最少（分别为 65 与 53 轮），总训练时间最短，推理时间仅次于 DIF-SR。案例研究（RQ6）以 Beauty 数据集的一条购买序列为例，CAMMSR 与 IISAN 均识别出宽泛品类，但 CAMMSR 唯一命中了与用户偏好模式一致的真实目标物品，体现出类别相关的自适应模态加权能力。超参数分析（RQ7）表明专家数 $K=4$ 时性能最佳，过多专家会因过度专门化与路由复杂度上升而退化；权重超参数 $\lambda$ 在多数数据集上取 0.25 为宜，而稀疏度更高的 Home 数据集取 0.5 更优。此外，类别分析在 Amazon Baby 与 Microlens 数据集上验证了类别引导融合在多标签类别、层级类别以及借助大模型生成虚拟类别的无类别场景下均能带来稳定提升。
 
-![实验图 1](/images/82f40ce8e3acce0ad61bc2ec0f2abb1a.png)
+![实验图 1](/images/e082e883de99ee28efe86270135692e1.png)
 
 该图给出 Toys 数据集上的消融结果，对比 CAMMSR 与 w/o Att.、w/o CG、w/o DyT、r CMoE、r MoE 等变体的性能，用于说明注意力门控、类别引导融合、DyT 层以及 CAMoE 设计各自的贡献。
 
-![实验图 2](/images/9711012775365d7115c975f553e10c6f.png)
+![实验图 2](/images/648ecbe4ae3ccfb36adaf1ab1933852c.png)
 
 该图展示 Beauty 数据集上的案例研究，对比一条购买序列下 CAMMSR 与 IISAN 的预测结果。两个模型都识别出宽泛品类，但 CAMMSR 命中了与用户偏好模式一致的真实目标物品，体现出类别引导的注意力机制能够按类别自适应地放大文本等更具判别力的模态信号。
 
@@ -138,126 +138,33 @@ $$
 
 ## References
 
-- J. Xu, Z. Chen, W. Wang, X. Hu, S.-W. Kim, and E. C. Ngai, “Cohesion: Composite graph convolutional network with dual-stage fusion for multimodal recommendation,” in Proceedings of the 48th International ACM SIGIR Conference on Research and Development in Information Retrieval, 2025, pp. 1830–1839.（未解析）
+- J. Xu, Z. Chen, W. Wang, X. Hu, S.-W. Kim, and E. C. Ngai, “[Cohesion: Composite graph convolutional network with dual-stage fusion for multimodal recommendation](https://doi.org/10.1145/3726302.3729927),” in Proceedings of the 48th International ACM SIGIR Conference on Research and Development in Information Retrieval, 2025, pp. 1830–1839.
 
-- X. He, K. Deng, X. Wang, Y. Li, Y. Zhang, and M. Wang, “Lightgcn: Simplifying and powering graph convolution network for recommendation,” in Proceedings of the 43rd International ACM SIGIR conference on research and development in Information Retrieval, 2020, pp. 639–648.（未解析）
+- X. He, K. Deng, X. Wang, Y. Li, Y. Zhang, and M. Wang, “[Lightgcn: Simplifying and powering graph convolution network for recommendation](https://arxiv.org/abs/2002.02126),” in Proceedings of the 43rd International ACM SIGIR conference on research and development in Information Retrieval, 2020, pp. 639–648.
 
-- J. Xu, Z. Chen, S. Yang, J. Li, and E. C. Ngai, “The best is yet to come: Graph convolution in the testing phase for multimodal recommendation,” in Proceedings of the 33rd ACM International Conference on Multimedia, 2025, pp. 6325–6334.（未解析）
+- J. Xu, Z. Chen, S. Yang, J. Li, and E. C. Ngai, “[The best is yet to come: Graph convolution in the testing phase for multimodal recommendation](https://doi.org/10.1145/3746027.3755781),” in Proceedings of the 33rd ACM International Conference on Multimedia, 2025, pp. 6325–6334.
 
-- Z. Guo, J. Li, G. Li, C. Wang, S. Shi, and B. Ruan, “Lgmrec: Local and global graph learning for multimodal recommendation,” in Proceedings of the AAAI Conference on Artificial Intelligence, vol. 38, no. 8, 2024, pp. 8454–8462.（未解析）
+- Z. Guo, J. Li, G. Li, C. Wang, S. Shi, and B. Ruan, “[Lgmrec: Local and global graph learning for multimodal recommendation](https://doi.org/10.1609/aaai.v38i8.28688),” in Proceedings of the AAAI Conference on Artificial Intelligence, vol. 38, no. 8, 2024, pp. 8454–8462.
 
-- J. Xu, Z. Chen, S. Yang, J. Li, Z. Wan, H. Wang, W. Liu, Y. Li, and E. C. Ngai, “Vi-mmrec: Similarity-aware training cost-free virtual user-item interactions for multimodal recommendation,” arXiv preprint arXiv:2512.08702, 2025.（未解析）
+- J. Xu, Z. Chen, S. Yang, J. Li, Z. Wan, H. Wang, W. Liu, Y. Li, and E. C. Ngai, “[Vi-mmrec: Similarity-aware training cost-free virtual user-item interactions for multimodal recommendation](https://arxiv.org/abs/2512.08702),” arXiv preprint arXiv:2512.08702, 2025.
 
-- Z. Chen, J. Xu, H. Wang, S. Yang, Z. Wan, and H. Hu, “Hypercomplex prompt-aware multimodal recommendation,” in Proceedings of the 34th ACM International Conference on Information and Knowledge Management, 2025, pp. 403–414.（未解析）
+- Z. Chen, J. Xu, H. Wang, S. Yang, Z. Wan, and H. Hu, “[Hypercomplex prompt-aware multimodal recommendation](https://doi.org/10.1145/3746252.3761174),” in Proceedings of the 34th ACM International Conference on Information and Knowledge Management, 2025, pp. 403–414.
 
-- Z. Chen, J. Xu, Y. Wei, and Z. Peng, “Squeeze and excitation: A weighted graph contrastive learning for collaborative filtering,” in Proceedings of the 48th International ACM SIGIR Conference on Research and Development in Information Retrieval, 2025, pp. 2769–2773.（未解析）
+- Z. Chen, J. Xu, Y. Wei, and Z. Peng, “[Squeeze and excitation: A weighted graph contrastive learning for collaborative filtering](https://doi.org/10.1145/3726302.3730251),” in Proceedings of the 48th International ACM SIGIR Conference on Research and Development in Information Retrieval, 2025, pp. 2769–2773.
 
-- J. Xu, Z. Chen, S. Yang, J. Li, H. Wang, W. Wang, X. Hu, and E. Ngai, “Nlgcl: Naturally existing neighbor layers graph contrastive learning for recommendation,” in Proceedings of the Nineteenth ACM Conference on Recommender Systems, 2025, pp. 319–329.（未解析）
+- J. Xu, Z. Chen, S. Yang, J. Li, H. Wang, W. Wang, X. Hu, and E. Ngai, “[Nlgcl: Naturally existing neighbor layers graph contrastive learning for recommendation](https://doi.org/10.1145/3705328.3748059),” in Proceedings of the Nineteenth ACM Conference on Recommender Systems, 2025, pp. 319–329.
 
-- J. Xu, Z. Chen, J. Li, S. Yang, W. Wang, H. Wang, Y. Li, X. Hu, and E. Ngai, “Dggvae: Dual-granularity graph variational auto-encoder for group recommendation,” ACM Transactions on Information Systems, vol. 44, no. 2, pp. 1–30, 2026.（未解析）
+- J. Xu, Z. Chen, J. Li, S. Yang, W. Wang, H. Wang, Y. Li, X. Hu, and E. Ngai, “[Dggvae: Dual-granularity graph variational auto-encoder for group recommendation](https://doi.org/10.1145/3785145),” ACM Transactions on Information Systems, vol. 44, no. 2, pp. 1–30, 2026.
 
-- F. Sun, J. Liu, J. Wu, C. Pei, X. Lin, W. Ou, and P. Jiang, “Bert4rec: Sequential recommendation with bidirectional encoder representations from transformer,” in Proceedings of the 28th ACM international conference on information and knowledge management, 2019, pp. 1441–1450.（未解析）
+- F. Sun, J. Liu, J. Wu, C. Pei, X. Lin, W. Ou, and P. Jiang, “[Bert4rec: Sequential recommendation with bidirectional encoder representations from transformer](https://arxiv.org/abs/1904.06690),” in Proceedings of the 28th ACM international conference on information and knowledge management, 2019, pp. 1441–1450.
 
-- W.-C. Kang and J. McAuley, “Self-attentive sequential recommendation,” in 2018 IEEE international conference on data mining (ICDM). IEEE, 2018, pp. 197–206.（未解析）
+- W.-C. Kang and J. McAuley, “[Self-attentive sequential recommendation](https://doi.org/10.1109/icdm.2018.00035),” in 2018 IEEE international conference on data mining (ICDM). IEEE, 2018, pp. 197–206.
 
-- Y. Dang, E. Yang, G. Guo, L. Jiang, X. Wang, X. Xu, Q. Sun, and H. Liu, “Ticoserec: Augmenting data to uniform sequences by time intervals for effective recommendation,” IEEE Transactions on Knowledge and Data Engineering, vol. 36, no. 6, pp. 2686–2700, 2023.（未解析）
+- Y. Dang, E. Yang, G. Guo, L. Jiang, X. Wang, X. Xu, Q. Sun, and H. Liu, “[Ticoserec: Augmenting data to uniform sequences by time intervals for effective recommendation](https://doi.org/10.1109/tkde.2023.3324312),” IEEE Transactions on Knowledge and Data Engineering, vol. 36, no. 6, pp. 2686–2700, 2023.
 
-- X. Du, H. Yuan, P. Zhao, J. Qu, F. Zhuang, G. Liu, Y. Liu, and V. S. Sheng, “Frequency enhanced hybrid attention network for sequential recommendation,” in Proceedings of the 46th International ACM SIGIR conference on research and development in information retrieval, 2023, pp. 78–88.（未解析）
+- X. Du, H. Yuan, P. Zhao, J. Qu, F. Zhuang, G. Liu, Y. Liu, and V. S. Sheng, “[Frequency enhanced hybrid attention network for sequential recommendation](https://doi.org/10.1145/3539618.3591689),” in Proceedings of the 46th International ACM SIGIR conference on research and development in information retrieval, 2023, pp. 78–88.
 
-- J. Xu, Z. Chen, S. Yang, J. Li, H. Wang, and E. C. Ngai, “Mentor: multi-level self-supervised learning for multimodal recommendation,” in Proceedings of the AAAI Conference on Artificial Intelligence, vol. 39, no. 12, 2025, pp. 12908–12917.（未解析）
+- J. Xu, Z. Chen, S. Yang, J. Li, H. Wang, and E. C. Ngai, “[Mentor: multi-level self-supervised learning for multimodal recommendation](https://doi.org/10.1609/aaai.v39i12.33408),” in Proceedings of the AAAI Conference on Artificial Intelligence, vol. 39, no. 12, 2025, pp. 12908–12917.
 
-- Z. Chen, J. Xu, and H. Hu, “Don’t lose yourself: Boosting multimodal recommendation via reducing node-neighbor discrepancy in graph convolutional network,” in ICASSP 2025-2025 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP). IEEE, 2025, pp. 1–5.（未解析）
+- Z. Chen, J. Xu, and H. Hu, “[Don’t lose yourself: Boosting multimodal recommendation via reducing node-neighbor discrepancy in graph convolutional network](https://doi.org/10.1109/icassp49660.2025.10887910),” in ICASSP 2025-2025 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP). IEEE, 2025, pp. 1–5.
 
-## 附录：博客解读版（原 cammsr 页面，已合并）
-
-> 论文：arXiv 2603.04320
-
-序列推荐里的多模态融合，主流做法是"每个模态各自编码 → 再按权重加权求和"。CAMMSR 指出这套流程漏掉了一件事：模态之间是有协同关系的——图和文放在一起才说明一个商品是什么，分开编码再相加就把这层关系丢掉了。而且用户对模态的关注是动态、且和品类相关的：买手机时看参数（文本），买衣服时看款式（图片）。
-
-## 整体设计
-
-CAMMSR 把"品类（category）"当作调制模态权重的上下文信号，用一套品类引导的注意力混合专家做融合。
-
-![CAMMSR 整体框架]()
-
-CAMMSR 整体框架
-
-框架左侧是流程说明、右侧逐组件展开，共四块：①物品表示初始化——ID、文本、图像三路分别编码；②品类引导的注意力混合专家（核心）：门控网络根据物品的品类决定各专家的权重，而每个专家不是作用在单个模态上，而是作用在多个模态拼接后的特征上——这是它和"先分开加权"最本质的区别；③用户兴趣学习——把各模态的行为序列各自送进 Transformer 编码器，建模兴趣演化；④模态交换对比学习——构造"交换了模态的序列"作为增强视图做对齐。
-
-## 机制一：为什么专家要作用在"拼接后"的特征上
-
-融合模块的形式是：
-
-```javascript
-ê_{i_m} = Σ_k  g_k^m · Expert_k( Con(e_{i_id}, e_{i_text}, e_{i_image}) )
-```
-
-两个细节值得注意：
-
-- 输入是拼接：专家的输入是多模态拼接而非单模态特征，所以专家学的是"模态组合在一起时的模式"，天然覆盖了协同效应；门控再按品类决定"现在该让哪些专家说话"。
-
-- 门控由品类引导：g_k^m 不是纯输入驱动的，而是带品类条件——同一个视觉相似的物品，在不同品类下会被路由到不同的专家组合。
-
-论文另外把归一化换成了 DyT（dynamic tanh） 替代 LayerNorm，用更便宜的方式做激活归一。
-
-## 机制二：模态交换对比学习
-
-序列模型容易"只信一个模态"（哪路特征好训就偏哪路）。论文的做法是构造增强视图——把序列里某个模态替换/交换掉，然后要求交换前后的表示保持一致：
-
-```javascript
-Z_aug = Transformer( Dropout( DyT( S̄_aug ) ) )
-```
-
-这等于在训练层面强制"模型对模态缺失/替换不敏感"，和主力损失一起联合优化（L = L_SR + L_contrastive）。
-
-## 实验
-
-四个数据集（图 + 文两模态）：
-
-基线覆盖两类：序列类（GRU4Rec、SASRec、LRURec、FEARec）与多模态序列类（NOVA、DIF-SR、UniSRec、MISSRec，另对比 IISAN、M3SRec）。
-
-主结果：CAMMSR 在所有数据集与指标上取得最好成绩，其中 NDCG@5 相对最强基线在 Games 上 +6.67%、Beauty 上 +15.32%。论文特别点出：IISAN、M3SRec 这些专门做多模态融合的方法已经很强，但它们的融合方式仍不足以为"模态间关系"建模——这正是 CAMMSR 的差异化位置。
-
-### 品类标签噪声：一篇很实用的鲁棒性研究
-
-因为门控依赖品类标签，一个自然的问题是"品类标错了会怎样"。论文做了两种破坏方式：Removal（把品类信息删掉）与 Misleading（把品类替换成错的），各按 10%/20%/30% 比例注入。Toys 数据集（NDCG@10 / MRR@10）：
-
-三条可读的结论：品类噪声是可承受的（30% 删除只掉约 5%）；"有噪声"比"有错味"更安全（Removal 全程好于同比例的 Misleading）；也就是说，模型拿到的品类信息错比缺更伤。
-
-### 模态贡献：文本比图片更关键
-
-去掉单模态的对照（Figure 4）显示，去掉视觉（w/o V）的结果优于去掉文本（w/o T）——在这四个数据集上，文本模态的贡献大于图像。这个结论和很多多模态推荐论文"图像更重要"的默认印象相反，值得注意（数据集差异：这里的序列建模更依赖语义描述）。
-
-![移除单个模态后的性能]()
-
-移除单个模态后的性能
-
-这张图按数据集分组，对比完整模型与两个消融变体（去视觉 / 去文本）。读法是横向比较两组柱子的高度差：去视觉之后掉得少、去文本之后掉得多，两条差距在所有数据集上方向一致。它给出的工程含义是：如果算力或数据只能保一路模态，保住文本的收益更大。
-
-### 效率
-
-论文把"每 epoch 训练时间"与"效果（NDCG@10）"画成散点（Games 与 Beauty），看谁在 Pareto 前沿；同时给了收敛轮数、总训练时间与推理时间：
-
-![效率与效果的权衡]()
-
-效率与效果的权衡
-
-散点图的横轴是每轮训练时间、纵轴是 NDCG@10，越靠左上越好。这张图的作用是把"涨点"和"变贵"分开看：CAMMSR 落在左上区域，也就是在精度更高的一侧，训练开销并没有按比例膨胀。对工业落地来说，这比单纯报一个绝对精度更有意义。
-
-### 案例
-
-论文在 Beauty 上给了一个案例：当目标序列的品类暗示"该看文本"时，网格门控会动态放大文本信号的权重，把视觉上相似但与语义无关的物品滤掉。这解释了"品类引导 + 注意力门控"在推理时的具体行为。
-
-超参：专家数量 K = 4 时在所有指标上最优（不是越多越好）。
-
-## 总结
-
-CAMMSR 的两个支点很清楚：把专家放在多模态拼接特征上（从而显式建模模态协同，而不是分开加权），以及用品类作为门控的条件信号（让模态权重随语境变化）。配套的品类噪声研究给了一个有实践价值的结论——品类信息"缺"比"错"安全；模态消融则提示在这个任务上文本比图像更关键。
-
-## References
-
-- 论文：CAMMSR: Category-Guided Attentive Mixture of Experts for Multimodal Sequential Recommendation（arXiv:2603.04320）
-
-- 相关基线：GRU4Rec、SASRec、LRURec、FEARec、NOVA、DIF-SR、UniSRec、MISSRec、IISAN、M3SRec
-
-- 关键组件：注意力混合专家（MoE）、DyT（Dynamic Tanh）、模态交换对比学习

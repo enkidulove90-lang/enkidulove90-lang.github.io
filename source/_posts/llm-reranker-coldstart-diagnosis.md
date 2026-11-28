@@ -2,19 +2,19 @@
 
 title: "流行度基线把 LLM 重排器打穿了：冷启动重排的失败诊断"
 
-date: "2026-02-09"
+date: 2026-02-09
 
-year: "2026"
+year: 2026
 
-venue_type: "arXiv预印本"
+venue_type: arXiv预印本
 
-venue_name: ""
+venue_name: arXiv
 
-categories: ["推荐系统", "冷启动"]
+categories: [推荐系统, 冷启动]
 
-tags: ["论文速读"]
+tags: [论文速读]
 
-slug: "llm-reranker-coldstart-diagnosis"
+slug: llm-reranker-coldstart-diagnosis
 
 ---
 
@@ -37,7 +37,7 @@ slug: "llm-reranker-coldstart-diagnosis"
 
 
 
-![主结果：流行度基线大幅超过 LLM 重排器（误差棒为 3 个随机种子的标准差）](/images/8c8fecca2c89171ee033dd5c0a20133a.png)
+![主结果：流行度基线大幅超过 LLM 重排器（误差棒为 3 个随机种子的标准差）](/images/c5af42b4b698797384c743b94b44db9d.png)
 
 三个数字足够说明问题：
 
@@ -63,7 +63,7 @@ slug: "llm-reranker-coldstart-diagnosis"
 
 
 
-![覆盖率分析：不同检索策略的 Recall@K 曲线出现明显分化](/images/e0209cf761aa9a231fcf7d7e32bab524.png)
+![覆盖率分析：不同检索策略的 Recall@K 曲线出现明显分化](/images/e44b2dda518b9681e894e541600fc5cc.png)
 
 - Recall@200：**0.109 vs 0.609（5.6 倍差距）**
 
@@ -75,7 +75,7 @@ slug: "llm-reranker-coldstart-diagnosis"
 
 论文还给了一个很直观的证据：把真值物品在 FAISS 候选池中的位置画出来，**中位数在第 6717 位**——远远超出任何常规的检索截断长度。
 
-![真值物品在 FAISS 候选池中的位置分布：中位数为 6717，远超常用截断长度](/images/57f505002781e1e2ddd154b974a81d5a.png)
+![真值物品在 FAISS 候选池中的位置分布：中位数为 6717，远超常用截断长度](/images/df811e142c7d6ed32523cb1227ba8ce1.png)
 
 ### 次因：打分区分能力失效
 
@@ -85,7 +85,7 @@ slug: "llm-reranker-coldstart-diagnosis"
 
 ### 一个必须警惕的副作用：曝光坍缩
 
-![曝光分布：左为曝光次数直方图，右为累积曝光曲线——80% 的推荐集中在少数物品上](/images/7b307a2b8045e4a202bbe5163db84a44.png)
+![曝光分布：左为曝光次数直方图，右为累积曝光曲线——80% 的推荐集中在少数物品上](/images/b10569448163e8adb4ca7694ccf1883f.png)
 
 诊断中还有一个数字值得单独拎出来：**500 个用户的 top-1 推荐里，跨编码器只集中到了 3 个物品上，其中一个物品（ID 175353）占据了 50% 用户的 top-1**。
 
