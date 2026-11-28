@@ -2,7 +2,7 @@
 
 title: "OpticalRec：面向多模态推荐的统一光学视觉-语言表示"
 
-date: 2026-10-04
+date: "2026-10-04"
 
 year: "2026"
 
@@ -17,6 +17,19 @@ tags: ["论文速读", "统一编码", "视觉空间渲染", "跨模态交互", 
 slug: "paper-2610.05432"
 
 mathjax: true
+
+description: "提出OpticalRec统一视觉空间编码框架用于多模态推荐"
+
+arxiv_id: "2610.05432"
+
+location_type: "Affiliation"
+
+affil_city: ["San Diego"]
+
+corresponding_city: "San Diego"
+
+affiliation_name: "University of California, San Diego"
+
 ---
 
 [论文链接](https://arxiv.org/abs/2610.05432)
