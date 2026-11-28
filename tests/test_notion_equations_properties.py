@@ -231,6 +231,19 @@ class MetadataPropertiesTest(unittest.TestCase):
         result = self.client._properties({"date": "2026-10-04"})
         self.assertNotIn("date", result)
 
+    def test_partial_update_never_blanks_title_status_or_slug(self):
+        # A field-fill update must not erase the title or unpublish the page.
+        encoded = self.client._properties({"affil_city": ["Wuhan"]}, for_update=True)
+        for key in ("title", "status", "type", "slug"):
+            self.assertNotIn(key, encoded, key)
+        self.assertEqual(encoded["affil_city"], {"multi_select": [{"name": "Wuhan"}]})
+
+    def test_creation_still_writes_the_full_property_set(self):
+        encoded = self.client._properties({"title": "T", "slug": "s", "status": "Published"})
+        self.assertEqual(encoded["type"], {"select": {"name": "Post"}})
+        self.assertEqual(encoded["status"], {"select": {"name": "Published"}})
+        self.assertEqual(encoded["title"]["title"][0]["text"]["content"], "T")
+
     def test_actual_schema_discovery_controls_property_types(self):
         class Transport:
             def request(self, method, path, **kwargs):

@@ -69,6 +69,27 @@ def _publication_metadata(raw: dict, metadata) -> dict:
     return values
 
 
+def _single_city_location(location: dict) -> tuple[dict, list]:
+    """Reduce a multi-city affiliation to the one city a Select column can hold.
+
+    The live database stores affil_city as a Select, so exactly one city is
+    writable. Keep the corresponding author's city when it is one of the
+    affiliation cities, and return the rest so the report can name them.
+    """
+    cities = location.get("affil_city")
+    if not isinstance(cities, list) or len(cities) <= 1:
+        return location, []
+    cities = [city for city in cities if isinstance(city, str) and city]
+    if not cities:
+        return {**location, "affil_city": []}, []
+    corresponding = str(location.get("corresponding_city") or "").strip()
+    keep = corresponding if corresponding in cities else cities[0]
+    reduced = {**location, "affil_city": [keep]}
+    if not corresponding:
+        reduced["corresponding_city"] = keep
+    return reduced, [city for city in cities if city != keep]
+
+
 def run_review_package(review_json: Path, *, write_notion: bool = False,
                        database_id: str = "", token: str = "", client=None,
                        allow_overwrite: bool = False, skip_if_exists: bool = True,
@@ -128,7 +149,12 @@ def run_review_package(review_json: Path, *, write_notion: bool = False,
                             "gate_stage": gate_stage,
                             "metadata": _publication_metadata(raw, metadata)}
         if metadata.location.status == "present" and isinstance(metadata.location.value, dict):
-            publisher_kwargs["location"] = metadata.location.value
+            location_value, dropped = _single_city_location(metadata.location.value)
+            publisher_kwargs["location"] = location_value
+            if dropped:
+                # The live column is a Select (one city). Say which affiliation
+                # cities were not written instead of collapsing them silently.
+                report["dropped_affil_cities"] = dropped
         result = publish_article(client, draft, database_id, **publisher_kwargs)
         report["delivery"] = {"action": result.action, "page_id": result.page_id,
                               "status": result.status, "identity_key": result.identity_key,

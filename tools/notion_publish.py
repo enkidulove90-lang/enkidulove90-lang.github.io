@@ -126,15 +126,19 @@ class NotionClient:
     def _rich_text(value: str) -> list[dict]:
         return [{"type": "text", "text": {"content": value[:2000]}}] if value else []
 
-    def _properties(self, values: dict) -> dict:
-        properties = {
-            "title": {"title": self._rich_text(values.get("title", ""))},
-            "status": {"select": {"name": values.get("status", "Invisible")}},
-            "type": {"select": {"name": "Post"}},
-            "slug": {"rich_text": self._rich_text(values.get("slug", ""))},
-            "summary": {"rich_text": self._rich_text(values.get("summary", ""))},
-            "arxiv_id": {"rich_text": self._rich_text(values.get("arxiv_id", ""))},
-        }
+    def _properties(self, values: dict, *, for_update: bool = False) -> dict:
+        # A partial update must never invent defaults: sending an empty title or
+        # slug erases them, and sending a default status unpublishes the page.
+        # Creation passes the full set; updates only touch the keys they carry.
+        properties: dict = {}
+        if not for_update:
+            properties["type"] = {"select": {"name": "Post"}}
+        if "title" in values:
+            properties["title"] = {"title": self._rich_text(values.get("title", ""))}
+        if "status" in values:
+            properties["status"] = {"select": {"name": values.get("status") or "Invisible"}}
+        if "slug" in values:
+            properties["slug"] = {"rich_text": self._rich_text(values.get("slug", ""))}
         # paper_key is the dedup identity: never silently drop it. If the
         # caller supplied one but the live schema lacks the column, fail loud.
         requested_key = values.get("paper_key", "")
@@ -282,7 +286,8 @@ class NotionClient:
         return result["id"]
 
     def update_page(self, page_id: str, properties: dict) -> None:
-        self._request("PATCH", f"/pages/{page_id}", json={"properties": self._properties(properties)})
+        self._request("PATCH", f"/pages/{page_id}",
+                      json={"properties": self._properties(properties, for_update=True)})
 
     def clear_children(self, page_id: str) -> None:
         cursor = None
