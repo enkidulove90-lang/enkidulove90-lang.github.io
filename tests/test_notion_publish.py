@@ -15,14 +15,24 @@ from paper_article import ArticleDraft  # noqa: E402
 
 
 class MemoryClient:
-    def __init__(self, existing=None):
+    def __init__(self, existing=None, existing_body=""):
         self.page = existing
+        self.existing_body = existing_body
         self.created = 0
         self.uploaded = []
         self.batches = []
         self.properties = None
+        self.dedup_lookup = None
+        self.cleared = []
+
+    def retrieve_markdown(self, page_id):
+        return {"markdown": self.existing_body}
 
     def find_page_by_arxiv(self, database_id, arxiv_id):
+        return self.page
+
+    def find_page_by_identity(self, database_id, identity_key, *, arxiv_id=""):
+        self.dedup_lookup = {"identity_key": identity_key, "arxiv_id": arxiv_id}
         return self.page
 
     def create_page(self, database_id, properties):
@@ -35,6 +45,7 @@ class MemoryClient:
         self.properties = properties
 
     def clear_children(self, page_id):
+        self.cleared.append(page_id)
         self.batches.clear()
 
     def append_children(self, page_id, blocks):
@@ -156,6 +167,21 @@ class NotionPublishTest(unittest.TestCase):
             ],
             source_pdf=self.pdf if source_pdf else None,
         )
+
+    def acl_draft(self):
+        """ACL paper: no arxiv_id, recognized acl_doi, valid body/figures."""
+        base = self.draft(source_pdf=False)
+        from dataclasses import replace
+        return replace(
+            base,
+            arxiv_id="",
+            doi="10.18653/v1/2026.findings-acl.1001",
+            slug="paper-2026.findings-acl.1001",
+        )
+
+    def identityless_draft(self):
+        from dataclasses import replace
+        return replace(self.draft(source_pdf=False), arxiv_id="", doi="", paper_url="")
 
     def test_no_token_dry_run_makes_no_external_request(self):
         result = publish_article(None, self.draft(), "database", write=False)
@@ -350,6 +376,75 @@ class NotionPublishTest(unittest.TestCase):
         self.assertEqual(pages, {"paper-one": {"id": "page-1"}})
         queries = [call for call in transport.calls if call[1].endswith("/query")]
         self.assertEqual(len(queries), 1)
+
+    def test_find_page_by_identity_queries_paper_key_property(self):
+        transport = RecordingTransport()
+        client = NotionClient("secret", transport=transport)
+
+        result = client.find_page_by_identity("database", "acl-2026-findings-acl-1001")
+
+        self.assertIsNone(result)
+        query = next(call for call in transport.calls if call[1].endswith("/query"))
+        self.assertEqual(
+            query[2]["json"]["filter"],
+            {"property": "paper_key", "rich_text": {"equals": "acl-2026-findings-acl-1001"}},
+        )
+
+    def test_acl_draft_publishes_without_arxiv_id(self):
+        client = MemoryClient()
+
+        result = publish_article(client, self.acl_draft(), "database", write=True)
+
+        self.assertEqual(result.action, "created")
+        self.assertEqual(client.created, 1)
+        self.assertEqual(client.dedup_lookup["identity_key"], "acl-2026-findings-acl-1001")
+        self.assertEqual(client.properties["paper_key"], "acl-2026-findings-acl-1001")
+
+    def test_publish_result_carries_identity_key(self):
+        result = publish_article(None, self.acl_draft(), "database", write=False)
+        self.assertEqual(result.identity_key, "acl-2026-findings-acl-1001")
+
+    def test_identityless_draft_is_blocked_before_write(self):
+        client = MemoryClient()
+        with self.assertRaisesRegex(ValueError, "identity"):
+            publish_article(client, self.identityless_draft(), "database", write=True)
+        self.assertEqual(client.created, 0)
+
+    def test_overwrite_existing_body_blocked_by_default(self):
+        client = MemoryClient(existing={"id": "page-existing", "has_source_pdf": False},
+                              existing_body="# 已发布正文\n重要内容")
+        with self.assertRaisesRegex(ValueError, "overwrite"):
+            publish_article(client, self.draft(), "database", write=True)
+        self.assertEqual(client.cleared, [], "must not clear children when blocked")
+        self.assertEqual(client.properties, None, "must not update properties when blocked")
+
+    def test_explicit_overwrite_allows_and_snapshots(self):
+        client = MemoryClient(existing={"id": "page-existing", "has_source_pdf": False},
+                              existing_body="# 已发布正文\n重要内容")
+        result = publish_article(client, self.draft(), "database", write=True,
+                                 allow_overwrite=True)
+        self.assertEqual(result.action, "updated")
+        self.assertEqual(client.cleared, ["page-existing"])
+        self.assertIn("已发布正文", result.overwrite_snapshot)
+
+    def test_empty_existing_body_does_not_block(self):
+        client = MemoryClient(existing={"id": "page-existing", "has_source_pdf": False},
+                              existing_body="")
+        result = publish_article(client, self.draft(), "database", write=True)
+        self.assertEqual(result.action, "updated")
+        self.assertEqual(client.cleared, ["page-existing"])
+
+    def test_skip_if_exists_returns_already_exists_without_touching_page(self):
+        """User rule: same paper (identity id) already uploaded → skip, do nothing."""
+        client = MemoryClient(existing={"id": "page-existing", "has_source_pdf": False},
+                              existing_body="# 已发布正文\n重要内容")
+        result = publish_article(client, self.draft(), "database", write=True,
+                                 skip_if_exists=True)
+        self.assertEqual(result.action, "already_exists")
+        self.assertEqual(result.page_id, "page-existing")
+        # Never update properties or clear children in idempotent skip mode.
+        self.assertIsNone(client.properties)
+        self.assertEqual(client.cleared, [])
 
 
 if __name__ == "__main__":

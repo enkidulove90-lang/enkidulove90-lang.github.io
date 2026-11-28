@@ -102,6 +102,32 @@ class PaperArticleTest(unittest.TestCase):
         self.assertIn("/papers/2401.00001.pdf", draft.markdown)
         self.assertEqual(validate_article(draft), [])
 
+    def test_core_fact_provenance_missing_blocks_publication(self):
+        base = build_article(self.record, self.parsed, self.summary)
+        draft = replace(base, fact_provenance={"fields": {
+            "paper_title": {"value": "T", "verification_status": "unverified"},
+            "authors": {"value": [], "verification_status": "verified"},
+            "venue_name": {"value": "ACL", "verification_status": "verified"},
+            "year": {"value": "2026", "verification_status": "verified"},
+            "identity": {"value": "2401.00001", "verification_status": "verified"},
+        }})
+        errors = validate_article(draft)
+        self.assertTrue(any("paper_title" in error for error in errors), errors)
+
+    def test_all_core_facts_verified_passes_gate(self):
+        base = build_article(self.record, self.parsed, self.summary)
+        fields = {name: {"value": "x", "verification_status": "verified"}
+                  for name in ("paper_title", "authors", "venue_name", "year", "identity")}
+        draft = replace(base, fact_provenance={"fields": fields})
+        self.assertEqual(validate_article(draft), [])
+
+    def test_references_with_links_flow_into_draft(self):
+        base = build_article(self.record, self.parsed, self.summary)
+        refs = [{"title": "Prior", "paper_url": "https://arxiv.org/abs/2401.00002",
+                 "code_url": "https://github.com/x/y", "verification_status": "verified"}]
+        draft = replace(base, references=refs)
+        self.assertEqual(draft.references[0]["code_url"], "https://github.com/x/y")
+
     def test_numeric_claim_not_present_in_sources_is_blocked(self):
         draft = build_article(self.record, self.parsed, self.summary)
         changed = replace(
@@ -191,6 +217,19 @@ class PaperArticleTest(unittest.TestCase):
             (site / "source" / "images" / "papers" / "2401.00001" / "figure1.png").exists()
         )
 
+    def test_materialize_acl_paper_uses_identity_key_path(self):
+        base = build_article(self.record, self.parsed, self.summary)
+        acl = replace(base, arxiv_id="", doi="10.18653/v1/2026.findings-acl.1001")
+        site = self.root / "site-acl"
+
+        post = materialize_article(acl, site)
+
+        self.assertEqual(post.name, "paper-acl-2026-findings-acl-1001.md")
+        self.assertTrue(post.exists())
+        self.assertTrue(
+            (site / "source" / "images" / "papers" / "acl-2026-findings-acl-1001" / "figure1.png").exists()
+        )
+
     def test_existing_article_can_omit_source_pdf(self):
         draft = build_article(
             self.record, self.parsed, self.summary, include_source_pdf=False
@@ -199,6 +238,56 @@ class PaperArticleTest(unittest.TestCase):
         self.assertIsNone(draft.source_pdf)
         self.assertNotIn("/papers/2401.00001.pdf", draft.markdown)
         self.assertEqual(validate_article(draft), [])
+
+    def test_presentation_issues_warn_in_draft_but_block_in_publish(self):
+        from paper_article import check_article
+        base = build_article(self.record, self.parsed, self.summary)
+        low_quality = replace(
+            base,
+            figures=[FigureAsset(path=self.image, caption="",
+                                 dimensions=(320, 180), is_hd=False,
+                                 provenance="mineru_image")],
+        )
+        draft_errors, draft_warnings = check_article(low_quality, stage="draft")
+        publish_errors, _ = check_article(low_quality, stage="publish")
+        # Presentation defects are warnings at draft stage, not blockers.
+        self.assertFalse(any("non-HD" in e or "caption" in e for e in draft_errors))
+        self.assertTrue(any("non-HD" in w for w in draft_warnings))
+        self.assertTrue(any("caption" in w for w in draft_warnings))
+        # At publish stage they become blockers.
+        self.assertTrue(any("non-HD" in e for e in publish_errors))
+        self.assertTrue(any("caption" in e for e in publish_errors))
+
+    def test_unreviewed_manifest_figure_blocks_publish_warns_draft(self):
+        from paper_article import check_article
+        base = build_article(self.record, self.parsed, self.summary)
+        unreviewed = replace(
+            base,
+            figures=[FigureAsset(path=self.image, caption="Figure 1",
+                                 dimensions=(1280, 720), is_hd=True,
+                                 provenance="mineru_image", manifest_sha256="abc123",
+                                 visual_review="")],
+        )
+        _, draft_warnings = check_article(unreviewed, stage="draft")
+        publish_errors, _ = check_article(unreviewed, stage="publish")
+        self.assertTrue(any("unreviewed figure" in w for w in draft_warnings))
+        self.assertTrue(any("unreviewed figure" in e for e in publish_errors))
+        # A reviewed figure passes.
+        reviewed = replace(unreviewed, figures=[
+            replace(unreviewed.figures[0], visual_review="reviewed: caption verified")])
+        self.assertFalse(any("unreviewed figure" in e
+                             for e in check_article(reviewed, stage="publish")[0]))
+
+    def test_truth_gap_blocks_even_at_draft_stage(self):
+        from paper_article import check_article, CORE_FACT_FIELDS
+        base = build_article(self.record, self.parsed, self.summary)
+        provenance = {"fields": {
+            name: {"verification_status": "verified"} for name in CORE_FACT_FIELDS
+        }}
+        provenance["fields"]["authors"]["verification_status"] = "unverified"
+        gapped = replace(base, fact_provenance=provenance)
+        draft_errors, _ = check_article(gapped, stage="draft")
+        self.assertTrue(any("core fact unverified: authors" in e for e in draft_errors))
 
 
 if __name__ == "__main__":
