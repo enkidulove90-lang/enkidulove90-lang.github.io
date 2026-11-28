@@ -242,6 +242,7 @@ def page_to_md(page, fallback_categories=None, fallback_date=""):
     venue_type = ((props.get("venue_type") or {}).get("select") or {}).get("name") or "arXiv预印本"
     venue_name = plain((props.get("venue_name") or {}).get("rich_text", []))
     arxiv_id = plain((props.get("arxiv_id") or {}).get("rich_text", []))
+    authors = plain((props.get("authors") or {}).get("rich_text", []))
     location = notion_location_fields(props)
 
     # 三维分类落地：Notion 的 category 写「领域大类 / 二级分类」（斜杠或逗号分隔），
@@ -263,6 +264,8 @@ def page_to_md(page, fallback_categories=None, fallback_date=""):
         md.append("description: " + json.dumps(summary, ensure_ascii=False))
     if arxiv_id:
         md.append("arxiv_id: " + json.dumps(arxiv_id, ensure_ascii=False))
+    if authors:
+        md.append("authors: " + json.dumps(authors, ensure_ascii=False))
     for field in ("location_type", "venue_city", "affil_city", "corresponding_city", "affiliation_name"):
         value = location[field]
         if value:
