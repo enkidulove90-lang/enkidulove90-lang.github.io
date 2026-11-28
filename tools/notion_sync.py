@@ -111,6 +111,11 @@ def download(url, name):
 def blocks_rich_to_md(rich):
     out = ""
     for seg in rich:
+        if seg.get("type") == "equation":
+            expression = (seg.get("equation") or {}).get("expression") or seg.get("plain_text", "")
+            if expression:
+                out += f"${expression}$"
+            continue
         t = seg.get("plain_text", "")
         ann = seg.get("annotations", {})
         if ann.get("code"):
@@ -147,6 +152,8 @@ def block_to_md(b):
         lines.append(f"```{v.get('language','')}\n{txt}\n```")
     elif t == "divider":
         lines.append("---")
+    elif t == "equation":
+        lines.append("$$\n" + v.get("expression", "") + "\n$$")
     elif t == "image":
         src = v.get("file", {}).get("url") or (v.get("external", {}).get("url") or "")
         alt = blocks_rich_to_md(v.get("caption", []))
@@ -281,6 +288,85 @@ def preserve_existing_post_when_remote_body_is_empty(generated_md, destination):
     return existing_md if existing_body else generated_md
 
 
+_FRONT_MATTER_KEY = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*):(.*)$")
+_EMPTY_VALUES = {"", '""', "''", "[]", "{}", "null", "~", ">-"}
+
+
+def split_post(md):
+    """Return (front matter text, body text) without the ``---`` fences."""
+    parts = (md or "").split("---", 2)
+    if len(parts) != 3:
+        return "", md or ""
+    return parts[1], parts[2]
+
+
+def _front_matter_blocks(front_matter):
+    """Split front matter into (key, raw block) pairs, preserving formatting."""
+    blocks, key, current = [], None, []
+    for line in front_matter.splitlines():
+        match = _FRONT_MATTER_KEY.match(line)
+        if match and not line.startswith(" "):
+            if key is not None:
+                blocks.append((key, "\n".join(current)))
+            key, current = match.group(1), [line]
+        elif key is not None:
+            current.append(line)
+    if key is not None:
+        blocks.append((key, "\n".join(current)))
+    return blocks
+
+
+def _block_is_empty(block):
+    _, _, value = block.partition(":")
+    return value.strip() in _EMPTY_VALUES
+
+
+def merge_front_matter(existing_fm, generated_fm):
+    """Keep local-only keys; let Notion win for every value it actually emits.
+
+    Netbook (Notion) can only express a subset of the blog's front matter, and
+    an empty Notion column means "not filled", never "erase the local value".
+    So a generated block replaces an existing block only when it carries a real
+    value, and keys that exist only locally (mathjax, cover, arxiv_id written by
+    hand) survive untouched.
+    """
+    existing_blocks = _front_matter_blocks(existing_fm)
+    generated = {key: block for key, block in _front_matter_blocks(generated_fm)}
+    if not existing_blocks:
+        return generated_fm
+    merged, used = [], set()
+    for key, block in existing_blocks:
+        candidate = generated.get(key)
+        if candidate is not None and not _block_is_empty(candidate):
+            merged.append((key, candidate))
+            used.add(key)
+        else:
+            merged.append((key, block))
+    for key, block in _front_matter_blocks(generated_fm):
+        if key not in used and not _block_is_empty(block):
+            merged.append((key, block))
+    return "\n\n" + "\n\n".join(block.rstrip() for _key, block in merged) + "\n\n"
+
+
+def compose_post(generated_md, destination, *, sync_body=False):
+    """Build the markdown to write for one Notion page.
+
+    Body policy (user decision 2026-11-28): a page that already has a local essay
+    only receives front-matter updates; its body is never rewritten from Notion.
+    New pages are materialised in full. ``sync_body=True`` restores the old
+    overwrite-everything behaviour for a deliberate one-off refresh.
+    """
+    if sync_body or not os.path.isfile(destination):
+        return generated_md
+    with open(destination, encoding="utf-8") as handle:
+        existing_md = handle.read()
+    existing_fm, existing_body = split_post(existing_md)
+    if not existing_fm.strip() or not existing_body.strip():
+        return generated_md
+    generated_fm, _generated_body = split_post(generated_md)
+    return "---" + merge_front_matter(existing_fm, generated_fm) + "---" + existing_body
+
+
 def published_posts_query():
     """Return a fresh query that makes Draft pages impossible to sync."""
     return {
@@ -322,6 +408,27 @@ def can_skip_unchanged_page(page, state, destination):
     )
 
 
+def retire_stale_post(state, pid, fn, posts_dir=POSTS):
+    """Remove the post file a page previously produced if its slug changed.
+
+    Overwrite-not-skip by paper id: page ``pid`` is tracked with the filename
+    it last wrote (``state[pid + "@file"]``). When a re-sync resolves to a new
+    filename (title/slug changed), the old file is deleted so the paper is not
+    duplicated. Returns the removed filename, or "" when nothing was removed.
+    """
+    prev = str(state.get(pid + "@file", "") or "")
+    if not prev or prev == fn:
+        return ""
+    stale = os.path.join(posts_dir, prev)
+    if not os.path.isfile(stale):
+        return ""
+    try:
+        os.remove(stale)
+        return prev
+    except OSError:
+        return ""
+
+
 def iter_published_pages(page_id=""):
     """Yield one intake page when provided, otherwise reconcile database metadata."""
     if page_id:
@@ -353,6 +460,9 @@ def main():
     os.makedirs(POSTS, exist_ok=True)
     state = json.load(open(STATE, encoding="utf-8")) if os.path.exists(STATE) else {}
     target_page_id = os.environ.get("NOTION_PAGE_ID", "").strip()
+    # Body policy: existing posts receive front-matter updates only. Set
+    # NOTION_SYNC_BODY=1 for a deliberate full refresh from Notion.
+    sync_body = os.environ.get("NOTION_SYNC_BODY", "").strip().lower() in {"1", "true", "yes"}
     n_new = n_skip = 0
     for page in iter_published_pages(target_page_id):
         pid = page["id"]
@@ -370,8 +480,17 @@ def main():
             )
             title = re.search(r"title: (.+)", md).group(1)
             md = preserve_existing_post_when_remote_body_is_empty(md, destination)
+            md = compose_post(md, destination, sync_body=sync_body)
             open(destination, "w", encoding="utf-8").write(md)
+            # Overwrite-not-skip by paper id: the same page (pid) may resolve to
+            # a NEW filename if its title/slug changed. Remove the stale file
+            # this pid previously produced so the paper is never duplicated on
+            # the homepage ("能改就改，改不了就新建+删旧").
+            removed = retire_stale_post(state, pid, fn, POSTS)
+            if removed:
+                print(f"  - removed stale duplicate: {removed}")
             state[pid] = edited
+            state[pid + "@file"] = fn
             n_new += 1
             print(f"  + {title}")
         except Exception as e:
